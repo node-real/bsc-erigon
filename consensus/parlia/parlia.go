@@ -62,6 +62,7 @@ const (
 	processBackOffTime   = uint64(1) // second
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
+	gasUsedRateDemarcation = 75 // Demarcation point of low and high gas used rate
 )
 
 var (
@@ -342,9 +343,26 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 	}
 	number := header.Number.Uint64()
 
-	// Don't waste time checking blocks from the future
+	// According to BEP188, after Bohr fork, an in-turn validator is allowed to broadcast
+	// a mined block earlier but not earlier than its parent's timestamp when the block is ready .
 	if header.Time > uint64(time.Now().Unix()) {
-		return fmt.Errorf("header %d, time %d, now %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), consensus.ErrFutureBlock)
+		if !chain.Config().IsBohr(header.Number.Uint64()) || header.Difficulty.Cmp(diffInTurn) != 0 {
+			return consensus.ErrFutureBlock
+		}
+		var parent *types.Header
+		if len(parents) > 0 {
+			parent = parents[len(parents)-1]
+		} else {
+			parent = chain.GetHeader(header.ParentHash, number-1)
+		}
+
+		if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+			return consensus.ErrUnknownAncestor
+		}
+
+		if parent.Time > uint64(time.Now().Unix()) {
+			return consensus.ErrFutureParentBlock
+		}
 	}
 	// Check that the extra-data contains the vanity, validators and signature.
 	if len(header.Extra) < extraVanity {
@@ -858,8 +876,26 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 		}
 	}
 
-	// Sweet, the protocol permits us to sign the block, wait for our time
-	delay := p.delayForRamanujanFork(snap, header)
+	// BEP-188 allows an in-turn validator to broadcast the mined block earlier
+	// but not earlier than its parent's timestamp after Bohr fork.
+	// At the same time, small block which means gas used rate is less than
+	// gasUsedRateDemarcation does not broadcast early to avoid an upcoming fat block.
+	delay := time.Duration(0)
+	gasUsedRate := uint64(0)
+	if header.GasLimit != 0 {
+		gasUsedRate = header.GasUsed * 100 / header.GasLimit
+	}
+	if p.chainConfig.IsBohr(header.Number.Uint64()) && header.Difficulty.Cmp(diffInTurn) == 0 && gasUsedRate >= gasUsedRateDemarcation {
+		parent := chain.GetHeader(header.ParentHash, number-1)
+		if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+			return consensus.ErrUnknownAncestor
+		}
+		if parent.Time > uint64(time.Now().Unix()) {
+			delay = time.Until(time.Unix(int64(parent.Time), 0))
+		}
+	} else {
+			delay = p.delayForRamanujanFork(snap, header)
+	}
 
 	log.Info("Sealing block with", "number", number, "delay", delay, "headerDifficulty", header.Difficulty, "val", val.Hex(), "headerHash", header.Hash().Hex(), "gasUsed", header.GasUsed, "block txn number", block.Transactions().Len(), "State Root", header.Root)
 
