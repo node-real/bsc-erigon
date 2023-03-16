@@ -16,7 +16,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 	} else {
 		delay := initialBackOffTime
 		validators := snap.validators()
-		if chainConfig.IsPlanck(header.Number) {
+		if chainConfig.IsPlanck(header.Number.Uint64()) {
 			// reverse the key/value of snap.Recents to get recentsMap
 			recentsMap := make(map[common.Address]uint64, len(snap.Recents))
 			bound := uint64(0)
