@@ -3,7 +3,6 @@ package parlia
 import (
 	"math/rand"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/core/types"
@@ -18,7 +17,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 		validators := snap.validators()
 		if chainConfig.IsPlanck(header.Number.Uint64()) {
 			// reverse the key/value of snap.Recents to get recentsMap
-			recentsMap := make(map[common.Address]uint64, len(snap.Recents))
+			recentsMap := make(map[libcommon.Address]uint64, len(snap.Recents))
 			bound := uint64(0)
 			if n, limit := header.Number.Uint64(), uint64(len(validators)/2+1); n > limit {
 				bound = n - limit
@@ -46,7 +45,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 			}
 
 			// Exclude the recently signed validators
-			temp := make([]common.Address, 0, len(validators))
+			temp := make([]libcommon.Address, 0, len(validators))
 			for _, addr := range validators {
 				if _, ok := recentsMap[addr]; ok {
 					continue
