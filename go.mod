@@ -3,8 +3,8 @@ module github.com/ledgerwatch/erigon
 go 1.19
 
 require (
-	github.com/ledgerwatch/erigon-lib v0.0.0-20230331084108-92996dab18da
 	github.com/ledgerwatch/erigon-snapshot v1.1.1-0.20230306083105-1391330d62a3
+	github.com/ledgerwatch/erigon-lib v0.0.0-20230405025700-b2bfe9a2ca46
 	github.com/ledgerwatch/log/v3 v3.7.0
 	github.com/ledgerwatch/secp256k1 v1.0.0
 	github.com/ledgerwatch/trackerslist v1.1.0 // indirect
@@ -29,9 +29,15 @@ require (
 	github.com/crate-crypto/go-ipa v0.0.0-20221111143132-9aa5d42120bc
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.8.0
+<<<<<<< HEAD
 	github.com/deckarep/golang-set/v2 v2.2.0
 	github.com/docker/docker v20.10.19+incompatible
 	github.com/dop251/goja v0.0.0-20230122112309-96b1610dd4f7
+=======
+	github.com/deckarep/golang-set/v2 v2.3.0
+	github.com/docker/docker v20.10.17+incompatible
+	github.com/dop251/goja v0.0.0-20220405120441-9037c2b61cbf
+>>>>>>> 64e7e788b (e3: print background indexing logs in e2 style (summary of all files progress in 1 line) (#7256))
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/emicklei/dot v1.0.0
 	github.com/emirpasic/gods v1.18.1
