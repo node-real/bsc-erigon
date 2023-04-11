@@ -14,7 +14,7 @@ on:
       - blxdyx-patch-1
 
 env:
-  IMAGE_NAME: bsc
+  IMAGE_NAME: bsc-erigon
   URL: https://github.com/node-real/bsc-erigon.git
 
 jobs:
