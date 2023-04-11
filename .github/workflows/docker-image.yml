@@ -15,7 +15,7 @@ on:
 
 env:
   IMAGE_NAME: bsc
-  URL: https://github.com/node-real/bsc-erigon
+  URL: https://github.com/node-real/bsc-erigon.git
 
 jobs:
   # Push image to GitHub Packages.
