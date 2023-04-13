@@ -230,7 +230,7 @@ type HeaderDownload struct {
 	badHeaders             map[common.Hash]struct{}
 	anchors                map[common.Hash]*Anchor // Mapping from parentHash to collection of anchors
 	links                  map[common.Hash]*Link   // Links by header hash
-	engine                 consensus.Engine
+	Engine                 consensus.Engine
 	insertQueue            InsertQueue            // Priority queue of non-persisted links that need to be verified and can be inserted
 	seenAnnounces          *SeenAnnounces         // External announcement hashes, after header verification if hash is in this set - will broadcast it further
 	persistedLinkQueue     LinkQueue              // Priority queue of persisted links used to limit their number
@@ -251,7 +251,7 @@ type HeaderDownload struct {
 	trace                  bool
 	stats                  Stats
 
-	consensusHeaderReader consensus.ChainHeaderReader
+	ConsensusHeaderReader consensus.ChainHeaderReader
 	headerReader          services.HeaderReader
 
 	// Proof of Stake (PoS)
