@@ -1235,7 +1235,7 @@ func (p *Parlia) Close() error {
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
 	if !p.chainConfig.IsBoneh(header.Number) {
-		validators, err := p.getCurrentValidatorsBeforeBoneh(header.Hash(), header.Number)
+		validators, err := p.getCurrentValidatorsBeforeBoneh(header, ibs)
 		return validators, nil, err
 	}
 
