@@ -43,12 +43,12 @@ type Snapshot struct {
 	config   *chain.ParliaConfig // Consensus engine parameters to fine tune behavior
 	sigCache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
-	Number           uint64                            `json:"number"`                // Block number where the snapshot was created
-	Hash             common.Hash                       `json:"hash"`                  // Block hash where the snapshot was created
-	Validators       map[common.Address]*ValidatorInfo `json:"validators"`            // Set of authorized validators at this moment
-	Recents          map[uint64]common.Address         `json:"recents"`               // Set of recent validators for spam protections
-	RecentForkHashes map[uint64]string                 `json:"recent_fork_hashes"`    // Set of recent forkHash
-	Attestation      *types.VoteData                   `json:"attestation:omitempty"` // Attestation for fast finality
+	Number           uint64                               `json:"number"`                // Block number where the snapshot was created
+	Hash             common.Hash                          `json:"hash"`                  // Block hash where the snapshot was created
+	Validators       map[libcommon.Address]*ValidatorInfo `json:"validators"`            // Set of authorized validators at this moment
+	Recents          map[uint64]common.Address            `json:"recents"`               // Set of recent validators for spam protections
+	RecentForkHashes map[uint64]string                    `json:"recent_fork_hashes"`    // Set of recent forkHash
+	Attestation      *types.VoteData                      `json:"attestation:omitempty"` // Attestation for fast finality
 }
 
 type ValidatorInfo struct {
@@ -377,7 +377,7 @@ func (s *Snapshot) supposeValidator() libcommon.Address {
 	return validators[index]
 }
 
-func parseValidators(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) ([]common.Address, []types.BLSPublicKey, error) {
+func parseValidators(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) ([]libcommon.Address, []types.BLSPublicKey, error) {
 	validatorsBytes := getValidatorBytesFromHeader(header, chainConfig, parliaConfig)
 	if len(validatorsBytes) == 0 {
 		return nil, nil, errors.New("invalid validators bytes")

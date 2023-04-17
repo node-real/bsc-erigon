@@ -23,7 +23,7 @@ import (
 
 	"github.com/ledgerwatch/log/v3"
 	"github.com/minio/sha256-simd"
-	"github.com/prysmaticlabs/prysm/crypto/bls"
+	"github.com/prysmaticlabs/prysm/v3/crypto/bls"
 
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon-lib/chain"

@@ -18,10 +18,11 @@ import (
 	"github.com/ledgerwatch/erigon-lib/common/length"
 	"github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/common/math"
-	"github.com/prysmaticlabs/prysm/crypto/bls"
+	"github.com/prysmaticlabs/prysm/v3/crypto/bls"
 	"github.com/willf/bitset"
 
 	"github.com/ledgerwatch/erigon/core/rawdb"
+	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto/cryptopool"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -32,7 +33,6 @@ import (
 
 	"github.com/ledgerwatch/erigon/accounts/abi"
 	"github.com/ledgerwatch/erigon/common/hexutil"
-	"github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/common/u256"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/consensus/misc"
@@ -40,7 +40,6 @@ import (
 	"github.com/ledgerwatch/erigon/core/forkid"
 	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
-	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/params"
@@ -70,7 +69,7 @@ const (
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
 
-	collectAdditionalVotesRewardRatio = float64(1) // ratio of a
+	collectAdditionalVotesRewardRatio = float64(1) // ratio of additional reward for collecting more votes than needed
 )
 
 var (
@@ -249,7 +248,6 @@ type Parlia struct {
 
 	snapLock sync.RWMutex // Protects snapshots creation
 
-	ethAPI                     interface{}
 	validatorSetABIBeforeBoneh abi.ABI
 	validatorSetABI            abi.ABI
 	slashABI                   abi.ABI
@@ -748,7 +746,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 					return nil, err
 				}
 				// new snapshot
-				snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs, p.ethAPI)
+				snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
 				if err := snap.store(p.db); err != nil {
 					return nil, err
 				}
@@ -856,16 +854,8 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	nextForkHash := forkid.NextForkHashFromForks(p.heightForks, p.timeForks, p.genesisHash, number, header.Time)
 	header.Extra = append(header.Extra, nextForkHash[:]...)
 
-	if number%p.config.Epoch == 0 {
-		newValidators, err := p.getCurrentValidators(parent, ibs)
-		if err != nil {
-			return err
-		}
-		// sort validator by address
-		sort.Sort(validatorsAscending(newValidators))
-		for _, validator := range newValidators {
-			header.Extra = append(header.Extra, validator.Bytes()...)
-		}
+	if err := p.prepareValidators(header); err != nil {
+		return err
 	}
 
 	// add extra seal space
@@ -874,6 +864,40 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	// Mix digest is reserved for now, set to empty
 	header.MixDigest = libcommon.Hash{}
 
+	return nil
+}
+
+func (p *Parlia) verifyValidators(header, parentHeader *types.Header) error {
+	if header.Number.Uint64()%p.config.Epoch != 0 {
+		return nil
+	}
+
+	newValidators, voteAddressMap, err := p.getCurrentValidators(header.ParentHash, new(big.Int).Sub(header.Number, big.NewInt(1)))
+	if err != nil {
+		return err
+	}
+	// sort validator by address
+	sort.Sort(validatorsAscending(newValidators))
+	var validatorsBytes []byte
+	validatorsNumber := len(newValidators)
+	if !p.chainConfig.IsBoneh(header.Number) {
+		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeBoneh)
+		for i, validator := range newValidators {
+			copy(validatorsBytes[i*validatorBytesLengthBeforeBoneh:], validator.Bytes())
+		}
+	} else {
+		if uint8(validatorsNumber) != header.Extra[extraVanity] {
+			return errMismatchingEpochValidators
+		}
+		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLength)
+		for i, validator := range newValidators {
+			copy(validatorsBytes[i*validatorBytesLength:], validator.Bytes())
+			copy(validatorsBytes[i*validatorBytesLength+common.AddressLength:], voteAddressMap[validator].Bytes())
+		}
+	}
+	if !bytes.Equal(getValidatorBytesFromHeader(header, p.chainConfig, p.config), validatorsBytes) {
+		return errMismatchingEpochValidators
+	}
 	return nil
 }
 
@@ -935,23 +959,9 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	*/
 	// If the block is an epoch end block, verify the validator list
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
-	if number%p.config.Epoch == 0 {
-		parentHeader := chain.GetHeader(header.ParentHash, number-1)
-		newValidators, err := p.getCurrentValidators(parentHeader, state)
-		if err != nil {
-			return nil, nil, err
-		}
-		// sort validator by address
-		sort.Sort(validatorsAscending(newValidators))
-		validatorsBytes := make([]byte, len(newValidators)*validatorBytesLength)
-		for i, validator := range newValidators {
-			copy(validatorsBytes[i*validatorBytesLength:], validator.Bytes())
-		}
-
-		extraSuffix := len(header.Extra) - extraSeal
-		if !bytes.Equal(header.Extra[extraVanity:extraSuffix], validatorsBytes) {
-			return nil, nil, errMismatchingEpochValidators
-		}
+	parentHeader := chain.GetHeader(header.ParentHash, number-1)
+	if err := p.verifyValidators(header, parentHeader); err != nil {
+		return nil, nil, err
 	}
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	if number == 1 {
@@ -988,6 +998,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
 		return nil, nil, err
 	}
+
 	//log.Debug("distribute successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
 	if len(systemTxs) > 0 {
 		return nil, nil, fmt.Errorf("the length of systemTxs is still %d", len(systemTxs))
