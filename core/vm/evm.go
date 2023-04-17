@@ -37,7 +37,7 @@ var emptyCodeHash = crypto.Keccak256Hash(nil)
 func (evm *EVM) precompile(addr libcommon.Address) (PrecompiledContract, bool) {
 	var precompiles map[libcommon.Address]PrecompiledContract
 	switch {
-	case evm.chainRules.isBoneh:
+	case evm.chainRules.IsBoneh:
 		precompiles = PrecompiledContractsBoneh
 	case evm.chainRules.IsPlanck:
 		precompiles = PrecompiledContractsPlanck

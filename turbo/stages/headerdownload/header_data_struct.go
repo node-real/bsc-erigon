@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/btree"
-	"github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/etl"
 
@@ -292,7 +292,7 @@ func NewHeaderDownload(
 		persistedLinkLimit: persistentLinkLimit,
 		linkLimit:          linkLimit - persistentLinkLimit,
 		anchorLimit:        anchorLimit,
-		engine:             engine,
+		Engine:             engine,
 		links:              make(map[common.Hash]*Link),
 		anchorTree:         btree.NewG[*Anchor](32, func(a, b *Anchor) bool { return a.blockHeight < b.blockHeight }),
 		seenAnnounces:      NewSeenAnnounces(),
