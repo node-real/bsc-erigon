@@ -356,7 +356,7 @@ func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config
 		return nil
 	}
 
-	if !chainConfig.IsBoneh(header.Number) {
+	if !chainConfig.IsBoneh(header.Number.Uint64()) {
 		if header.Number.Uint64()%parliaConfig.Epoch == 0 && (len(header.Extra)-extraSeal-extraVanity)%validatorBytesLengthBeforeBoneh != 0 {
 			return nil
 		}
@@ -381,7 +381,7 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 		return nil, nil
 	}
 
-	if !chainConfig.IsBoneh(header.Number) {
+	if !chainConfig.IsBoneh(header.Number.Uint64()) {
 		return nil, nil
 	}
 
@@ -613,7 +613,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 
 	// Verify vote attestation for fast finality.
 	if err := p.verifyVoteAttestation(chain, header, parents); err != nil {
-		if chain.Config().IsLynn(header.Number) {
+		if chain.Config().IsLynn(header.Number.Uint64()) {
 			return err
 		}
 		log.Warn("Verify vote attestation failed", "error", err, "hash", header.Hash(), "number", header.Number,
@@ -677,18 +677,19 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 	return nil
 }
 
-func (p *Parlia) prepareValidators(header *types.Header) error {
+func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHeaderReader, ibs *state.IntraBlockState) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 {
 		return nil
 	}
+	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64())
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(header.ParentHash, new(big.Int).Sub(header.Number, big.NewInt(1)))
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, ibs)
 	if err != nil {
 		return err
 	}
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
-	if !p.chainConfig.IsBoneh(header.Number) {
+	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
 		for _, validator := range newValidators {
 			header.Extra = append(header.Extra, validator.Bytes()...)
 		}
@@ -794,7 +795,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	for index, header := range headers {
 		// vote attestation should be checked here to decide whether to update attestation of snapshot between [Boneh,Lynn)
 		// because err of verifyVoteAttestation is ignored when importing blocks and headers before Lynn.
-		if p.chainConfig.IsBoneh(header.Number) && !p.chainConfig.IsLynn(header.Number) && p.verifyVoteAttestation(chain, header, headers[:index]) == nil {
+		if p.chainConfig.IsBoneh(header.Number.Uint64()) && !p.chainConfig.IsLynn(header.Number.Uint64()) && p.verifyVoteAttestation(chain, header, headers[:index]) == nil {
 			verifiedAttestations[header.Hash()] = struct{}{}
 		}
 	}
@@ -857,7 +858,7 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	nextForkHash := forkid.NextForkHashFromForks(p.heightForks, p.timeForks, p.genesisHash, number, header.Time)
 	header.Extra = append(header.Extra, nextForkHash[:]...)
 
-	if err := p.prepareValidators(header); err != nil {
+	if err := p.prepareValidators(header, chain, ibs); err != nil {
 		return err
 	}
 
@@ -883,7 +884,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
 	validatorsNumber := len(newValidators)
-	if !p.chainConfig.IsBoneh(header.Number) {
+	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeBoneh)
 		for i, validator := range newValidators {
 			copy(validatorsBytes[i*validatorBytesLengthBeforeBoneh:], validator.Bytes())
@@ -895,7 +896,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLength)
 		for i, validator := range newValidators {
 			copy(validatorsBytes[i*validatorBytesLength:], validator.Bytes())
-			copy(validatorsBytes[i*validatorBytesLength+common.AddressLength:], voteAddressMap[validator].Bytes())
+			copy(validatorsBytes[i*validatorBytesLength+length.Addr:], voteAddressMap[validator].Bytes())
 		}
 	}
 	if !bytes.Equal(getValidatorBytesFromHeader(header, p.chainConfig, p.config), validatorsBytes) {
@@ -1002,7 +1003,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		return nil, nil, err
 	}
 
-	if p.chainConfig.IsLynn(header.Number) {
+	if p.chainConfig.IsLynn(header.Number.Uint64()) {
 		if _, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
 			return nil, nil, err
 		}
@@ -1327,7 +1328,7 @@ func (p *Parlia) Close() error {
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
 	// This is actually the parentNumber
-	if !p.chainConfig.IsBoneh(header.Number) {
+	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeBoneh(header, ibs)
 		return validators, nil, err
 	}
@@ -1602,7 +1603,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	}
 
 	if snap.Attestation == nil {
-		if p.chainConfig.IsBoneh(header.Number) {
+		if p.chainConfig.IsBoneh(header.Number.Uint64()) {
 			log.Debug("once one attestation generated, attestation of snap would not be nil forever basically")
 		}
 		return 0, chain.GetHeaderByNumber(0).Hash(), nil
@@ -1618,7 +1619,7 @@ func (p *Parlia) GetFinalizedHeader(chain consensus.ChainHeaderReader, header *t
 	if chain == nil || header == nil {
 		return nil
 	}
-	if !chain.Config().IsLynn(header.Number) {
+	if !chain.Config().IsLynn(header.Number.Uint64()) {
 		return chain.GetHeaderByNumber(0)
 	}
 	if header.Number.Uint64() < backward {

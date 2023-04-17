@@ -863,7 +863,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 	reorgFunc := func() (bool, error) {
 		if p, ok := engine.(consensus.PoSA); ok {
 			justifiedNumber, curJustifiedNumber := uint64(0), uint64(0)
-			if config.IsLynn(header.Number) {
+			if config.IsLynn(header.Number.Uint64()) {
 				if justifiedNumberGot, _, err := p.GetJustifiedNumberAndHash(consensusHeaderReader, header); err == nil {
 					justifiedNumber = justifiedNumberGot
 				}
@@ -1090,7 +1090,7 @@ func (hd *HeaderDownload) SetFirstPoSHeight(blockHeight uint64) {
 func (hd *HeaderDownload) SetHeaderReader(headerReader consensus.ChainHeaderReader) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-	hd.consensusHeaderReader = headerReader
+	hd.ConsensusHeaderReader = headerReader
 }
 
 func (hd *HeaderDownload) AfterInitialCycle() {

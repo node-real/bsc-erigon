@@ -153,7 +153,7 @@ func (s *Snapshot) copy() *Snapshot {
 		sigCache:         s.sigCache,
 		Number:           s.Number,
 		Hash:             s.Hash,
-		Validators:       make(map[libcommon.Address]struct{}),
+		Validators:       make(map[libcommon.Address]*ValidatorInfo),
 		Recents:          make(map[uint64]libcommon.Address),
 		RecentForkHashes: make(map[uint64]string),
 	}
@@ -276,7 +276,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 
 			newVals := make(map[libcommon.Address]*ValidatorInfo, len(newValArr))
 			for idx, val := range newValArr {
-				if !chainConfig.IsBoneh(header.Number) {
+				if !chainConfig.IsBoneh(header.Number.Uint64()) {
 					newVals[val] = &ValidatorInfo{}
 				} else {
 					newVals[val] = &ValidatorInfo{
@@ -299,7 +299,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 				}
 			}
 			snap.Validators = newVals
-			if chainConfig.IsBoneh(header.Number) {
+			if chainConfig.IsBoneh(header.Number.Uint64()) {
 				validators := snap.validators()
 				for idx, val := range validators {
 					snap.Validators[val].Index = idx + 1 // offset by 1
@@ -308,7 +308,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		}
 
 		_, voteAssestationNoErr := verifiedAttestations[header.Hash()]
-		if chainConfig.IsLynn(header.Number) || (chainConfig.IsBoneh(header.Number) && voteAssestationNoErr) {
+		if chainConfig.IsLynn(header.Number.Uint64()) || (chainConfig.IsBoneh(header.Number.Uint64()) && voteAssestationNoErr) {
 			snap.updateAttestation(header, chainConfig, s.config)
 		}
 
@@ -382,7 +382,7 @@ func parseValidators(header *types.Header, chainConfig *chain.Config, parliaConf
 		return nil, nil, errors.New("invalid validators bytes")
 	}
 
-	if !chainConfig.IsBoneh(header.Number) {
+	if !chainConfig.IsBoneh(header.Number.Uint64()) {
 		n := len(validatorsBytes) / validatorBytesLengthBeforeBoneh
 		result := make([]libcommon.Address, n)
 		for i := 0; i < n; i++ {

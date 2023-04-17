@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
-	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/kv/order"
@@ -22,7 +21,6 @@ import (
 	"github.com/ledgerwatch/erigon/eth/tracers"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
-	"github.com/ledgerwatch/erigon/turbo/services"
 	"github.com/ledgerwatch/erigon/turbo/transactions"
 )
 
@@ -47,12 +45,6 @@ type PrivateDebugAPIImpl struct {
 	*BaseAPI
 	db     kv.RoDB
 	GasCap uint64
-}
-
-type ChainReaderImpl struct {
-	config      *chain.Config
-	tx          kv.Getter
-	blockReader services.FullBlockReader
 }
 
 // NewPrivateDebugAPI returns PrivateDebugAPIImpl instance
@@ -135,7 +127,7 @@ func (api *PrivateDebugAPIImpl) AccountRange(ctx context.Context, blockNrOrHash 
 				}
 				if headerHash != (common.Hash{}) {
 					if header := rawdb.ReadHeader(tx, headerHash, blockNumber); header != nil {
-					if chainConfig, err := api.chainConfig(tx); err == nil {
+						if chainConfig, err := api.chainConfig(tx); err == nil {
 							blockNumber = posa.GetFinalizedHeader(stagedsync.NewChainReaderImpl(chainConfig, tx, nil), header).Number.Uint64()
 						}
 					}
