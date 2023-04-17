@@ -459,7 +459,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	} else {
 		parents = nil
 	}
-	snap, err := p.snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents)
+	snap, err := p.snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
 	if err != nil {
 		return err
 	}
@@ -703,6 +703,9 @@ func (p *Parlia) prepareValidators(header *types.Header) error {
 }
 
 // snapshot retrieves the authorization snapshot at a given point in time.
+// !!! be careful
+// the block with `number` and `hash` is just the last element of `parents`,
+// unlike other interfaces such as verifyCascadingFields, `parents` are real parents
 func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
@@ -736,7 +739,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 				}
 			}
 		}
-		if number == 0 {
+		if number == 0 || (number%p.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold)) {
 			// Headers included into the snapshots have to be trusted as checkpoints
 			checkpoint := chain.GetHeader(hash, number)
 			if checkpoint != nil {
@@ -795,7 +798,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 			verifiedAttestations[header.Hash()] = struct{}{}
 		}
 	}
-	snap, err := snap.apply(headers, chain, parents, p.chainConfig, verifiedAttestations)
+	snap, err := snap.apply(headers, chain, parents, p.chainConfig, verifiedAttestations, doLog)
 	if err != nil {
 		return nil, err
 	}
@@ -867,12 +870,12 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	return nil
 }
 
-func (p *Parlia) verifyValidators(header, parentHeader *types.Header) error {
+func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 {
 		return nil
 	}
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(header.ParentHash, new(big.Int).Sub(header.Number, big.NewInt(1)))
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
 	if err != nil {
 		return err
 	}
@@ -960,7 +963,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	// If the block is an epoch end block, verify the validator list
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
-	if err := p.verifyValidators(header, parentHeader); err != nil {
+	if err := p.verifyValidators(header, parentHeader, state); err != nil {
 		return nil, nil, err
 	}
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
@@ -999,6 +1002,11 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		return nil, nil, err
 	}
 
+	if p.chainConfig.IsLynn(header.Number) {
+		if _, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
+			return nil, nil, err
+		}
+	}
 	//log.Debug("distribute successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
 	if len(systemTxs) > 0 {
 		return nil, nil, fmt.Errorf("the length of systemTxs is still %d", len(systemTxs))
@@ -1006,6 +1014,79 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	// Re-order receipts so that are in right order
 	slices.SortFunc(receipts, func(a, b *types.Receipt) bool { return a.TransactionIndex < b.TransactionIndex })
 	return txs, receipts, nil
+}
+
+func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header, txs types.Transactions, systemTxs types.Transactions,
+	usedGas *uint64, mining bool) (types.Transactions, types.Transaction, *types.Receipt, error) {
+	currentHeight := header.Number.Uint64()
+	epoch := p.config.Epoch
+	chainConfig := chain.Config()
+	if currentHeight%epoch != 0 {
+		return nil, nil, nil, nil
+	}
+
+	head := header
+	accumulatedWeights := make(map[libcommon.Address]uint64)
+	for height := currentHeight - 1; height+epoch >= currentHeight && height >= 1; height-- {
+		head = chain.GetHeaderByHash(head.ParentHash)
+		if head == nil {
+			return nil, nil, nil, fmt.Errorf("header is nil at height %d", height)
+		}
+		voteAttestation, err := getVoteAttestationFromHeader(head, chainConfig, p.config)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if voteAttestation == nil {
+			continue
+		}
+		justifiedBlock := chain.GetHeaderByHash(voteAttestation.Data.TargetHash)
+		if justifiedBlock == nil {
+			log.Warn("justifiedBlock is nil at height %d", voteAttestation.Data.TargetNumber)
+			continue
+		}
+
+		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		validators := snap.validators()
+		validatorsBitSet := bitset.From([]uint64{uint64(voteAttestation.VoteAddressSet)})
+		if validatorsBitSet.Count() > uint(len(validators)) {
+			log.Error("invalid attestation, vote number larger than validators number")
+			continue
+		}
+		validVoteCount := 0
+		for index, val := range validators {
+			if validatorsBitSet.Test(uint(index)) {
+				accumulatedWeights[val] += 1
+				validVoteCount += 1
+			}
+		}
+		quorum := math.CeilDiv(len(snap.Validators)*2, 3)
+		if validVoteCount > quorum {
+			accumulatedWeights[head.Coinbase] += uint64(float64(validVoteCount-quorum) * collectAdditionalVotesRewardRatio)
+		}
+	}
+
+	validators := make([]libcommon.Address, 0, len(accumulatedWeights))
+	weights := make([]*big.Int, 0, len(accumulatedWeights))
+	for val := range accumulatedWeights {
+		validators = append(validators, val)
+	}
+	sort.Sort(validatorsAscending(validators))
+	for _, val := range validators {
+		weights = append(weights, big.NewInt(int64(accumulatedWeights[val])))
+	}
+
+	// generate system transaction
+	method := "distributeFinalityReward"
+	data, err := p.validatorSetABI.Pack(method, validators, weights)
+	if err != nil {
+		log.Error("Unable to pack tx for distributeFinalityReward", "error", err)
+		return nil, nil, nil, err
+	}
+	return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header,
+		len(txs), systemTxs, usedGas, mining)
 }
 
 // FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -1245,6 +1326,7 @@ func (p *Parlia) Close() error {
 
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
+	// This is actually the parentNumber
 	if !p.chainConfig.IsBoneh(header.Number) {
 		validators, err := p.getCurrentValidatorsBeforeBoneh(header, ibs)
 		return validators, nil, err
@@ -1512,7 +1594,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	if chain == nil || header == nil {
 		return 0, libcommon.Hash{}, fmt.Errorf("illegal chain or header")
 	}
-	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil)
+	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
 		log.Error("Unexpected error when getting snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())

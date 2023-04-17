@@ -5,20 +5,24 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
+	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/kv/order"
 	"github.com/ledgerwatch/erigon-lib/kv/rawdbv3"
 	"github.com/ledgerwatch/erigon/common/changeset"
 	"github.com/ledgerwatch/erigon/common/hexutil"
+	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/state/temporal"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/eth/stagedsync/stages"
 	"github.com/ledgerwatch/erigon/eth/tracers"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
+	"github.com/ledgerwatch/erigon/turbo/services"
 	"github.com/ledgerwatch/erigon/turbo/transactions"
 )
 
@@ -43,6 +47,12 @@ type PrivateDebugAPIImpl struct {
 	*BaseAPI
 	db     kv.RoDB
 	GasCap uint64
+}
+
+type ChainReaderImpl struct {
+	config      *chain.Config
+	tx          kv.Getter
+	blockReader services.FullBlockReader
 }
 
 // NewPrivateDebugAPI returns PrivateDebugAPIImpl instance
@@ -112,6 +122,45 @@ func (api *PrivateDebugAPIImpl) AccountRange(ctx context.Context, blockNrOrHash 
 			blockNumber, err = stages.GetStageProgress(tx, stages.Execution)
 			if err != nil {
 				return state.IteratorDump{}, fmt.Errorf("last block has not found: %w", err)
+			}
+		} else if number == rpc.FinalizedBlockNumber {
+			if posa, isPoSA := api.engine().(consensus.PoSA); isPoSA {
+				headerNumber, err := stages.GetStageProgress(tx, stages.Execution)
+				if err != nil {
+					return state.IteratorDump{}, err
+				}
+				headerHash, err := rawdb.ReadCanonicalHash(tx, headerNumber)
+				if err != nil {
+					return state.IteratorDump{}, err
+				}
+				if headerHash != (common.Hash{}) {
+					if header := rawdb.ReadHeader(tx, headerHash, blockNumber); header != nil {
+					if chainConfig, err := api.chainConfig(tx); err == nil {
+							blockNumber = posa.GetFinalizedHeader(stagedsync.NewChainReaderImpl(chainConfig, tx, nil), header).Number.Uint64()
+						}
+					}
+				}
+			}
+		} else if number == rpc.SafeBlockNumber {
+			if posa, isPoSA := api.engine().(consensus.PoSA); isPoSA {
+				headerNumber, err := stages.GetStageProgress(tx, stages.Execution)
+				if err != nil {
+					return state.IteratorDump{}, err
+				}
+				headerHash, err := rawdb.ReadCanonicalHash(tx, headerNumber)
+				if err != nil {
+					return state.IteratorDump{}, err
+				}
+				if headerHash != (common.Hash{}) {
+					if header := rawdb.ReadHeader(tx, headerHash, blockNumber); header != nil {
+						if chainConfig, err := api.chainConfig(tx); err == nil {
+							blockNumber, _, err = posa.GetJustifiedNumberAndHash(stagedsync.NewChainReaderImpl(chainConfig, tx, nil), header)
+							if err != nil {
+								return state.IteratorDump{}, err
+							}
+						}
+					}
+				}
 			}
 		} else {
 			blockNumber = uint64(number)

@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
@@ -44,9 +43,9 @@ type Snapshot struct {
 	sigCache *lru.ARCCache       // Cache of recent block signatures to speed up ecrecover
 
 	Number           uint64                               `json:"number"`                // Block number where the snapshot was created
-	Hash             common.Hash                          `json:"hash"`                  // Block hash where the snapshot was created
+	Hash             libcommon.Hash                       `json:"hash"`                  // Block hash where the snapshot was created
 	Validators       map[libcommon.Address]*ValidatorInfo `json:"validators"`            // Set of authorized validators at this moment
-	Recents          map[uint64]common.Address            `json:"recents"`               // Set of recent validators for spam protections
+	Recents          map[uint64]libcommon.Address         `json:"recents"`               // Set of recent validators for spam protections
 	RecentForkHashes map[uint64]string                    `json:"recent_fork_hashes"`    // Set of recent forkHash
 	Attestation      *types.VoteData                      `json:"attestation:omitempty"` // Attestation for fast finality
 }
@@ -209,7 +208,7 @@ func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Co
 	}
 }
 
-func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, verifiedAttestations map[common.Hash]struct{}, doLog bool) (*Snapshot, error) {
+func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, verifiedAttestations map[libcommon.Hash]struct{}, doLog bool) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
