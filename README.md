@@ -503,7 +503,6 @@ Windows support for docker-compose is not ready yet. Please help us with .ps1 po
 `docker-compose up prometheus grafana`, [detailed docs](./cmd/prometheus/Readme.md).
 
 ###  
-
 old data
 
 Disabled by default. To enable see `./build/bin/erigon --help` for flags `--prune`
@@ -593,7 +592,7 @@ Hetzner may want strict firewall rules, like:
 0.0.0.0/8             "This" Network             RFC 1122, Section 3.2.1.3
 10.0.0.0/8            Private-Use Networks       RFC 1918
 100.64.0.0/10         Carrier-Grade NAT (CGN)    RFC 6598, Section 7
-127.0.0.0/8           Loopback                   RFC 1122, Section 3.2.1.3
+127.16.0.0/12         Private-Use Networks       RFC 1918 
 169.254.0.0/16        Link Local                 RFC 3927
 172.16.0.0/12         Private-Use Networks       RFC 1918
 192.0.0.0/24          IETF Protocol Assignments  RFC 5736
@@ -609,6 +608,8 @@ Hetzner may want strict firewall rules, like:
 255.255.255.255/32    Limited Broadcast          RFC 919, Section 7
                                                  RFC 922, Section 7
 ```
+
+Same in [IpTables syntax](https://ethereum.stackexchange.com/questions/6386/how-to-prevent-being-blacklisted-for-running-an-ethereum-client/13068#13068)
 
 ### How to get diagnostic for bug report?
 
