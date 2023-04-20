@@ -18,7 +18,7 @@ import (
 	"github.com/ledgerwatch/erigon-lib/common/length"
 	"github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/common/math"
-	"github.com/prysmaticlabs/prysm/v3/crypto/bls"
+	"github.com/prysmaticlabs/prysm/v4/crypto/bls"
 	"github.com/willf/bitset"
 
 	"github.com/ledgerwatch/erigon/core/rawdb"
