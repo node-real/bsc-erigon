@@ -47,7 +47,7 @@ func TestForkChoiceBasic(t *testing.T) {
 	// Initialize forkchoice store
 	anchorState := state.New(&clparams.MainnetBeaconConfig)
 	require.NoError(t, utils.DecodeSSZSnappyWithVersion(anchorState, anchorStateEncoded, int(clparams.AltairVersion)))
-	store, err := forkchoice.NewForkChoiceStore(anchorState)
+	store, err := forkchoice.NewForkChoiceStore(anchorState, nil, false)
 	require.NoError(t, err)
 	// first steps
 	store.OnTick(0)
@@ -60,8 +60,8 @@ func TestForkChoiceBasic(t *testing.T) {
 	require.Equal(t, store.FinalizedCheckpoint(), expectedCheckpoint)
 	headRoot, headSlot, err := store.GetHead()
 	require.NoError(t, err)
-	require.Equal(t, headSlot, uint64(1))
 	require.Equal(t, headRoot, libcommon.HexToHash("0xc9bd7bcb6dfa49dc4e5a67ca75e89062c36b5c300bc25a1b31db4e1a89306071"))
+	require.Equal(t, headSlot, uint64(1))
 	// process another tick and another block
 	store.OnTick(36)
 	require.NoError(t, store.OnBlock(block0xc2))

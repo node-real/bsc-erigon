@@ -75,7 +75,7 @@ func (f *ForkChoiceStore) getCheckpointState(checkpoint cltypes.Checkpoint) (*st
 		return state, nil
 	}
 	// If it is not in cache compute it and then put in cache.
-	baseState, err := f.forkGraph.GetState(checkpoint.Root)
+	baseState, err := f.forkGraph.GetState(checkpoint.Root, true)
 	if err != nil {
 		return nil, err
 	}

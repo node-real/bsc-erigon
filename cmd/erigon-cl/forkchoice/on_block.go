@@ -23,15 +23,19 @@ func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
 	}
 
 	config := f.forkGraph.Config()
-
-	status, err := f.forkGraph.AddChainSegment(block)
+	if fullValidation && f.engine != nil {
+		if err := f.engine.NewPayload(block.Block.Body.ExecutionPayload); err != nil {
+			log.Warn("newPayload failed", "err", err)
+			return err
+		}
+	}
+	lastProcessedState, status, err := f.forkGraph.AddChainSegment(block, fullValidation)
 	if status != fork_graph.Success {
 		if status != fork_graph.PreValidated {
 			log.Debug("Could not replay block", "slot", block.Block.Slot, "code", status, "reason", err)
 		}
 		return err
 	}
-	lastProcessedState := f.forkGraph.LastState()
 	// Add proposer score boost if the block is timely
 	timeIntoSlot := (f.time - f.forkGraph.GenesisTime()) % lastProcessedState.BeaconConfig().SecondsPerSlot
 	isBeforeAttestingInterval := timeIntoSlot < config.SecondsPerSlot/config.IntervalsPerSlot
@@ -40,10 +44,15 @@ func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
 	}
 	// Update checkpoints
 	f.updateCheckpoints(lastProcessedState.CurrentJustifiedCheckpoint().Copy(), lastProcessedState.FinalizedCheckpoint().Copy())
+	// First thing save previous values of the checkpoints (avoid memory copy of all states and ensure easy revert)
+	var (
+		previousJustifiedCheckpoint = lastProcessedState.PreviousJustifiedCheckpoint().Copy()
+		currentJustifiedCheckpoint  = lastProcessedState.CurrentJustifiedCheckpoint().Copy()
+		finalizedCheckpoint         = lastProcessedState.FinalizedCheckpoint().Copy()
+		justificationBits           = lastProcessedState.JustificationBits().Copy()
+	)
 	// Eagerly compute unrealized justification and finality
-	lastProcessedState.StartCollectingReverseChangeSet()
 	if err := transition.ProcessJustificationBitsAndFinality(lastProcessedState); err != nil {
-		lastProcessedState.RevertWithChangeset(lastProcessedState.StopCollectingReverseChangeSet())
 		return err
 	}
 	// Add justied checkpoint
@@ -51,13 +60,16 @@ func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
 	f.unrealizedJustifications.Add(blockRoot, &copiedCheckpoint)
 
 	f.updateUnrealizedCheckpoints(lastProcessedState.CurrentJustifiedCheckpoint().Copy(), lastProcessedState.FinalizedCheckpoint().Copy())
+	// Set the changed value pre-simulation
+	lastProcessedState.SetPreviousJustifiedCheckpoint(previousJustifiedCheckpoint)
+	lastProcessedState.SetCurrentJustifiedCheckpoint(currentJustifiedCheckpoint)
+	lastProcessedState.SetFinalizedCheckpoint(finalizedCheckpoint)
+	lastProcessedState.SetJustificationBits(justificationBits)
 	// If the block is from a prior epoch, apply the realized values
 	blockEpoch := f.computeEpochAtSlot(block.Block.Slot)
 	currentEpoch := f.computeEpochAtSlot(f.Slot())
 	if blockEpoch < currentEpoch {
 		f.updateCheckpoints(lastProcessedState.CurrentJustifiedCheckpoint().Copy(), lastProcessedState.FinalizedCheckpoint().Copy())
 	}
-	// Lastly revert the changes to the state.
-	lastProcessedState.RevertWithChangeset(lastProcessedState.StopCollectingReverseChangeSet())
 	return nil
 }
