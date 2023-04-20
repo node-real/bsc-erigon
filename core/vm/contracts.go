@@ -189,6 +189,7 @@ var PrecompiledContractsBoneh = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
 	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlanck{},
 	libcommon.BytesToAddress([]byte{102}): &blsSignatureVerify{},
+	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidate{},
 }
 
 var (

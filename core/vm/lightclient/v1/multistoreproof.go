@@ -1,9 +1,8 @@
-package lightclient
+package v1
 
 import (
 	"bytes"
 	"fmt"
-
 	"github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
 	iavl2 "github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
 	"github.com/tendermint/tendermint/crypto/merkle"

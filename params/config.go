@@ -97,6 +97,8 @@ var (
 
 	SokolChainConfig = readChainSpec("chainspecs/sokol.json")
 
+	RopstenChainConfig = readChainSpec("chainspecs/ropsten.json")
+
 	// AllProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the main net protocol.
 	AllProtocolChanges = &chain.Config{
