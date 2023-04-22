@@ -59,9 +59,9 @@ const (
 	extraSeal        = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 	nextForkHashSize = 4  // Fixed number of extra-data suffix bytes reserved for nextForkHash.
 
-	validatorBytesLengthBeforeBoneh = length.Addr
+	validatorBytesLengthBeforeLuban = length.Addr
 	validatorBytesLength            = length.Addr + types.BLSPublicKeyLength
-	validatorNumberSize             = 1 // Fixed number of extra prefix bytes reserved for validator number after Boneh
+	validatorNumberSize             = 1 // Fixed number of extra prefix bytes reserved for validator number after Luban
 
 	wiggleTime         = uint64(1) // second, Random delay (per signer) to allow concurrent signers
 	initialBackOffTime = uint64(1) // second
@@ -248,7 +248,7 @@ type Parlia struct {
 
 	snapLock sync.RWMutex // Protects snapshots creation
 
-	validatorSetABIBeforeBoneh abi.ABI
+	validatorSetABIBeforeLuban abi.ABI
 	validatorSetABI            abi.ABI
 	slashABI                   abi.ABI
 
@@ -282,7 +282,7 @@ func New(
 	if err != nil {
 		panic(err)
 	}
-	vABIBeforeBoneh, err := abi.JSON(strings.NewReader(validatorSetABIBeforeBoneh))
+	vABIBeforeLuban, err := abi.JSON(strings.NewReader(validatorSetABIBeforeLuban))
 	if err != nil {
 		panic(err)
 	}
@@ -301,7 +301,7 @@ func New(
 		chainDb:                    chainDb,
 		recentSnaps:                recentSnaps,
 		signatures:                 signatures,
-		validatorSetABIBeforeBoneh: vABIBeforeBoneh,
+		validatorSetABIBeforeLuban: vABIBeforeLuban,
 		validatorSetABI:            vABI,
 		slashABI:                   sABI,
 		signer:                     types.LatestSigner(chainConfig),
@@ -348,16 +348,16 @@ func (p *Parlia) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*typ
 
 // getValidatorBytesFromHeader returns the validators bytes extracted from the header's extra field if exists.
 // The validators bytes would be contained only in the epoch block's header, and its each validator bytes length is fixed.
-// On boneh fork, we introduce vote attestation into the header's extra field, so extra format is different from before.
-// Before boneh fork: |---Extra Vanity---|---Validators Bytes (or Empty)---|---Extra Seal---|
-// After boneh fork:  |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
+// On Luban fork, we introduce vote attestation into the header's extra field, so extra format is different from before.
+// Before Luban fork: |---Extra Vanity---|---Validators Bytes (or Empty)---|---Extra Seal---|
+// After Luban fork:  |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
 func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) []byte {
 	if len(header.Extra) <= extraVanity+extraSeal {
 		return nil
 	}
 
-	if !chainConfig.IsBoneh(header.Number.Uint64()) {
-		if header.Number.Uint64()%parliaConfig.Epoch == 0 && (len(header.Extra)-extraSeal-extraVanity)%validatorBytesLengthBeforeBoneh != 0 {
+	if !chainConfig.IsLuban(header.Number.Uint64()) {
+		if header.Number.Uint64()%parliaConfig.Epoch == 0 && (len(header.Extra)-extraSeal-extraVanity)%validatorBytesLengthBeforeLuban != 0 {
 			return nil
 		}
 		return header.Extra[extraVanity : len(header.Extra)-extraSeal]
@@ -381,7 +381,7 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 		return nil, nil
 	}
 
-	if !chainConfig.IsBoneh(header.Number.Uint64()) {
+	if !chainConfig.IsLuban(header.Number.Uint64()) {
 		return nil, nil
 	}
 
@@ -613,7 +613,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 
 	// Verify vote attestation for fast finality.
 	if err := p.verifyVoteAttestation(chain, header, parents); err != nil {
-		if chain.Config().IsLynn(header.Number.Uint64()) {
+		if chain.Config().IsPlato(header.Number.Uint64()) {
 			return err
 		}
 		log.Warn("Verify vote attestation failed", "error", err, "hash", header.Hash(), "number", header.Number,
@@ -689,7 +689,7 @@ func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHe
 	}
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
-	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
+	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		for _, validator := range newValidators {
 			header.Extra = append(header.Extra, validator.Bytes()...)
 		}
@@ -793,9 +793,9 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 
 	verifiedAttestations := make(map[libcommon.Hash]struct{}, len(headers))
 	for index, header := range headers {
-		// vote attestation should be checked here to decide whether to update attestation of snapshot between [Boneh,Lynn)
-		// because err of verifyVoteAttestation is ignored when importing blocks and headers before Lynn.
-		if p.chainConfig.IsBoneh(header.Number.Uint64()) && !p.chainConfig.IsLynn(header.Number.Uint64()) && p.verifyVoteAttestation(chain, header, headers[:index]) == nil {
+		// vote attestation should be checked here to decide whether to update attestation of snapshot between [Luban,Plato)
+		// because err of verifyVoteAttestation is ignored when importing blocks and headers before Plato.
+		if p.chainConfig.IsLuban(header.Number.Uint64()) && !p.chainConfig.IsPlato(header.Number.Uint64()) && p.verifyVoteAttestation(chain, header, headers[:index]) == nil {
 			verifiedAttestations[header.Hash()] = struct{}{}
 		}
 	}
@@ -884,10 +884,10 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
 	validatorsNumber := len(newValidators)
-	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
-		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeBoneh)
+	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
+		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeLuban)
 		for i, validator := range newValidators {
-			copy(validatorsBytes[i*validatorBytesLengthBeforeBoneh:], validator.Bytes())
+			copy(validatorsBytes[i*validatorBytesLengthBeforeLuban:], validator.Bytes())
 		}
 	} else {
 		if uint8(validatorsNumber) != header.Extra[extraVanity] {
@@ -1003,7 +1003,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		return nil, nil, err
 	}
 
-	if p.chainConfig.IsLynn(header.Number.Uint64()) {
+	if p.chainConfig.IsPlato(header.Number.Uint64()) {
 		if _, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
 			return nil, nil, err
 		}
@@ -1328,8 +1328,8 @@ func (p *Parlia) Close() error {
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
 	// This is actually the parentNumber
-	if !p.chainConfig.IsBoneh(header.Number.Uint64()) {
-		validators, err := p.getCurrentValidatorsBeforeBoneh(header, ibs)
+	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
+		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
 		return validators, nil, err
 	}
 
@@ -1603,7 +1603,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	}
 
 	if snap.Attestation == nil {
-		if p.chainConfig.IsBoneh(header.Number.Uint64()) {
+		if p.chainConfig.IsLuban(header.Number.Uint64()) {
 			log.Debug("once one attestation generated, attestation of snap would not be nil forever basically")
 		}
 		return 0, chain.GetHeaderByNumber(0).Hash(), nil
@@ -1619,7 +1619,7 @@ func (p *Parlia) GetFinalizedHeader(chain consensus.ChainHeaderReader, header *t
 	if chain == nil || header == nil {
 		return nil
 	}
-	if !chain.Config().IsLynn(header.Number.Uint64()) {
+	if !chain.Config().IsPlato(header.Number.Uint64()) {
 		return chain.GetHeaderByNumber(0)
 	}
 	if header.Number.Uint64() < backward {

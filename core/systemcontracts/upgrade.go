@@ -46,7 +46,7 @@ var (
 
 	PlanckUpgrade = make(map[string]*Upgrade)
 
-	BonehUpgrade = make(map[string]*Upgrade)
+	LubanUpgrade = make(map[string]*Upgrade)
 
 	CalcuttaUpgrade = make(map[string]*Upgrade)
 
@@ -580,8 +580,8 @@ func init() {
 		},
 	}
 
-	BonehUpgrade[networkname.BSCChainName] = &Upgrade{
-		UpgradeName: "boneh",
+	LubanUpgrade[networkname.BSCChainName] = &Upgrade{
+		UpgradeName: "luban",
 		Configs: []*UpgradeConfig{
 			{
 				ContractAddr: ValidatorContract,
@@ -611,8 +611,8 @@ func init() {
 		},
 	}
 
-	BonehUpgrade[networkname.ChapelChainName] = &Upgrade{
-		UpgradeName: "boneh",
+	LubanUpgrade[networkname.ChapelChainName] = &Upgrade{
+		UpgradeName: "luban",
 		Configs: []*UpgradeConfig{
 			{
 				ContractAddr: ValidatorContract,
@@ -642,8 +642,8 @@ func init() {
 		},
 	}
 
-	BonehUpgrade[networkname.RialtoChainName] = &Upgrade{
-		UpgradeName: "boneh",
+	LubanUpgrade[networkname.RialtoChainName] = &Upgrade{
+		UpgradeName: "luban",
 		Configs: []*UpgradeConfig{
 			{
 				ContractAddr: ValidatorContract,
@@ -673,7 +673,6 @@ func init() {
 		},
 	}
 }
-
 
 func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, statedb *state.IntraBlockState) {
 	if config == nil || blockNumber == nil || statedb == nil {
@@ -717,8 +716,8 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, st
 		applySystemContractUpgrade(CalcuttaUpgrade[config.ChainName], blockNumber, statedb, logger)
 	}
 
-	if config.IsOnBoneh(blockNumber) {
-		applySystemContractUpgrade(BonehUpgrade[config.ChainName], blockNumber, statedb, logger)
+	if config.IsOnLuban(blockNumber) {
+		applySystemContractUpgrade(LubanUpgrade[config.ChainName], blockNumber, statedb, logger)
 	}
 
 	/*

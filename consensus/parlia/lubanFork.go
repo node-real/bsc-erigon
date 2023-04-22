@@ -10,7 +10,7 @@ import (
 	"github.com/ledgerwatch/log/v3"
 )
 
-func (p *Parlia) getCurrentValidatorsBeforeBoneh(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, error) {
+func (p *Parlia) getCurrentValidatorsBeforeLuban(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, error) {
 
 	// prepare different method
 	method := "getValidators"
@@ -18,7 +18,7 @@ func (p *Parlia) getCurrentValidatorsBeforeBoneh(header *types.Header, ibs *stat
 		method = "getMiningValidators"
 	}
 
-	data, err := p.validatorSetABIBeforeBoneh.Pack(method)
+	data, err := p.validatorSetABIBeforeLuban.Pack(method)
 	if err != nil {
 		log.Error("Unable to pack tx for getValidators", "error", err)
 		return nil, err
@@ -31,6 +31,6 @@ func (p *Parlia) getCurrentValidatorsBeforeBoneh(header *types.Header, ibs *stat
 	}
 
 	var valSet []libcommon.Address
-	err = p.validatorSetABIBeforeBoneh.UnpackIntoInterface(&valSet, method, returnData)
+	err = p.validatorSetABIBeforeLuban.UnpackIntoInterface(&valSet, method, returnData)
 	return valSet, err
 }

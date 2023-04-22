@@ -863,12 +863,12 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 	reorgFunc := func() (bool, error) {
 		if p, ok := engine.(consensus.PoSA); ok {
 			justifiedNumber, curJustifiedNumber := uint64(0), uint64(0)
-			if config.IsLynn(header.Number.Uint64()) {
+			if config.IsPlato(header.Number.Uint64()) {
 				if justifiedNumberGot, _, err := p.GetJustifiedNumberAndHash(consensusHeaderReader, header); err == nil {
 					justifiedNumber = justifiedNumberGot
 				}
 			}
-			if config.IsLynn(hi.highest) {
+			if config.IsPlato(hi.highest) {
 				if justifiedNumberGot, _, err := p.GetJustifiedNumberAndHash(consensusHeaderReader, header); err == nil {
 					curJustifiedNumber = justifiedNumberGot
 				}
