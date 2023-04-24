@@ -1,7 +1,6 @@
 package fork_graph
 
 import (
-	lru "github.com/hashicorp/golang-lru/v2"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/cl/clparams"
 	"github.com/ledgerwatch/erigon/cl/cltypes"
@@ -49,7 +48,7 @@ type ForkGraph struct {
 	currentState          *state.BeaconState
 	currentStateBlockRoot libcommon.Hash
 	// childrens maps each block roots to its children block roots
-	childrens *lru.Cache[libcommon.Hash, []libcommon.Hash]
+	childrens map[libcommon.Hash][]libcommon.Hash
 	// for each block root we also keep track of te equivalent current justified and finalized checkpoints for faster head retrieval.
 	currentJustifiedCheckpoints map[libcommon.Hash]*cltypes.Checkpoint
 	finalizedCheckpoints        map[libcommon.Hash]*cltypes.Checkpoint
@@ -91,7 +90,7 @@ func New(anchorState *state.BeaconState, enabledPruning bool) *ForkGraph {
 		currentStateBlockRoot:     anchorRoot,
 		currentReferenceStateRoot: anchorRoot,
 		// childrens
-		childrens: childrens,
+		childrens: make(map[libcommon.Hash][]libcommon.Hash),
 		// checkpoints trackers
 		currentJustifiedCheckpoints: make(map[libcommon.Hash]*cltypes.Checkpoint),
 		finalizedCheckpoints:        make(map[libcommon.Hash]*cltypes.Checkpoint),
@@ -150,7 +149,7 @@ func (f *ForkGraph) AddChainSegment(signedBlock *cltypes.SignedBeaconBlock, full
 	if err != nil {
 		return nil, LogisticError, err
 	}
-	f.headers.Add(blockRoot, &cltypes.BeaconBlockHeader{
+	f.headers[blockRoot] = &cltypes.BeaconBlockHeader{
 		Slot:          block.Slot,
 		ProposerIndex: block.ProposerIndex,
 		ParentRoot:    block.ParentRoot,
@@ -183,7 +182,8 @@ func (f *ForkGraph) Config() *clparams.BeaconChainConfig {
 }
 
 func (f *ForkGraph) GetHeader(blockRoot libcommon.Hash) (*cltypes.BeaconBlockHeader, bool) {
-	return f.headers.Get(blockRoot)
+	obj, has := f.headers[blockRoot]
+	return obj, has
 }
 
 func (f *ForkGraph) getBlock(blockRoot libcommon.Hash) (*cltypes.SignedBeaconBlock, bool) {
@@ -233,22 +233,22 @@ func (f *ForkGraph) GetState(blockRoot libcommon.Hash, alwaysCopy bool) (*state.
 
 // updateChildren adds a new child to the parent node hash.
 func (f *ForkGraph) updateChildren(parent, child libcommon.Hash) {
-	childrens, _ := f.childrens.Get(parent)
+	childrens := f.childrens[parent]
 	if slices.Contains(childrens, child) {
 		return
 	}
 	childrens = append(childrens, child)
-	f.childrens.Add(parent, childrens)
+	f.childrens[parent] = childrens
 }
 
 // GetChildren retrieves the children block root of the given block root.
 func (f *ForkGraph) GetChildren(parent libcommon.Hash) []libcommon.Hash {
-	childrens, _ := f.childrens.Get(parent)
-	return childrens
+	return f.childrens[parent]
 }
 
 func (f *ForkGraph) GetCurrentJustifiedCheckpoint(blockRoot libcommon.Hash) (*cltypes.Checkpoint, bool) {
-	return f.currentJustifiedCheckpoints.Get(blockRoot)
+	obj, has := f.currentJustifiedCheckpoints[blockRoot]
+	return obj, has
 }
 
 func (f *ForkGraph) GetFinalizedCheckpoint(blockRoot libcommon.Hash) (*cltypes.Checkpoint, bool) {

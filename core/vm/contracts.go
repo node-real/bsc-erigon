@@ -23,7 +23,6 @@ import (
 	"math/big"
 
 	"github.com/ledgerwatch/log/v3"
-	"github.com/minio/sha256-simd"
 	"github.com/prysmaticlabs/prysm/v4/crypto/bls"
 
 	"github.com/holiman/uint256"

@@ -9,7 +9,7 @@ import (
 	"github.com/ledgerwatch/log/v3"
 )
 
-func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
+func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock, fullValidation bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	blockRoot, err := block.Block.HashSSZ()
@@ -33,8 +33,15 @@ func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
 	if status != fork_graph.Success {
 		if status != fork_graph.PreValidated {
 			log.Debug("Could not replay block", "slot", block.Block.Slot, "code", status, "reason", err)
+			return fmt.Errorf("could not replay block, err: %s, code: %d", err, status)
 		}
-		return err
+		return nil
+	}
+	if block.Block.Body.ExecutionPayload != nil {
+		f.eth2Roots.Add(blockRoot, block.Block.Body.ExecutionPayload.BlockHash)
+	}
+	if block.Block.Slot > f.highestSeen {
+		f.highestSeen = block.Block.Slot
 	}
 	// Add proposer score boost if the block is timely
 	timeIntoSlot := (f.time - f.forkGraph.GenesisTime()) % lastProcessedState.BeaconConfig().SecondsPerSlot
@@ -55,10 +62,6 @@ func (f *ForkChoiceStore) OnBlock(block *cltypes.SignedBeaconBlock) error {
 	if err := transition.ProcessJustificationBitsAndFinality(lastProcessedState); err != nil {
 		return err
 	}
-	// Add justied checkpoint
-	copiedCheckpoint := *lastProcessedState.CurrentJustifiedCheckpoint()
-	f.unrealizedJustifications.Add(blockRoot, &copiedCheckpoint)
-
 	f.updateUnrealizedCheckpoints(lastProcessedState.CurrentJustifiedCheckpoint().Copy(), lastProcessedState.FinalizedCheckpoint().Copy())
 	// Set the changed value pre-simulation
 	lastProcessedState.SetPreviousJustifiedCheckpoint(previousJustifiedCheckpoint)
