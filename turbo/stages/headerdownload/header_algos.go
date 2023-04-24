@@ -869,6 +869,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 		return nil, fmt.Errorf("could not find parent with hash %x and height %d for header %x %d", header.ParentHash, blockHeight-1, hash, blockHeight)
 	}
 
+	isWithFastFinality := true
 	reorgFunc := func() (bool, error) {
 		if p, ok := engine.(consensus.PoSA); ok {
 			justifiedNumber, curJustifiedNumber := uint64(0), uint64(0)
@@ -890,6 +891,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 				}
 				// Calculate total difficulty of this header using parent's total difficulty
 				td = new(big.Int).Add(parentTd, header.Difficulty)
+				isWithFastFinality = false
 				return td.Cmp(hi.localTd) > 0, nil
 			}
 			return justifiedNumber > curJustifiedNumber, nil
@@ -913,7 +915,9 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 			hi.unwind = true
 		}
 		// This makes sure we end up choosing the chain with the max total difficulty
-		hi.localTd.Set(td)
+		if !isWithFastFinality {
+			hi.localTd.Set(td)
+		}
 	}
 
 	if err = rawdb.WriteTd(db, hash, blockHeight, td); err != nil {
