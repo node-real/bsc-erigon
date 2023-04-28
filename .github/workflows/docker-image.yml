@@ -1,0 +1,37 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ dev, main, devel]
+  pull_request:
+    branches: [ dev, main, devel ]
+
+env:
+  REGION: us-east-1
+  ECR_REGISTRY_ID: 553885929720
+  AWS_ASSUMED_ROLE_ARN: arn:aws:iam::553885929720:role/tf_nodereal_prod_ecr_cicd_deployment_assume_role
+
+jobs:
+  build:
+    runs-on: [self-hosted,qa-infra-k8s]
+    steps:
+      - uses: actions/checkout@v2
+      - name: aws assume role
+        id: aws-assume-role
+        run: |
+          UUID=$(cat /proc/sys/kernel/random/uuid)
+          OUT=$(aws sts assume-role --role-arn $AWS_ASSUMED_ROLE_ARN --role-session-name $UUID)
+          echo ::set-output name=aws_access_key_id::"$(echo $OUT | jq -r '.Credentials''.AccessKeyId')"
+          echo ::set-output name=aws_secret_key::"$(echo $OUT | jq -r '.Credentials''.SecretAccessKey')"
+          echo ::set-output name=aws_sessions_token::"$(echo $OUT | jq -r '.Credentials''.SessionToken')"
+      - name: Build the Docker image to Amazon ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ steps.aws-assume-role.outputs.aws_access_key_id }}
+          AWS_SECRET_ACCESS_KEY: ${{ steps.aws-assume-role.outputs.aws_secret_key }}
+          AWS_SESSION_TOKEN: ${{ steps.aws-assume-role.outputs.aws_sessions_token }}
+        run: |
+          aws ecr get-login-password --region ${REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY_ID}.dkr.ecr.${REGION}.amazonaws.com
+          aws ecr --region $REGION describe-repositories --registry-id $ECR_REGISTRY_ID --repository-names ${GITHUB_REPOSITORY#*/} || aws ecr --region $REGION create-repository --registry-id $ECR_REGISTRY_ID --repository-name ${GITHUB_REPOSITORY#*/}
+          aws ecr --region $REGION set-repository-policy --registry-id $ECR_REGISTRY_ID --repository-name ${GITHUB_REPOSITORY#*/} --policy-text file:///home/runner/repo-access-permissions.json
+          docker build --build-arg profile=prod --build-arg GIT_TOKEN=${{ secrets.GO_MODULES_TOKEN }} -t ${ECR_REGISTRY_ID}.dkr.ecr.${REGION}.amazonaws.com/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA} .
+          docker push ${ECR_REGISTRY_ID}.dkr.ecr.${REGION}.amazonaws.com/${GITHUB_REPOSITORY#*/}:${GITHUB_SHA}
