@@ -166,12 +166,15 @@ func (s *SentinelServer) GetPeers(_ context.Context, _ *sentinelrpc.EmptyMessage
 }
 
 func (s *SentinelServer) ListenToGossip() {
+	refreshTicker := time.NewTicker(100 * time.Millisecond)
+	defer refreshTicker.Stop()
 	for {
 		select {
 		case pkt := <-s.sentinel.RecvGossip():
 			s.handleGossipPacket(pkt)
 		case <-s.ctx.Done():
 			return
+		case <-refreshTicker.C:
 		}
 	}
 }
