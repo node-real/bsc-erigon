@@ -9,16 +9,12 @@ import (
 	"strings"
 
 	"github.com/ledgerwatch/erigon-lib/common/dbg"
-	"github.com/ledgerwatch/log/v3"
-	"github.com/pelletier/go-toml"
-	"github.com/urfave/cli/v2"
-	"gopkg.in/yaml.v2"
-
 	"github.com/ledgerwatch/erigon/cmd/utils"
-	"github.com/ledgerwatch/erigon/params"
+	"github.com/ledgerwatch/erigon/params"g
 	erigonapp "github.com/ledgerwatch/erigon/turbo/app"
 	erigoncli "github.com/ledgerwatch/erigon/turbo/cli"
 	"github.com/ledgerwatch/erigon/turbo/node"
+	_ "go.uber.org/automaxprocs"
 )
 
 func main() {
