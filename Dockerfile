@@ -90,4 +90,5 @@ EXPOSE 8545 \
        9090 \
        6060
 
-ENTRYPOINT ["erigon", "--config", "/server/config/config.toml"]
+#ENTRYPOINT ["erigon", "--config", "/server/config/config.toml", "--txpool.disable", "--pprof"]
+ENTRYPOINT ["erigon", "--txpool.disable", "--pprof"]

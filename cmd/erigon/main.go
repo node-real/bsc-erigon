@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -18,11 +19,12 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/node"
 	"github.com/ledgerwatch/log/v3"
 	"github.com/pelletier/go-toml"
-	_ "go.uber.org/automaxprocs"
+	//_ "go.uber.org/automaxprocs"
 	"gopkg.in/yaml.v2"
 )
 
 func main() {
+	runtime.GOMAXPROCS(2)
 	defer func() {
 		panicResult := recover()
 		if panicResult == nil {
