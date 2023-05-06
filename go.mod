@@ -17,7 +17,7 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.12.1
 	github.com/VictoriaMetrics/metrics v1.23.1
 	github.com/anacrolix/sync v0.4.0
-	github.com/anacrolix/torrent v1.18.1
+	github.com/anacrolix/torrent v1.48.1-0.20230219022425-e8971ea0f1bf
 	github.com/benesch/cgosymbolizer v0.0.0-20190515212042-bec6fe6e597b
 	github.com/bnb-chain/ics23 v0.1.0
 	github.com/btcsuite/btcd v0.22.0-beta
@@ -107,9 +107,11 @@ require (
 )
 
 require (
+	github.com/ledgerwatch/erigon-lib v0.0.0-00010101000000-000000000000
 	github.com/minio/sha256-simd v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/willf/bitset v1.1.10
+	go.uber.org/automaxprocs v1.5.2
 )
 
 require (
@@ -118,7 +120,7 @@ require (
 	github.com/ajwerner/btree v0.0.0-20211221152037-f427b3e689c0 // indirect
 	github.com/alecthomas/atomic v0.1.0-alpha2 // indirect
 	github.com/anacrolix/chansync v0.3.0 // indirect
-	github.com/anacrolix/dht/v2 v2.8.0 // indirect
+	github.com/anacrolix/dht/v2 v2.19.2-0.20221121215055-066ad8494444 // indirect
 	github.com/anacrolix/envpprof v1.2.1 // indirect
 	github.com/anacrolix/generics v0.0.0-20220618083756-f99e35403a60 // indirect
 	github.com/anacrolix/go-libutp v1.2.0 // indirect
@@ -273,7 +275,6 @@ require (
 	go.opentelemetry.io/otel v1.11.0 // indirect
 	go.opentelemetry.io/otel/trace v1.11.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/automaxprocs v1.5.2 // indirect
 	go.uber.org/dig v1.16.1 // indirect
 	go.uber.org/fx v1.19.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
