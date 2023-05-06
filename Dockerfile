@@ -90,4 +90,4 @@ EXPOSE 8545 \
        9090 \
        6060
 
-ENTRYPOINT ["erigon"]
+ENTRYPOINT ["erigon", "--config", "/server/config/config.toml"]
