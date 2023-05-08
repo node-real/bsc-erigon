@@ -72,6 +72,9 @@ const (
 	NewPooledTransactionHashesMsg = 0x08
 	GetPooledTransactionsMsg      = 0x09
 	PooledTransactionsMsg         = 0x0a
+
+	//bsc eth67
+	UpgradeStatusMsg = 0x0b
 )
 
 var ToProto = map[uint]map[uint64]proto_sentry.MessageId{
@@ -188,6 +191,23 @@ type StatusPacket struct {
 type NewBlockHashesPacket []struct {
 	Hash   libcommon.Hash // Hash of one particular block being announced
 	Number uint64         // Number of one particular block being announced
+}
+
+// bsc eth67
+type UpgradeStatusPacket struct {
+	Extension *rlp.RawValue `rlp:"nil"`
+}
+type UpgradeStatusExtension struct {
+	DisablePeerTxBroadcast bool
+}
+
+func (e *UpgradeStatusExtension) Encode() (*rlp.RawValue, error) {
+	rawBytes, err := rlp.EncodeToBytes(e)
+	if err != nil {
+		return nil, err
+	}
+	raw := rlp.RawValue(rawBytes)
+	return &raw, nil
 }
 
 // TransactionsPacket is the network packet for broadcasting new transactions.

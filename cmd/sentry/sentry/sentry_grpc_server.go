@@ -322,6 +322,27 @@ func handShake(
 		}
 	}
 
+	if version >= eth.ETH67 {
+		extensionRaw, err := (&eth.UpgradeStatusExtension{}).Encode()
+		if err != nil {
+			return err
+		}
+		go func() {
+			errc <- p2p.Send(rw, eth.UpgradeStatusMsg, &eth.UpgradeStatusPacket{Extension: extensionRaw})
+		}()
+		//todo: receive UpgradeStatus from bsc and set txBroadcast
+		//		go func() {
+		//			errc <- p.readUpgradeStatus(&upgradeStatus)
+		//		}()
+		select {
+		case err := <-errc:
+			if err != nil {
+				return err
+			}
+		case <-timeout.C:
+			return p2p.DiscReadTimeout
+		}
+	}
 	return nil
 }
 
