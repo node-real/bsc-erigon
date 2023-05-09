@@ -656,13 +656,8 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 		return fmt.Errorf("parlia.verifySeal: headerNum=%d, validator=%x, %w", header.Number.Uint64(), signer.Bytes(), errUnauthorizedValidator)
 	}
 
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only fail if the current block doesn't shift it out
-			if limit := uint64(len(snap.Validators)/2 + 1); seen > number-limit {
-				return errRecentlySigned
-			}
-		}
+	if snap.signedRecently(signer) {
+		return errRecentlySigned
 	}
 
 	// Ensure that the difficulty corresponds to the turn-ness of the signer
@@ -988,10 +983,16 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
 		spoiledVal := snap.supposeValidator()
 		signedRecently := false
-		for _, recent := range snap.Recents {
-			if recent == spoiledVal {
+		if p.chainConfig.IsPlato(header.Number.Uint64()) {
+			if snap.signedRecently(spoiledVal) {
 				signedRecently = true
-				break
+			}
+		} else {
+			for _, recent := range snap.Recents {
+				if recent == spoiledVal {
+					signedRecently = true
+					break
+				}
 			}
 		}
 		if !signedRecently {
