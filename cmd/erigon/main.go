@@ -24,7 +24,7 @@ import (
 )
 
 func main() {
-	runtime.GOMAXPROCS(2)
+	runtime.GOMAXPROCS(4)
 	defer func() {
 		panicResult := recover()
 		if panicResult == nil {
