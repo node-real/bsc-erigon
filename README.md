@@ -79,7 +79,7 @@ Usage
 For building the latest stable release (this will be suitable for most users just wanting to run a node):
 
 ```sh
-git clone --branch stable --single-branch https://github.com/node-real/bsc-erigon.git
+git clone --branch devel --single-branch https://github.com/node-real/bsc-erigon.git
 cd erigon
 make erigon
 ./build/bin/erigon
