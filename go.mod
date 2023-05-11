@@ -111,7 +111,6 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/willf/bitset v1.1.10
-	go.uber.org/automaxprocs v1.5.2
 )
 
 require (
