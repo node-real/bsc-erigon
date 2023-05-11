@@ -192,7 +192,27 @@ var PrecompiledContractsLuban = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidate{},
 }
 
+// PrecompiledContractsPlato contains the default set of pre-compiled Ethereum
+// contracts used in the Plato release.
+var PrecompiledContractsPlato = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{1}): &ecrecover{},
+	libcommon.BytesToAddress([]byte{2}): &sha256hash{},
+	libcommon.BytesToAddress([]byte{3}): &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{4}): &dataCopy{},
+	libcommon.BytesToAddress([]byte{5}): &bigModExp{},
+	libcommon.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{9}): &blake2F{},
+
+	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
+	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlato{},
+	libcommon.BytesToAddress([]byte{102}): &blsSignatureVerify{},
+	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidate{},
+}
+
 var (
+	PrecompiledAddressesPlato          []libcommon.Address
 	PrecompiledAddressesLuban          []libcommon.Address
 	PrecompiledAddressesPlanck         []libcommon.Address
 	PrecompiledAddressesMoran          []libcommon.Address
@@ -233,11 +253,17 @@ func init() {
 	for k := range PrecompiledContractsLuban {
 		PrecompiledAddressesLuban = append(PrecompiledAddressesLuban, k)
 	}
+
+	for k := range PrecompiledContractsPlato {
+		PrecompiledAddressesPlato = append(PrecompiledAddressesPlato, k)
+	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules *chain.Rules) []libcommon.Address {
 	switch {
+	case rules.IsPlato:
+		return PrecompiledAddressesPlato
 	case rules.IsLuban:
 		return PrecompiledAddressesLuban
 	case rules.IsPlanck:

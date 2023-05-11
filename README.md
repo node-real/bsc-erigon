@@ -57,14 +57,14 @@ System Requirements
 
 * Gnosis Chain Archive: 370GB (January 2023).
 
-* BSC Archive: 7TB. BSC Full: 1TB. (April 2022).
+* BSC Archive: 8TB. BSC Full: 2TB. (May 2023).
 
 * Polygon Mainnet Archive: 5TB. Polygon Mumbai Archive: 1TB. (April 2022).
 
 SSD or NVMe. Do not recommend HDD - on HDD Erigon will always stay N blocks behind chain tip, but not fall behind.
 Bear in mind that SSD performance deteriorates when close to capacity.
 
-RAM: >=16GB, 64-bit architecture.
+RAM: >=32GB, 64-bit architecture.
 
 [Golang version >= 1.19](https://golang.org/doc/install); GCC 10+ or Clang; On Linux: kernel > v4
 
@@ -85,7 +85,7 @@ make erigon
 ./build/bin/erigon
 ```
 
-You can check [the list of releases](https://github.com/ledgerwatch/erigon/releases) for release notes.
+You can check [the list of releases](https://github.com/node-real/bsc-erigon/releases) for release notes.
 
 For building the bleeding edge development branch:
 
@@ -229,7 +229,7 @@ Windows users may run erigon in 3 possible ways:
   for `build\bin\mdbx\CMakeFiles` sub-folder of the cloned repo or you can run erigon using the following other two
   options
 
-* Use Docker :  see [docker-compose.yml](./docker-compose.yml)
+* Use Docker :  see [docker-compose.yml](./docker-compose.yml). Here can find the latest [docker image](https://github.com/node-real/bsc-erigon/pkgs/container/bsc-erigon).
 
 * Use WSL (Windows Subsystem for Linux) **strictly on version 2**. Under this option you can build Erigon just as you
   would on a regular Linux distribution. You can point your data also to any of the mounted Windows partitions (

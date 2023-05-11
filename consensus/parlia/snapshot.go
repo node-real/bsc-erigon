@@ -377,6 +377,17 @@ func (s *Snapshot) supposeValidator() common.Address {
 	return validators[index]
 }
 
+func (s *Snapshot) signedRecently(validator common.Address) bool {
+	for seen, recent := range s.Recents {
+		if recent == validator {
+			if limit := uint64(len(s.Validators)/2 + 1); s.Number+1 < limit || seen > s.Number+1-limit {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func parseValidators(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) ([]libcommon.Address, []types.BLSPublicKey, error) {
 	validatorsBytes := getValidatorBytesFromHeader(header, chainConfig, parliaConfig)
 	if len(validatorsBytes) == 0 {
