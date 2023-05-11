@@ -256,6 +256,8 @@ type Parlia struct {
 	fakeDiff               bool     // Skip difficulty verifications
 	heightForks, timeForks []uint64 // Forks extracted from the chainConfig
 	snapshots              *snapshotsync.RoSnapshots
+	newValidators          []libcommon.Address
+	voteAddressMapmap      map[libcommon.Address]*types.BLSPublicKey
 }
 
 // New creates a Parlia consensus engine.
@@ -654,13 +656,8 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 		return fmt.Errorf("parlia.verifySeal: headerNum=%d, validator=%x, %w", header.Number.Uint64(), signer.Bytes(), errUnauthorizedValidator)
 	}
 
-	for seen, recent := range snap.Recents {
-		if recent == signer {
-			// Signer is among recents, only fail if the current block doesn't shift it out
-			if limit := uint64(len(snap.Validators)/2 + 1); seen > number-limit {
-				return errRecentlySigned
-			}
-		}
+	if snap.signedRecently(signer) {
+		return errRecentlySigned
 	}
 
 	// Ensure that the difficulty corresponds to the turn-ness of the signer
@@ -872,18 +869,26 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 }
 
 func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
+	if (header.Number.Uint64()+1)%p.config.Epoch == 0 {
+		newValidators, voteAddressMap, err := p.getCurrentValidators(header, state)
+		if err != nil {
+			return err
+		}
+		p.newValidators = newValidators
+		p.voteAddressMapmap = voteAddressMap
+		return nil
+	}
+
 	if header.Number.Uint64()%p.config.Epoch != 0 {
 		return nil
 	}
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
-	if err != nil {
-		return err
-	}
+	newValidators, voteAddressMap := p.newValidators, p.voteAddressMapmap
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
 	validatorsNumber := len(newValidators)
+
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLengthBeforeLuban)
 		for i, validator := range newValidators {
@@ -978,10 +983,16 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
 		spoiledVal := snap.supposeValidator()
 		signedRecently := false
-		for _, recent := range snap.Recents {
-			if recent == spoiledVal {
+		if p.chainConfig.IsPlato(header.Number.Uint64()) {
+			if snap.signedRecently(spoiledVal) {
 				signedRecently = true
-				break
+			}
+		} else {
+			for _, recent := range snap.Recents {
+				if recent == spoiledVal {
+					signedRecently = true
+					break
+				}
 			}
 		}
 		if !signedRecently {
