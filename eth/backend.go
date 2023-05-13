@@ -362,6 +362,12 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 			var picked bool
 			for ; pi < len(refCfg.AllowedPorts) && !picked; pi++ {
 				pc := int(refCfg.AllowedPorts[pi])
+				if pc == 0 {
+					// For ephemeral ports probing to see if the port is taken does not
+					// make sense.
+					picked = true
+					break
+				}
 				if !checkPortIsFree(fmt.Sprintf("%s:%d", listenHost, pc)) {
 					log.Warn("bind protocol to port has failed: port is busy", "protocols", fmt.Sprintf("eth/%d", refCfg.ProtocolVersion), "port", pc)
 					continue
