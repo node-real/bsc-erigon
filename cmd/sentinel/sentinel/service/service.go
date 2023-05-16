@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -107,7 +106,7 @@ func (s *SentinelServer) SendRequest(_ context.Context, req *sentinelrpc.Request
 	for {
 		select {
 		case <-s.ctx.Done():
-			return nil, fmt.Errorf("interrupted")
+			return nil, context.Canceled
 		case <-retryReqInterval.C:
 			// Spawn new thread for request
 			pid, err := s.sentinel.RandomPeer(req.Topic)
