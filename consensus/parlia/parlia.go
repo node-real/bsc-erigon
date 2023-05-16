@@ -246,8 +246,6 @@ type Parlia struct {
 
 	signerLock sync.RWMutex // Protects the signer fields
 
-	snapLock sync.RWMutex // Protects snapshots creation
-
 	validatorSetABIBeforeLuban abi.ABI
 	validatorSetABI            abi.ABI
 	slashABI                   abi.ABI
@@ -715,8 +713,6 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	if s, ok := p.recentSnaps.Get(hash); ok {
 		snap = s
 	} else {
-		p.snapLock.Lock()
-		defer p.snapLock.Unlock()
 		doLog = true
 	}
 
