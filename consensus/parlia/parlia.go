@@ -1011,7 +1011,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
-		if _, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
+		if systemTxs, _, _, err := p.distributeFinalityReward(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
 			return nil, nil, err
 		}
 	}
