@@ -404,9 +404,9 @@ func (hd *HeaderDownload) RequestMoreHeaders(currentTime time.Time) (*HeaderRequ
 			Anchor:  anchor,
 			Hash:    anchor.parentHash,
 			Number:  anchor.blockHeight - 1,
-			Length:  192,
+			Length:  50,
 			Skip:    0,
-			Reverse: true,
+			Reverse: false,
 		}
 		return false
 	})
@@ -484,9 +484,9 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	log.Debug("[downloader] Request skeleton", "anchors", len(hd.anchors), "highestInDb", hd.highestInDb)
 	var stride uint64
 	if hd.initialCycle {
-		stride = 1
+		stride = 0
 	}
-	var length uint64 = 192
+	var length uint64 = 50
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain
 	from := hd.highestInDb
 	if from <= 1 {
