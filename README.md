@@ -513,7 +513,7 @@ FAQ
 
 ### How much RAM do I need
 
-- Baseline (ext4 SSD): 32Gb RAM sync takes 6 days, 32Gb - 5 days, 64Gb - 4 days
+- Baseline (ext4 SSD): 32Gb - 5 days, 64Gb - 4 days
 - +1 day on "zfs compression=off". +2 days on "zfs compression=on" (2x compression ratio). +3 days on btrfs.
 - -1 day on NVMe
 
