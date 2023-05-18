@@ -49,17 +49,7 @@ in `erigon --help`). We don't allow change this flag after first start.
 System Requirements
 ===================
 
-* For an Archive node of Ethereum Mainnet we recommend >=3TB storage space: 1.8TB state (as of March 2022),
-  200GB temp files (can symlink or mount folder `<datadir>/temp` to another disk). Ethereum Mainnet Full node (
-  see `--prune*` flags): 400Gb (April 2022).
-
-* Goerli Full node (see `--prune*` flags): 189GB on Beta, 114GB on Alpha (April 2022).
-
-* Gnosis Chain Archive: 370GB (January 2023).
-
 * BSC Archive: 8TB. BSC Full: 2TB. (May 2023).
-
-* Polygon Mainnet Archive: 5TB. Polygon Mumbai Archive: 1TB. (April 2022).
 
 SSD or NVMe. Do not recommend HDD - on HDD Erigon will always stay N blocks behind chain tip, but not fall behind.
 Bear in mind that SSD performance deteriorates when close to capacity.
@@ -73,6 +63,9 @@ and [here](https://ledgerwatch.github.io/turbo_geth_release.html#Disk-space).</c
 
 Usage
 =====
+
+### Snaoshots
+You can find [bsc-erigon snapshots](https://github.com/bnb-chain/bsc-snapshots) for archive Node.
 
 ### Getting Started
 
@@ -97,16 +90,11 @@ make erigon
 ./build/bin/erigon
 ```
 
-Default `--snapshots` for `mainnet`, `goerli`, `gnosis`, `bsc`. Other networks now have default `--snapshots=false`.
+Default `--snapshots` for  `bsc`.
 Increase
 download speed by flag `--torrent.download.rate=20mb`. <code>🔬 See [Downloader docs](./cmd/downloader/readme.md)</code>
 
 Use `--datadir` to choose where to store data.
-
-Use `--chain=gnosis` for [Gnosis Chain](https://www.gnosis.io/), `--chain=bor-mainnet` for Polygon Mainnet,
-and `--chain=mumbai` for Polygon Mumbai.
-For Gnosis Chain you need a [Consensus Layer](#beacon-chain-consensus-layer) client alongside
-Erigon (https://docs.gnosischain.com/node/guide/beacon).
 
 Running `make help` will list and describe the convenience commands available in the [Makefile](./Makefile).
 
@@ -157,32 +145,21 @@ Don't start services as separated processes unless you have clear reason for it:
 your own implementation, security.
 How to start Erigon's services as separated processes, see in [docker-compose.yml](./docker-compose.yml).
 
-### Embedded Consensus Layer
-
-On Ethereum Mainnet, Görli, and Sepolia, the Engine API can be disabled in favour of the Erigon native Embedded
-Consensus Layer.
-If you want to use the internal Consensus Layer, run Erigon with flag `--internalcl`.
-_Warning:_ Staking (block production) is not possible with the embedded CL.
-
 ### Testnets
 
 If you would like to give Erigon a try, but do not have spare 2TB on your drive, a good option is to start syncing one
-of the public testnets, Görli. It syncs much quicker, and does not take so much disk space:
+of the public testnets, Chapel. It syncs much quicker, and does not take so much disk space:
 
 ```sh
 git clone --recurse-submodules -j8 https://github.com/node-real/bsc-erigon.git
 cd erigon
 make erigon
-./build/bin/erigon --datadir=<your_datadir> --chain=goerli
+./build/bin/erigon --datadir=<your_datadir> --chain=chapel
 ```
-
-Please note the `--datadir` option that allows you to store Erigon files in a non-default location, in this example,
-in `goerli` subdirectory of the current directory. Name of the directory `--datadir` does not have to match the name of
-the chain in `--chain`.
 
 ### Block Production (PoW Miner or PoS Validator)
 
-**Disclaimer: Not supported/tested for Gnosis Chain and Polygon Network (In Progress)**
+**Disclaimer: Not supported for BSC Network (In Progress)**
 
 Support only remote-miners.
 
@@ -286,6 +263,8 @@ http.api : ["eth","debug","net"]
 
 ### Beacon Chain (Consensus Layer)
 
+**Disclaimer: Not supported for BSC Network**
+
 Erigon can be used as an Execution Layer (EL) for Consensus Layer clients (CL). Default configuration is OK.
 
 If your CL client is on a different device, add `--authrpc.addr 0.0.0.0` ([Engine API] listens on localhost by default)
@@ -323,6 +302,8 @@ Example of multiple chains on the same machine:
 Quote your path if it has spaces.
 
 ### Dev Chain
+
+**Disclaimer: Not supported for BSC**
 
 <code> 🔬 Detailed explanation is [DEV_CHAIN](/DEV_CHAIN.md).</code>
 
@@ -520,10 +501,22 @@ A more recent collation of developments and happenings in Erigon can be found in
 
 FAQ
 ================
+### How to start a bsc archive node
+
+```sh
+# mainnet
+./build/bin/erigon --datadir="<your_mainnet_data_path>" --chain=bsc  --db.pagesize=16k  --p2p.protocol=66 --private.api.addr=localhost:9090 --log.dir.path ./log --metrics --metrics.addr=0.0.0.0
+
+# testnet
+./build/bin/erigon --datadir="<your_mainnet_data_path>" --chain=chapel --p2p.protocol=66 --nat=any --log.dir.path ./log  --port=30303 --http.port=8545 --authrpc.port=8551 --torrent.port=42069 --private.api.addr=127.0.0.1:9090 --http --ws --http.api=web3,net,eth,debug,trace,txpool --http.addr=0.0.0.0 --torrent.download.rate=256mb --metrics --metrics.addr=0.0.0.0 --bootnodes=enode://0637d1e62026e0c8685b1db0ca1c767c78c95c3fab64abc468d1a64b12ca4b530b46b8f80c915aec96f74f7ffc5999e8ad6d1484476f420f0c10e3d42361914b@52.199.214.252:30311,enode://330d768f6de90e7825f0ea6fe59611ce9d50712e73547306846a9304663f9912bf1611037f7f90f21606242ded7fb476c7285cb7cd792836b8c0c5ef0365855c@18.181.52.189:30311,enode://df1e8eb59e42cad3c4551b2a53e31a7e55a2fdde1287babd1e94b0836550b489ba16c40932e4dacb16cba346bd442c432265a299c4aca63ee7bb0f832b9f45eb@52.51.80.128:30311,enode://0bd566a7fd136ecd19414a601bfdc530d5de161e3014033951dd603e72b1a8959eb5b70b06c87a5a75cbf45e4055c387d2a842bd6b1bd8b5041b3a61bab615cf@34.242.33.165:30311,enode://ecd664250ca19b1074dcfbfb48576a487cc18d052064222a363adacd2650f8e08fb3db9de7a7aecb48afa410eaeb3285e92e516ead01fb62598553aed91ee15e@3.209.122.123:30311,enode://665cf77ca26a8421cfe61a52ac312958308d4912e78ce8e0f61d6902e4494d4cc38f9b0dd1b23a427a7a5734e27e5d9729231426b06bb9c73b56a142f83f6b68@52.72.123.113:30311
+
+```
+
+    
 
 ### How much RAM do I need
 
-- Baseline (ext4 SSD): 16Gb RAM sync takes 6 days, 32Gb - 5 days, 64Gb - 4 days
+- Baseline (ext4 SSD): 32Gb RAM sync takes 6 days, 32Gb - 5 days, 64Gb - 4 days
 - +1 day on "zfs compression=off". +2 days on "zfs compression=on" (2x compression ratio). +3 days on btrfs.
 - -1 day on NVMe
 
