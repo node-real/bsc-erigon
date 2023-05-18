@@ -64,7 +64,7 @@ and [here](https://ledgerwatch.github.io/turbo_geth_release.html#Disk-space).</c
 Usage
 =====
 
-### Snaoshots
+### Snapshots
 You can find [bsc-erigon snapshots](https://github.com/bnb-chain/bsc-snapshots) for archive Node.
 
 ### Getting Started
