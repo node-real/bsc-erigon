@@ -101,7 +101,7 @@ var Defaults = Config{
 		KeepBlocks: false,
 		Produce:    true,
 	},
-	DropUselessPeers: false,
+	DropUselessPeers: true,
 }
 
 func init() {

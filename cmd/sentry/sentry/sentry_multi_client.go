@@ -406,10 +406,12 @@ func (cs *MultiClient) blockHeaders(ctx context.Context, pkt eth.BlockHeadersPac
 		// No point processing empty response
 		return nil
 	}
+
 	// Stream is at the BlockHeadersPacket, which is list of headers
 	if _, err := rlpStream.List(); err != nil {
 		return fmt.Errorf("decode 2 BlockHeadersPacket66: %w", err)
 	}
+
 	// Extract headers from the block
 	//var blockNums []int
 	var highestBlock uint64
