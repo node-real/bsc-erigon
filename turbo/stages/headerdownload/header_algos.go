@@ -404,7 +404,7 @@ func (hd *HeaderDownload) RequestMoreHeaders(currentTime time.Time) (*HeaderRequ
 			Anchor:  anchor,
 			Hash:    anchor.parentHash,
 			Number:  anchor.blockHeight - 1,
-			Length:  50,
+			Length:  192,
 			Skip:    0,
 			Reverse: false,
 		}
@@ -486,7 +486,7 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	if hd.initialCycle {
 		stride = 0
 	}
-	var length uint64 = 50
+	var length uint64 = 192
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain
 	from := hd.highestInDb
 	if from <= 1 {
