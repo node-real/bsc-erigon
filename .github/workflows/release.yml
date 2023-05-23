@@ -50,10 +50,19 @@ jobs:
 #        uses: docker/setup-qemu-action@v2
 
       - name: Run GoReleaser
-        run: |
-          make release
+        uses: goreleaser/goreleaser-action@v4
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          version: latest
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.prepare.outputs.tag_name }}
-          DOCKER_USERNAME: ${{ secrets.DOCKERHUB }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_KEY }}
+
+#      - name: Run GoReleaser
+#        run: |
+#          make release
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          VERSION: ${{ steps.prepare.outputs.tag_name }}
+#          DOCKER_USERNAME: ${{ secrets.DOCKERHUB }}
+#          DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_KEY }}
