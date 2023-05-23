@@ -214,7 +214,7 @@ git-submodules:
 	@git submodule sync --quiet --recursive || true
 	@git submodule update --quiet --init --recursive --force || true
 
-PACKAGE_NAME          := github.com/ledgerwatch/erigon
+PACKAGE_NAME          := github.com/node-real/bsc-erigon
 GOLANG_CROSS_VERSION  ?= v1.20.2
 
 .PHONY: release-dry-run
@@ -239,16 +239,14 @@ release: git-submodules
 		--privileged \
 		-e CGO_ENABLED=1 \
 		-e GITHUB_TOKEN \
-		-e DOCKER_USERNAME \
-		-e DOCKER_PASSWORD \
 		-v /var/run/docker.sock:/var/run/docker.sock \
 		-v `pwd`:/go/src/$(PACKAGE_NAME) \
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		--clean --skip-validate
 
-	@docker image push --all-tags thorax/erigon
-	@docker image push --all-tags ghcr.io/ledgerwatch/erigon
+#	@docker image push --all-tags thorax/erigon
+#	@docker image push --all-tags ghcr.io/ledgerwatch/erigon
 
 # since DOCKER_UID, DOCKER_GID are default initialized to the current user uid/gid,
 # we need separate envvars to facilitate creation of the erigon user on the host OS.
