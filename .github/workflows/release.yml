@@ -24,26 +24,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: dockerhub-login
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB }}
-          password: ${{ secrets.DOCKERHUB_KEY }}
-      - name: ghcr-login
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare
-        id: prepare
-        run: |
-          TAG=${GITHUB_REF#refs/tags/}
-          echo ::set-output name=tag_name::${TAG}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+#      - name: dockerhub-login
+#        uses: docker/login-action@v2
+#        with:
+#          username: ${{ secrets.DOCKERHUB }}
+#          password: ${{ secrets.DOCKERHUB_KEY }}
+#      - name: ghcr-login
+#        uses: docker/login-action@v2
+#        with:
+#          registry: ghcr.io
+#          username: ${{ github.repository_owner }}
+#          password: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Prepare
+#        id: prepare
+#        run: |
+#          TAG=${GITHUB_REF#refs/tags/}
+#          echo ::set-output name=tag_name::${TAG}
+#
+#      - name: Set up QEMU
+#        uses: docker/setup-qemu-action@v2
 
       - name: Run GoReleaser
         run: |
