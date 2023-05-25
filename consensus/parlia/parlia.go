@@ -1345,9 +1345,19 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		log.Error("Unable to pack tx for getMiningValidators", "err", err)
 		return nil, nil, err
 	}
+
+	ctx := context.Background()
+	// consensus db
+	tx, err := p.db.BeginRo(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+	stateReader := state.NewPlainStateReader(tx)
+	ibsForSnapshot := state.New(stateReader)
 	// call
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsForSnapshot, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
