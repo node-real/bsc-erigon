@@ -776,6 +776,11 @@ var (
 		Usage: "Port for sentinel",
 		Value: 7777,
 	}
+	StageSyncUpperBoundFlag = cli.Uint64Flag{
+		Name:  "stage.upper.bound",
+		Usage: "Upper bound for stage sync",
+		Value: 0,
+	}
 )
 
 var MetricFlags = []cli.Flag{&MetricsEnabledFlag, &MetricsHTTPFlag, &MetricsPortFlag}
@@ -1603,6 +1608,10 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 
 	if ctx.IsSet(SentryDropUselessPeers.Name) {
 		cfg.DropUselessPeers = ctx.Bool(SentryDropUselessPeers.Name)
+	}
+
+	if ctx.IsSet(StageSyncUpperBoundFlag.Name) {
+		cfg.StageSyncUpperBound = ctx.Uint64(StageSyncUpperBoundFlag.Name)
 	}
 }
 
