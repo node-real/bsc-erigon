@@ -781,6 +781,11 @@ var (
 		Usage: "Upper bound for stage sync",
 		Value: 0,
 	}
+	StageSyncStepFlag = cli.Uint64Flag{
+		Name:  "stage.step",
+		Usage: "step size for stage sync",
+		Value: 0,
+	}
 )
 
 var MetricFlags = []cli.Flag{&MetricsEnabledFlag, &MetricsHTTPFlag, &MetricsPortFlag}
@@ -1612,6 +1617,10 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 
 	if ctx.IsSet(StageSyncUpperBoundFlag.Name) {
 		cfg.StageSyncUpperBound = ctx.Uint64(StageSyncUpperBoundFlag.Name)
+	}
+
+	if ctx.IsSet(StageSyncStepFlag.Name) {
+		cfg.StageSyncStep = ctx.Uint64(StageSyncStepFlag.Name)
 	}
 }
 
