@@ -9,10 +9,6 @@ import (
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/log/v3"
-
-	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
-
 	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/core"
@@ -20,11 +16,15 @@ import (
 	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
+	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
 	"github.com/ledgerwatch/erigon/eth/tracers"
+	"github.com/ledgerwatch/erigon/eth/tracers/native"
+	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
 	"github.com/ledgerwatch/erigon/turbo/rpchelper"
 	"github.com/ledgerwatch/erigon/turbo/transactions"
+	log "github.com/ledgerwatch/log/v3"
 )
 
 // TraceBlockByNumber implements debug_traceBlockByNumber. Returns Geth style block traces.
@@ -170,6 +170,70 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 			stream.WriteMore()
 		}
 		stream.Flush()
+	}
+	// len(txns) can be 0 but withDrawals is not empty
+	if err == nil && config != nil && *config.Tracer == "diffLayer" {
+		preStateLayer := native.DiffLayerStateLayer{
+			Accounts:  map[common.Address]native.LayerAccount{},
+			Destructs: map[common.Address]bool{},
+			Storages:  map[common.Address]map[common.Hash]common.Hash{},
+		}
+		afterStateLayer := native.DiffLayerStateLayer{
+			Accounts:  map[common.Address]native.LayerAccount{},
+			Destructs: map[common.Address]bool{},
+			Storages:  map[common.Address]map[common.Hash]common.Hash{},
+		}
+		if len(block.Withdrawals()) > 0 {
+			for _, withDraw := range block.Withdrawals() {
+				_, ok := preStateLayer.Accounts[withDraw.Address]
+				if ok {
+					diffAccountAfter := afterStateLayer.Accounts[withDraw.Address]
+					balancePre := new(uint256.Int)
+					err1 := balancePre.SetFromHex(diffAccountAfter.Balance)
+					if err1 != nil {
+						continue
+					}
+					balanceAfter := new(uint256.Int)
+					amountBig := new(uint256.Int).Mul(uint256.NewInt(withDraw.Amount), uint256.NewInt(params.GWei))
+					diffAccountAfter.Balance = native.BigToHex(balanceAfter.Add(balancePre, amountBig))
+					afterStateLayer.Accounts[withDraw.Address] = diffAccountAfter
+				} else {
+					diffAccountPre := native.LayerAccount{}
+					balancePre := ibs.GetBalance(withDraw.Address)
+					amountBig := new(uint256.Int).Mul(uint256.NewInt(withDraw.Amount), uint256.NewInt(params.GWei))
+					balanceAfter := new(uint256.Int)
+					diffAccountPre.Balance, diffAccountPre.Nonce, diffAccountPre.CodeHash = native.BigToHex(balancePre),
+						ibs.GetNonce(withDraw.Address), ibs.GetCodeHash(withDraw.Address)
+					diffAccountAfter := native.LayerAccount{}
+					diffAccountAfter.Balance, diffAccountAfter.Nonce, diffAccountAfter.CodeHash = native.BigToHex(balanceAfter.Add(balancePre, amountBig)),
+						diffAccountPre.Nonce, diffAccountPre.CodeHash
+					preStateLayer.Accounts[withDraw.Address] = diffAccountPre
+					afterStateLayer.Accounts[withDraw.Address] = diffAccountAfter
+				}
+			}
+			diffLayerData := native.DiffLayer{
+				PreStateLayer:   preStateLayer,
+				AfterStateLayer: afterStateLayer,
+			}
+			//log.Infof("prestate account len:%d, after State account len:%d", len(t.preStateLayer.Accounts), len(t.afterStateLayer.Accounts))
+			resBytes, err1 := jsoniter.Marshal(diffLayerData)
+			if err1 != nil {
+				return err1
+			} else {
+				if len(txns) > 0 {
+					stream.WriteMore()
+					stream.WriteObjectStart()
+					stream.WriteObjectField("result")
+					stream.Write(jsoniter.RawMessage(resBytes))
+				} else {
+					stream.WriteObjectStart()
+					stream.WriteObjectField("result")
+					stream.Write(jsoniter.RawMessage(resBytes))
+				}
+				stream.WriteObjectEnd()
+				stream.Flush()
+			}
+		}
 	}
 	stream.WriteArrayEnd()
 	stream.Flush()
