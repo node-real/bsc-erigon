@@ -509,10 +509,6 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 	var returnTd *big.Int
 	var lastD *big.Int
 	var lastTime uint64
-	if hd.stageSyncStep > 0 && hd.stageSyncStepLeft <= 0 {
-		log.Warn("No step left to sync, will go into next stage")
-		return false, true, 0, lastTime, nil
-	}
 	if hd.insertQueue.Len() > 0 && hd.insertQueue[0].blockHeight <= hd.highestInDb+1 {
 		link := hd.insertQueue[0]
 		if hd.stageSyncUpperBound > 0 && link.blockHeight > hd.stageSyncUpperBound {
@@ -548,7 +544,6 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 			}
 		}
 		link.verified = true
-		hd.stageSyncStepLeft--
 		// Make sure long insertions do not appear as a stuck stage 1
 		select {
 		case <-logChannel:
@@ -1234,8 +1229,7 @@ func (hd *HeaderDownload) SetStageSyncUpperBound(stageSyncUpperBound uint64) {
 func (hd *HeaderDownload) SetStageSyncStep(stageSyncStep uint64) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-	hd.stageSyncStep = stageSyncStep
-	hd.stageSyncStepLeft = stageSyncStep
+	hd.stageSyncUpperBound += stageSyncStep
 }
 
 func (hd *HeaderDownload) SetRequestId(requestId int) {

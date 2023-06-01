@@ -801,7 +801,11 @@ func HeadersPOW(
 	headerInserter := headerdownload.NewHeaderInserter(logPrefix, localTd, headerProgress, cfg.blockReader)
 	cfg.hd.SetHeaderReader(&ChainReaderImpl{config: &cfg.chainConfig, tx: tx, blockReader: cfg.blockReader})
 
-	cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+	if cfg.StageSyncUpperBound > 0 && cfg.StageSyncStep == 0 {
+		// if sync upperbound enabled but disabled step sync, then set upperbound, otherwise not to avoid repeated set.
+		cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+	}
+
 	cfg.hd.SetStageSyncStep(cfg.StageSyncStep)
 
 	stopped := false
