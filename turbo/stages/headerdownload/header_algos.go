@@ -608,6 +608,9 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 			blocksToTTD = x.Uint64()
 		}
 	}
+	if hd.stageSyncStep > 0 && hd.highestInDb%hd.stageSyncStep == 0 {
+		return false, true, 0, lastTime, nil
+	}
 	return hd.insertQueue.Len() > 0 && hd.insertQueue[0].blockHeight <= hd.highestInDb+1, false, blocksToTTD, lastTime, nil
 }
 
@@ -1229,7 +1232,7 @@ func (hd *HeaderDownload) SetStageSyncUpperBound(stageSyncUpperBound uint64) {
 func (hd *HeaderDownload) SetStageSyncStep(stageSyncStep uint64) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-	hd.stageSyncUpperBound += stageSyncStep
+	hd.stageSyncStep = stageSyncStep
 }
 
 func (hd *HeaderDownload) SetRequestId(requestId int) {
