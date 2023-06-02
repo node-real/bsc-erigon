@@ -53,6 +53,7 @@ type HeadersCfg struct {
 	forkValidator       *engineapi.ForkValidator
 	notifications       *shards.Notifications
 	StageSyncUpperBound uint64
+	StageSyncStep       uint64
 }
 
 func StageHeadersCfg(
@@ -70,7 +71,7 @@ func StageHeadersCfg(
 	tmpdir string,
 	notifications *shards.Notifications,
 	forkValidator *engineapi.ForkValidator,
-	StageSyncUpperBound uint64) HeadersCfg {
+	StageSyncUpperBound, StageSyncStep uint64) HeadersCfg {
 	return HeadersCfg{
 		db:                  db,
 		hd:                  headerDownload,
@@ -87,6 +88,7 @@ func StageHeadersCfg(
 		forkValidator:       forkValidator,
 		notifications:       notifications,
 		StageSyncUpperBound: StageSyncUpperBound,
+		StageSyncStep:       StageSyncStep,
 	}
 }
 
@@ -799,7 +801,13 @@ func HeadersPOW(
 	headerInserter := headerdownload.NewHeaderInserter(logPrefix, localTd, headerProgress, cfg.blockReader)
 	cfg.hd.SetHeaderReader(&ChainReaderImpl{config: &cfg.chainConfig, tx: tx, blockReader: cfg.blockReader})
 
-	cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+	if cfg.StageSyncUpperBound > 0 && cfg.StageSyncStep == 0 {
+		// if sync upperbound enabled but disabled step sync, then set upperbound, otherwise not to avoid repeated set.
+		cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+	}
+
+	cfg.hd.SetStageSyncStep(cfg.StageSyncStep)
+
 	stopped := false
 	var noProgressCounter uint = 0
 	prevProgress := headerProgress
@@ -809,7 +817,6 @@ func HeadersPOW(
 	var sentToPeer bool
 Loop:
 	for !stopped {
-
 		transitionedToPoS, err := rawdb.Transitioned(tx, headerProgress, cfg.chainConfig.TerminalTotalDifficulty)
 		if err != nil {
 			return err

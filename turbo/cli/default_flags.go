@@ -164,4 +164,5 @@ var DefaultFlags = []cli.Flag{
 	&utils.SentinelAddrFlag,
 	&utils.SentinelPortFlag,
 	&utils.StageSyncUpperBoundFlag,
+	&utils.StageSyncStepFlag,
 }

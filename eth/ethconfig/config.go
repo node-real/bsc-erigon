@@ -254,6 +254,7 @@ type Config struct {
 	DropUselessPeers bool
 
 	StageSyncUpperBound uint64
+	StageSyncStep       uint64
 }
 
 type Sync struct {
