@@ -1,8 +1,6 @@
 package parlia
 
 import (
-	"context"
-
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/common/u256"
 	"github.com/ledgerwatch/erigon/core/state"
@@ -27,19 +25,9 @@ func (p *Parlia) getCurrentValidatorsBeforeLuban(header *types.Header, ibs *stat
 		return nil, err
 	}
 
-	ctx := context.Background()
-	// consensus db
-	tx, err := p.db.BeginRo(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	stateReader := state.NewPlainStateReader(tx)
-	ibsForSnapshot := state.New(stateReader)
-
 	// do smart contract call
 	msgData := Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsForSnapshot, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
