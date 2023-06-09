@@ -8,12 +8,16 @@ import (
 
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
+	chain2 "github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/common/math"
+	"github.com/ledgerwatch/erigon/consensus"
+	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
@@ -587,4 +591,144 @@ func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bun
 func newBoolPtr(bb bool) *bool {
 	b := bb
 	return &b
+}
+
+// TraceBlockDiff implements debug_traceBlockDiff. Returns Geth style block diff layer.
+func (api *PrivateDebugAPIImpl) TraceBlockDiff(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithHash(hash, true), config, stream)
+}
+
+func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	roTx, err := api.db.BeginRo(ctx)
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+	defer roTx.Rollback()
+	noOpWriter := state.NewNoopWriter()
+	log.Info("traceBlockDiff begin", "hash", blockNrOrHash.BlockHash)
+	var (
+		b        *types.Block
+		number   rpc.BlockNumber
+		numberOk bool
+		hash     common.Hash
+		hashOk   bool
+	)
+	if number, numberOk = blockNrOrHash.Number(); numberOk {
+		b, err = api.blockByRPCNumber(number, roTx)
+	} else if hash, hashOk = blockNrOrHash.Hash(); hashOk {
+		b, err = api.blockByHashWithSenders(roTx, hash)
+	} else {
+		return fmt.Errorf("invalid arguments; neither block nor hash specified")
+	}
+
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+
+	if b == nil {
+		if numberOk {
+			return fmt.Errorf("invalid arguments; block with number %d not found", number)
+		}
+		return fmt.Errorf("invalid arguments; block with hash %x not found", hash)
+	}
+
+	// if we've pruned this history away for this block then just return early
+	// to save any red herring errors
+	err = api.BaseAPI.checkPruneHistory(roTx, b.NumberU64())
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+
+	if config == nil {
+		config = &tracers.TraceConfig{}
+	}
+
+	if config.BorTraceEnabled == nil {
+		config.BorTraceEnabled = newBoolPtr(false)
+	}
+
+	chainConfig, err := api.chainConfig(roTx)
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+	engine := api.engine()
+
+	_, _, _, intraBlockState, _, err := transactions.ComputeTxEnv(ctx, engine, b, chainConfig, api._blockReader, roTx, 0, api.historyV3(roTx))
+	if err != nil {
+		stream.WriteNil()
+		return err
+	}
+	blockWriter := NewDiffLayerWriter()
+	getHeader := func(hash common.Hash, number uint64) *types.Header {
+		h, e := api._blockReader.Header(ctx, roTx, hash, number)
+		if e != nil {
+			panic(e)
+		}
+		return h
+	}
+	receipts, err1 := runBlock(engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
+	if err1 != nil {
+		panic(fmt.Errorf("run block failed: %v, numer: %v", err, b.NumberU64()))
+	}
+	if chainConfig.IsByzantium(b.NumberU64()) {
+		receiptSha := types.DeriveSha(receipts)
+		if receiptSha != b.ReceiptHash() {
+			panic(fmt.Errorf("mismatched receipt headers for block: %v", err, b.NumberU64()))
+		}
+	}
+
+	stream.WriteObjectStart()
+	stream.WriteObjectField("diff_rlp")
+	stream.Write(blockWriter.GetData())
+	stream.WriteObjectEnd()
+	stream.Flush()
+	//filename := fmt.Sprintf("diff_%010d_%s", b.NumberU64(), b.Hash())
+	//if err := ioutil.WriteFile(filename, blockWriter.GetData(), 0664); err != nil {
+	//	panic(fmt.Errorf("write diff failed: %v", err))
+	//}
+	return nil
+}
+
+func runBlock(engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
+	chainConfig *chain2.Config, getHeader func(hash common.Hash, number uint64) *types.Header, block *types.Block, vmConfig vm.Config, trace bool) (types.Receipts, error) {
+	header := block.Header()
+	excessDataGas := header.ParentExcessDataGas(getHeader)
+	vmConfig.TraceJumpDest = true
+	gp := new(core.GasPool).AddGas(block.GasLimit())
+	usedGas := new(uint64)
+	var receipts types.Receipts
+	if chainConfig.DAOForkBlock != nil && chainConfig.DAOForkBlock.Cmp(block.Number()) == 0 {
+		misc.ApplyDAOHardFork(ibs)
+	}
+	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
+	rules := chainConfig.Rules(block.NumberU64(), block.Time())
+	for i, tx := range block.Transactions() {
+		ibs.Prepare(tx.Hash(), block.Hash(), i)
+		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
+		if err != nil {
+			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
+		}
+		if trace {
+			fmt.Printf("tx idx %d, gas used %d\n", i, receipt.GasUsed)
+		}
+		receipts = append(receipts, receipt)
+	}
+
+	if !vmConfig.ReadOnly {
+		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
+		tx := block.Transactions()
+		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), nil, nil, nil); err != nil {
+			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
+		}
+
+		if err := ibs.CommitBlock(rules, blockWriter); err != nil {
+			return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
+		}
+	}
+
+	return receipts, nil
 }
