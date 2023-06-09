@@ -254,8 +254,6 @@ type Parlia struct {
 	fakeDiff               bool     // Skip difficulty verifications
 	heightForks, timeForks []uint64 // Forks extracted from the chainConfig
 	snapshots              *snapshotsync.RoSnapshots
-	newValidators          []libcommon.Address
-	voteAddressMapmap      map[libcommon.Address]*types.BLSPublicKey
 }
 
 // New creates a Parlia consensus engine.
@@ -857,21 +855,15 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 }
 
 func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
-	if (header.Number.Uint64()+1)%p.config.Epoch == 0 {
-		newValidators, voteAddressMap, err := p.getCurrentValidators(header, state)
-		if err != nil {
-			return err
-		}
-		p.newValidators = newValidators
-		p.voteAddressMapmap = voteAddressMap
+	if (header.Number.Uint64())%p.config.Epoch != 0 {
 		return nil
 	}
 
-	if header.Number.Uint64()%p.config.Epoch != 0 {
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
+	if err != nil {
 		return nil
 	}
 
-	newValidators, voteAddressMap := p.newValidators, p.voteAddressMapmap
 	// sort validator by address
 	sort.Sort(validatorsAscending(newValidators))
 	var validatorsBytes []byte
@@ -1345,7 +1337,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		log.Error("Unable to pack tx for getMiningValidators", "err", err)
 		return nil, nil, err
 	}
-	// call
+
 	msgData := hexutility.Bytes(data)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {

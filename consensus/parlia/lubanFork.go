@@ -24,6 +24,7 @@ func (p *Parlia) getCurrentValidatorsBeforeLuban(header *types.Header, ibs *stat
 		log.Error("Unable to pack tx for getValidators", "error", err)
 		return nil, err
 	}
+
 	// do smart contract call
 	msgData := Bytes(data)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
