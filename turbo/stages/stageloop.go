@@ -129,17 +129,35 @@ func StageLoopStep(ctx context.Context, db kv.RwDB, sync *stagedsync.Sync, initi
 		}
 	}() // avoid crash because Erigon's core does many things
 
-	var finishProgressBefore uint64
+	var finishProgressBefore, headersProgressBefore uint64
 	if err := db.View(ctx, func(tx kv.Tx) error {
 		finishProgressBefore, err = stages.GetStageProgress(tx, stages.Finish)
 		if err != nil {
+			return err
+		}
+		if headersProgressBefore, err = stages.GetStageProgress(tx, stages.Headers); err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
 		return headBlockHash, err
 	}
-	canRunCycleInOneTransaction := !initialCycle
+	// Sync from scratch must be able Commit partial progress
+	// In all other cases - process blocks batch in 1 RwTx
+	blocksInSnapshots := uint64(0)
+	if blockSnapshots != nil {
+		blocksInSnapshots = blockSnapshots.BlocksAvailable()
+	}
+	// 2 corner-cases: when sync with --snapshots=false and when executed only blocks from snapshots (in this case all stages progress is equal and > 0, but node is not synced)
+	isSynced := finishProgressBefore > 0 && finishProgressBefore > blocksInSnapshots && finishProgressBefore == headersProgressBefore
+	canRunCycleInOneTransaction := isSynced
+
+	// Main steps:
+	// - process new blocks
+	// - commit(no_sync). NoSync - making data available for readers as-soon-as-possible. Can
+	//       send notifications Now and do write to disks Later.
+	// - Send Notifications: about new blocks, new receipts, state changes, etc...
+	// - Prune(limited time)+Commit(sync). Write to disk happening here.
 
 	var tx kv.RwTx // on this variable will run sync cycle.
 	if canRunCycleInOneTransaction {
