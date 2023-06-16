@@ -10,6 +10,7 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	chain2 "github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/common/hexutil"
 	"github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/consensus"
@@ -21,6 +22,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/eth/tracers"
 	"github.com/ledgerwatch/erigon/eth/tracers/native"
 	"github.com/ledgerwatch/erigon/params"
@@ -670,7 +672,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 		}
 		return h
 	}
-	receipts, err1 := runBlock(engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
+	receipts, err1 := runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
 	if err1 != nil {
 		panic(fmt.Errorf("run block failed: %v, numer: %v", err, b.NumberU64()))
 	}
@@ -693,7 +695,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	return nil
 }
 
-func runBlock(engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
+func runBlock1(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
 	chainConfig *chain2.Config, getHeader func(hash common.Hash, number uint64) *types.Header, block *types.Block, vmConfig vm.Config, trace bool) (types.Receipts, error) {
 	header := block.Header()
 	excessDataGas := header.ParentExcessDataGas(getHeader)
@@ -721,7 +723,7 @@ func runBlock(engine consensus.Engine, ibs *state.IntraBlockState, txnWriter sta
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		tx := block.Transactions()
-		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), nil, nil, nil); err != nil {
+		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, nil), nil, nil); err != nil {
 			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
 		}
 
