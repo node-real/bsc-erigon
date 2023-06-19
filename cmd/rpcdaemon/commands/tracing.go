@@ -658,11 +658,13 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	}
 	engine := api.engine()
 	log.Info("traceBlockDiff begin", "hash", b.Hash(), "number", b.NumberU64(), "ParentHash", b.ParentHash())
-	_, _, _, intraBlockState, _, err := transactions.ComputeTxEnv(ctx, engine, b, chainConfig, api._blockReader, roTx, 0, api.historyV3(roTx))
-	if err != nil {
-		stream.WriteNil()
-		return err
-	}
+	//_, _, _, intraBlockState, _, err := transactions.ComputeTxEnv(ctx, engine, b, chainConfig, api._blockReader, roTx, 0, api.historyV3(roTx))
+	//if err != nil {
+	//	stream.WriteNil()
+	//	return err
+	//}
+	reader := state.NewPlainState(roTx, b.NumberU64(), nil)
+	intraBlockState := state.New(reader)
 	blockWriter := NewDiffLayerWriter()
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
 		h, e := api._blockReader.Header(ctx, roTx, hash, number)
