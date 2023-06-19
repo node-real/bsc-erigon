@@ -608,7 +608,6 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	}
 	defer roTx.Rollback()
 	noOpWriter := state.NewNoopWriter()
-	log.Info("traceBlockDiff begin", "hash", blockNrOrHash.BlockHash)
 	var (
 		b        *types.Block
 		number   rpc.BlockNumber
@@ -658,7 +657,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 		return err
 	}
 	engine := api.engine()
-
+	log.Info("traceBlockDiff begin", "hash", b.Hash(), "number", b.NumberU64(), "ParentHash", b.ParentHash())
 	_, _, _, intraBlockState, _, err := transactions.ComputeTxEnv(ctx, engine, b, chainConfig, api._blockReader, roTx, 0, api.historyV3(roTx))
 	if err != nil {
 		stream.WriteNil()
@@ -672,7 +671,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 		}
 		return h
 	}
-	receipts, err1 := runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
+	receipts, err1 := api.runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
 	if err1 != nil {
 		panic(fmt.Errorf("run block failed: %v, numer: %v", err1, b.NumberU64()))
 	}
@@ -695,7 +694,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	return nil
 }
 
-func runBlock1(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
+func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, txnWriter state.StateWriter, blockWriter state.StateWriter,
 	chainConfig *chain2.Config, getHeader func(hash common.Hash, number uint64) *types.Header, block *types.Block, vmConfig vm.Config, trace bool) (types.Receipts, error) {
 	header := block.Header()
 	excessDataGas := header.ParentExcessDataGas(getHeader)
@@ -715,7 +714,7 @@ func runBlock1(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, 
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
 		}
 		if trace {
-			fmt.Printf("tx idx %d, gas used %d\n", i, receipt.GasUsed)
+			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
 		}
 		receipts = append(receipts, receipt)
 	}
@@ -723,7 +722,7 @@ func runBlock1(dbtx kv.Tx, engine consensus.Engine, ibs *state.IntraBlockState, 
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		tx := block.Transactions()
-		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, nil), nil, nil); err != nil {
+		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
 			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
 		}
 
