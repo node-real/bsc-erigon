@@ -928,6 +928,8 @@ func (p *Parlia) Finalize(_ *chain.Config, header *types.Header, state *state.In
 func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, txs types.Transactions,
 	receipts types.Receipts, chain consensus.ChainHeaderReader, mining bool,
 ) (types.Transactions, types.Receipts, error) {
+	log.Info("finalize begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
+		state.GetNonce(header.Coinbase))
 	userTxs, systemTxs, err := p.splitTxs(txs, header)
 	if err != nil {
 		return nil, nil, err
@@ -989,6 +991,8 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 			}
 		}
 	}
+	log.Info("distributeIncoming", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
+		state.GetNonce(header.Coinbase))
 	if txs, systemTxs, receipts, err = p.distributeIncoming(header.Coinbase, state, header, txs, receipts, systemTxs, &header.GasUsed, mining); err != nil {
 		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
 		return nil, nil, err
