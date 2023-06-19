@@ -674,12 +674,12 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	}
 	receipts, err1 := runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
 	if err1 != nil {
-		panic(fmt.Errorf("run block failed: %v, numer: %v", err, b.NumberU64()))
+		panic(fmt.Errorf("run block failed: %v, numer: %v", err1, b.NumberU64()))
 	}
 	if chainConfig.IsByzantium(b.NumberU64()) {
 		receiptSha := types.DeriveSha(receipts)
 		if receiptSha != b.ReceiptHash() {
-			panic(fmt.Errorf("mismatched receipt headers for block: %v", err, b.NumberU64()))
+			panic(fmt.Errorf("mismatched receipt headers for block: %v", b.NumberU64()))
 		}
 	}
 
