@@ -1510,11 +1510,10 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 		}
 		actualTx := systemTxs[0]
 		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
-		log.Info("applyTransaction tx comp", "chainID", p.chainConfig.ChainID, "hash1", expectedHash.String(), "nonce1", nonce, "to1", to,
+		log.Info("applyTransaction tx comp", "number", header.Number.Uint64(), "chainID", p.chainConfig.ChainID, "hash1", expectedHash.String(), "nonce1", nonce, "to1", to,
 			"value1", value, "gas1", math.MaxUint64/2, "gasPrice1", u256.Num0, "data1", hex.EncodeToString(data), "hash2", actualHash.String(),
 			"nonce2", actualTx.GetNonce(), "to1", actualTx.GetTo().String(),
 			"value1", actualTx.GetValue().String(), "gas1", actualTx.GetGas(), "gasPrice1", actualTx.GetPrice().String(), "data1", hex.EncodeToString(actualTx.GetData()))
-
 		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
 			return nil, nil, nil, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
 				expectedHash.String(),
