@@ -29,7 +29,7 @@ import (
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon-lib/kv"
-	"github.com/ledgerwatch/log/v3"
+	log "github.com/ledgerwatch/log/v3"
 	"golang.org/x/exp/slices"
 
 	"github.com/ledgerwatch/erigon/accounts/abi"
@@ -1509,6 +1509,9 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 			return nil, nil, nil, fmt.Errorf("supposed to get a actual transaction, but get nil")
 		}
 		actualTx := systemTxs[0]
+		log.Info("applyTransaction tx comp", "chainID", p.chainConfig.ChainID, "nonce1", nonce, "to1", to,
+			"value1", value, "gas1", math.MaxUint64/2, "gasPrice1", u256.Num0, "data1", hex.EncodeToString(data), "nonce2", actualTx.GetNonce(), "to1", actualTx.GetTo().String(),
+			"value1", actualTx.GetValue().String(), "gas1", actualTx.GetGas(), "gasPrice1", actualTx.GetPrice().String(), "data1", hex.EncodeToString(actualTx.GetData()))
 		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
 		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
 			return nil, nil, nil, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
