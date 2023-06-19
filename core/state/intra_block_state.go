@@ -52,7 +52,7 @@ type BalanceIncrease struct {
 // that occur during block's execution.
 // NOT THREAD SAFE!
 type IntraBlockState struct {
-	stateReader StateReader
+	StateReader StateReader
 
 	// This map holds 'live' objects, which will get modified while processing a state transition.
 	stateObjects      map[libcommon.Address]*stateObject
@@ -88,7 +88,7 @@ type IntraBlockState struct {
 // Create a new state from a given trie
 func New(stateReader StateReader) *IntraBlockState {
 	return &IntraBlockState{
-		stateReader:       stateReader,
+		StateReader:       stateReader,
 		stateObjects:      map[libcommon.Address]*stateObject{},
 		stateObjectsDirty: map[libcommon.Address]struct{}{},
 		nilAccounts:       map[libcommon.Address]struct{}{},
@@ -235,7 +235,7 @@ func (sdb *IntraBlockState) GetCodeSize(addr libcommon.Address) int {
 	if stateObject.code != nil {
 		return len(stateObject.code)
 	}
-	l, err := sdb.stateReader.ReadAccountCodeSize(addr, stateObject.data.Incarnation, stateObject.data.CodeHash)
+	l, err := sdb.StateReader.ReadAccountCodeSize(addr, stateObject.data.Incarnation, stateObject.data.CodeHash)
 	if err != nil {
 		sdb.setErrorUnsafe(err)
 	}
@@ -427,7 +427,7 @@ func (sdb *IntraBlockState) getStateObject(addr libcommon.Address) (stateObject 
 		}
 		return nil
 	}
-	account, err := sdb.stateReader.ReadAccountData(addr)
+	account, err := sdb.StateReader.ReadAccountData(addr)
 	if err != nil {
 		sdb.setErrorUnsafe(err)
 		return nil
@@ -503,7 +503,7 @@ func (sdb *IntraBlockState) CreateAccount(addr libcommon.Address, contractCreati
 		if previous != nil && previous.selfdestructed {
 			prevInc = previous.data.Incarnation
 		} else {
-			if inc, err := sdb.stateReader.ReadAccountIncarnation(addr); err == nil {
+			if inc, err := sdb.StateReader.ReadAccountIncarnation(addr); err == nil {
 				prevInc = inc
 			} else {
 				sdb.savedErr = err
