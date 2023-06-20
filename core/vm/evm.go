@@ -285,7 +285,7 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 				log.Info("gasused run NewContract", "used 6", gas, "input", hex.EncodeToString(input), "caller", caller.Address().Hex())
 			}
 		} else {
-			log.Info("gasused run NewContract", "used 6", gas
+			log.Info("gasused run NewContract", "used 6", gas)
 		}
 
 	}
