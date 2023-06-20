@@ -277,7 +277,11 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 		}
 		ret, err = run(evm, contract, input, readOnly)
 		gas = contract.Gas
-		log.Info("gasused run NewContract", "used 6", gas, "input", hex.EncodeToString(input), "value", value.Hex(), "caller", caller.Address().Hex())
+		if value != nil {
+			log.Info("gasused run NewContract", "used 6", gas, "input", hex.EncodeToString(input), "value", value.Hex(), "caller", caller.Address().Hex())
+		} else {
+			log.Info("gasused run NewContract", "used 6", gas, "input", hex.EncodeToString(input), "caller", caller.Address().Hex())
+		}
 	}
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
