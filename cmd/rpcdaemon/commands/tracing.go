@@ -710,6 +710,7 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	posa, okPosa := engine.(consensus.PoSA)
+	balanceDiff, balanceResult := ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
 	for i, tx := range block.Transactions() {
 		if okPosa {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
@@ -723,6 +724,9 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
 		}
+		log.Info("ApplyTransaction ret", "usedGas", *usedGas, "systemAddr Balance",
+			ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), balanceDiff).Hex())
+		balanceDiff = ibs.GetBalance(consensus.SystemAddress)
 		if trace {
 			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
 		}
