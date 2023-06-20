@@ -257,7 +257,11 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		op = contract.GetOp(_pc)
 		operation := in.jt[op]
 		cost = operation.constantGas // For tracing
-		log.Info("gasused run interpreter", "gas", contract.Gas, "op", op, "cost", cost)
+		if contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000002000") ||
+			contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000001004") {
+			log.Info("gasused run interpreter", "gas", contract.Gas, "op", op, "cost", cost)
+		}
+
 		// Validate stack
 		if sLen := locStack.Len(); sLen < operation.numPop {
 			return nil, &ErrStackUnderflow{stackLen: sLen, required: operation.numPop}
