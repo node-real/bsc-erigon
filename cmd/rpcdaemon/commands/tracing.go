@@ -732,7 +732,7 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 		}
 		tx := block.Transactions()
 		log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
-			ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig())
+			ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig(), "systemAddr Balance", ibs.GetBalance(consensus.SystemAddress).ToBig())
 		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
 			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
 		}
