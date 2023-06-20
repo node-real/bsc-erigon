@@ -720,6 +720,7 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 			}
 		}
 		ibs.Prepare(tx.Hash(), block.Hash(), i)
+		log.Info("ApplyTransaction txHash", "hash", tx.Hash().Hex())
 		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
