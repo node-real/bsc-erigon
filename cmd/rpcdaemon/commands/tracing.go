@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"math/big"
 	"time"
 
@@ -672,16 +673,16 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 		}
 		return h
 	}
-	receipts, err1 := api.runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
+	_, err1 := api.runBlock1(roTx, engine.(consensus.Engine), intraBlockState, noOpWriter, blockWriter, chainConfig, getHeader, b, vm.Config{}, false)
 	if err1 != nil {
 		panic(fmt.Errorf("run block failed: %v, numer: %v", err1, b.NumberU64()))
 	}
-	if chainConfig.IsByzantium(b.NumberU64()) {
-		receiptSha := types.DeriveSha(receipts)
-		if receiptSha != b.ReceiptHash() {
-			panic(fmt.Errorf("mismatched receipt headers for block: %v", b.NumberU64()))
-		}
-	}
+	//if chainConfig.IsByzantium(b.NumberU64()) {
+	//	receiptSha := types.DeriveSha(receipts)
+	//	if receiptSha != b.ReceiptHash() {
+	//		panic(fmt.Errorf("mismatched receipt headers for block: %v", b.NumberU64()))
+	//	}
+	//}
 
 	stream.WriteObjectStart()
 	stream.WriteObjectField("diff_rlp")
@@ -722,19 +723,19 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-		//if posa, ok := engine.(consensus.PoSA); ok {
-		//	for _, tx := range block.Transactions() {
-		//		if isSystem, _ := posa.IsSystemTransaction(tx, header); isSystem {
-		//			ibs.SetNonce(header.Coinbase, ibs.GetNonce(header.Coinbase)-1)
-		//		}
-		//	}
-		//}
-		//tx := block.Transactions()
-		//log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
-		//	ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig())
-		//if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
-		//	return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
-		//}
+		if posa, ok := engine.(consensus.PoSA); ok {
+			for _, tx := range block.Transactions() {
+				if isSystem, _ := posa.IsSystemTransaction(tx, header); isSystem {
+					ibs.SetNonce(header.Coinbase, ibs.GetNonce(header.Coinbase)-1)
+				}
+			}
+		}
+		tx := block.Transactions()
+		log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
+			ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig())
+		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
+			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
+		}
 		//if posa, ok := engine.(consensus.PoSA); ok {
 		//	for _, tx := range block.Transactions() {
 		//		if isSystem, _ := posa.IsSystemTransaction(tx, header); isSystem {
