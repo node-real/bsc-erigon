@@ -312,8 +312,6 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 		input2 = st.state.GetBalance(st.evm.Context().Coinbase).Clone()
 	}
 
-	log.Info("gasused", "used 1", st.gasUsed())
-
 	// First check this message satisfies all consensus rules before
 	// applying the message. The rules include these clauses
 	//
@@ -340,7 +338,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 			st.evm.Config().Tracer.CaptureTxEnd(st.gas)
 		}()
 	}
-	log.Info("gasused", "used 2", st.gasUsed())
+
 	msg := st.msg
 	sender := vm.AccountRef(msg.From())
 	contractCreation := msg.To() == nil
@@ -367,9 +365,8 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 	if st.gas < gas {
 		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gas, gas)
 	}
-	log.Info("gasused", "used 3", st.gasUsed())
 	st.gas -= gas
-	log.Info("gasused", "used 4", st.gasUsed())
+
 	var bailout bool
 	// Gas bailout (for trace_call) should only be applied if there is not sufficient balance to perform value transfer
 	if gasBailout {
@@ -377,7 +374,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 			bailout = true
 		}
 	}
-	log.Info("gasused", "used 5", st.gasUsed())
+
 	// Check whether the init code size has been exceeded.
 	if isEIP3860 && contractCreation && len(st.data) > params.MaxInitCodeSize {
 		return nil, fmt.Errorf("%w: code size %v limit %v", ErrMaxInitCodeSizeExceeded, len(st.data), params.MaxInitCodeSize)
@@ -391,7 +388,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 			st.state.AddAddressToAccessList(st.evm.Context().Coinbase)
 		}
 	}
-
+	log.Info("gasused", "used 5", st.gasUsed())
 	var (
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
@@ -402,12 +399,13 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 		// It does get incremented inside the `Create` call, after the computation
 		// of the contract's address, but before the execution of the code.
 		ret, _, st.gas, vmerr = st.evm.Create(sender, st.data, st.gas, st.value)
+		log.Info("gasused create", "used 6", st.gasUsed())
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From(), st.state.GetNonce(sender.Address())+1)
 		ret, st.gas, vmerr = st.evm.Call(sender, st.to(), st.data, st.gas, st.value, bailout)
+		log.Info("gasused call", "used 6", st.gasUsed())
 	}
-	log.Info("gasused", "used 6", st.gasUsed())
 	if refunds {
 		if rules.IsLondon {
 			// After EIP-3529: refunds are capped to gasUsed / 5
@@ -438,7 +436,6 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 		burnAmount := new(uint256.Int).Mul(new(uint256.Int).SetUint64(st.gasUsed()), st.evm.Context().BaseFee)
 		st.state.AddBalance(burntContractAddress, burnAmount)
 	}
-	log.Info("gasused", "used 8", st.gasUsed())
 	if st.isBor {
 		// Deprecating transfer log and will be removed in future fork. PLEASE DO NOT USE this transfer log going forward. Parameters won't get updated as expected going forward with EIP1559
 		// add transfer log
