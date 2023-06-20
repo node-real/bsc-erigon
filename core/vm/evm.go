@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"github.com/ledgerwatch/log/v3"
 	"sync/atomic"
 
 	"github.com/holiman/uint256"
@@ -246,6 +247,7 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 	// It is allowed to call precompiles, even via delegatecall
 	if isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		log.Info("gasused RunPrecompiledContract", "used 6", gas)
 	} else if len(code) == 0 {
 		// If the account has no code, we can abort here
 		// The depth-check is already done, and precompiles handled above
@@ -267,12 +269,14 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 			contract = NewContract(caller, AccountRef(addrCopy), value, gas, evm.config.SkipAnalysis)
 		}
 		contract.SetCallCode(&addrCopy, codeHash, code)
+		log.Info("gasused NewContract", "used 6", gas)
 		readOnly := false
 		if typ == STATICCALL {
 			readOnly = true
 		}
 		ret, err = run(evm, contract, input, readOnly)
 		gas = contract.Gas
+		log.Info("gasused run NewContract", "used 6", gas)
 	}
 	// When an error was returned by the EVM or when setting the creation code
 	// above we revert to the snapshot and consume any gas remaining. Additionally
