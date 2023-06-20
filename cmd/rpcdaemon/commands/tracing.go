@@ -709,7 +709,15 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 	}
 	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
+	posa, okPosa := engine.(consensus.PoSA)
 	for i, tx := range block.Transactions() {
+		if okPosa {
+			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
+				return nil, err
+			} else if isSystemTx {
+				continue
+			}
+		}
 		ibs.Prepare(tx.Hash(), block.Hash(), i)
 		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
 		if err != nil {
@@ -723,13 +731,6 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
-		if posa, ok := engine.(consensus.PoSA); ok {
-			for _, tx := range block.Transactions() {
-				if isSystem, _ := posa.IsSystemTransaction(tx, header); isSystem {
-					ibs.SetNonce(header.Coinbase, ibs.GetNonce(header.Coinbase)-1)
-				}
-			}
-		}
 		tx := block.Transactions()
 		log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
 			ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig(), "systemAddr Balance", ibs.GetBalance(consensus.SystemAddress).ToBig())
@@ -743,9 +744,10 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 		//		}
 		//	}
 		//}
-		if err := ibs.CommitBlock(rules, blockWriter); err != nil {
-			return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
-		}
+	}
+
+	if err := ibs.CommitBlock(rules, blockWriter); err != nil {
+		return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
 	}
 
 	return receipts, nil
