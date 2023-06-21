@@ -14,6 +14,23 @@ import (
 	"math/big"
 )
 
+var (
+	diffSystemContracts = map[libcommon.Address]struct{}{
+		systemcontracts.ValidatorContract:          {},
+		systemcontracts.SlashContract:              {},
+		systemcontracts.SystemRewardContract:       {},
+		systemcontracts.LightClientContract:        {},
+		systemcontracts.RelayerHubContract:         {},
+		systemcontracts.GovHubContract:             {},
+		systemcontracts.TokenHubContract:           {},
+		systemcontracts.RelayerIncentivizeContract: {},
+		systemcontracts.CrossChainContract:         {},
+		systemcontracts.TokenManagerContract:       {},
+		systemcontracts.MaticTokenContract:         {},
+		systemcontracts.StakingContract:            {},
+	}
+)
+
 type DiffLayer struct {
 	Accounts  []DiffAccount
 	Codes     []DiffCode
@@ -90,13 +107,17 @@ func AccountEqual(original, account *accounts.Account) bool {
 
 func (dlw *DiffLayerWriter) UpdateAccountData(address libcommon.Address, original, account *accounts.Account) error {
 	// this may have bugs, warn
-	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
-		log.Info("updateAccountData", "addr", address.Hex(), "n1", original.Nonce, "n2", account.Nonce, "codeHash1",
-			original.CodeHash.Hex(), "codeHash2", account.CodeHash.Hex(), "b1", original.Balance.Hex(), "b2", account.Balance.Hex(),
-			"r1", original.Root.Hex(), "r2", account.Root.Hex())
-	}
+	//if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
+	//	log.Info("updateAccountData", "addr", address.Hex(), "n1", original.Nonce, "n2", account.Nonce, "codeHash1",
+	//		original.CodeHash.Hex(), "codeHash2", account.CodeHash.Hex(), "b1", original.Balance.Hex(), "b2", account.Balance.Hex(),
+	//		"r1", original.Root.Hex(), "r2", account.Root.Hex())
+	//}
 	if _, ok := dlw.storageSlot[address]; AccountEqual(original, account) && !ok {
-		return nil
+		_, dirtyCodeOK := dlw.dirtyCodeAddress[address]
+		_, systemContractOK := diffSystemContracts[address]
+		if !dirtyCodeOK && !systemContractOK {
+			return nil
+		}
 	}
 
 	acc := &Account{
@@ -189,6 +210,7 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 			delete(dlw.dirtyCodeAddress, k)
 		}
 		log.Info("diff layer dirtyCode", "addrList", addrList)
+		panic("diff account missing")
 	}
 
 	for _, stor := range dlw.layer.Storages {
