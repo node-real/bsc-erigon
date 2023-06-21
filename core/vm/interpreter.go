@@ -259,7 +259,7 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		cost = operation.constantGas // For tracing
 		if contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000002000") ||
 			contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000001004") {
-			log.Info("gasused run interpreter", "gas", contract.Gas, "op", op, "cost", cost)
+			log.Info("interpreter", "g", contract.Gas, "op", op, "cos", cost)
 		}
 
 		// Validate stack
