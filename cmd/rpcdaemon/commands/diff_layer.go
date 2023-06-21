@@ -123,6 +123,7 @@ func (dlw *DiffLayerWriter) DeleteAccount(address libcommon.Address, original *a
 	}
 
 	dlw.layer.Destructs = append(dlw.layer.Destructs, address)
+	delete(dlw.dirtyCodeAddress, address)
 	return nil
 }
 

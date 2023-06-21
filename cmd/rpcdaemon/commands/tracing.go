@@ -663,6 +663,7 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	//	stream.WriteNil()
 	//	return err
 	//}
+	// do not use state.NewPlainState, use this method, will cause different code in BSC: Cross Chain contract at 4369997
 	//reader := state.NewPlainState(roTx, b.NumberU64(), nil)
 	reader, err := rpchelper.CreateHistoryStateReader(roTx, b.NumberU64(), 0, api.historyV3(roTx), chainConfig.ChainName)
 	if err != nil {
@@ -716,7 +717,7 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	posa, okPosa := engine.(consensus.PoSA)
-	balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
+	//balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
 	for i, tx := range block.Transactions() {
 		if okPosa {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
@@ -731,9 +732,9 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
 		}
-		log.Info("ApplyTransaction ret", "usedGas", *usedGas, "systemAddr Balance",
-			ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
-		balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
+		//log.Info("ApplyTransaction ret", "usedGas", *usedGas, "systemAddr Balance",
+		//	ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
+		//balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
 		if trace {
 			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
 		}
@@ -755,10 +756,9 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 		//		}
 		//	}
 		//}
-	}
-
-	if err := ibs.CommitBlock(rules, blockWriter); err != nil {
-		return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
+		if err := ibs.CommitBlock(rules, blockWriter); err != nil {
+			return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
+		}
 	}
 
 	return receipts, nil
