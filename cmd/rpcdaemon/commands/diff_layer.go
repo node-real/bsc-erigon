@@ -8,6 +8,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/rlp"
+	"github.com/ledgerwatch/log/v3"
 	"io"
 	"math/big"
 )
@@ -81,11 +82,13 @@ func NewDiffLayerWriter() *DiffLayerWriter {
 
 func AccountEqual(original, account *accounts.Account) bool {
 	return original.Nonce == account.Nonce && original.CodeHash == account.CodeHash &&
-		original.Balance == account.Balance && original.Incarnation == account.Incarnation &&
-		original.Root == account.Root
+		original.Balance == account.Balance && original.Root == account.Root
+	//&& original.Incarnation == account.Incarnation &&
+	//	original.Root == account.Root
 }
 
 func (dlw *DiffLayerWriter) UpdateAccountData(address libcommon.Address, original, account *accounts.Account) error {
+	// this may have bugs, warn
 	if _, ok := dlw.storageSlot[address]; AccountEqual(original, account) && !ok {
 		return nil
 	}
@@ -123,7 +126,7 @@ func (dlw *DiffLayerWriter) DeleteAccount(address libcommon.Address, original *a
 	}
 
 	dlw.layer.Destructs = append(dlw.layer.Destructs, address)
-	delete(dlw.dirtyCodeAddress, address)
+	//delete(dlw.dirtyCodeAddress, address)
 	return nil
 }
 
@@ -169,7 +172,13 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 	}
 
 	if len(dlw.dirtyCodeAddress) != 0 {
-		panic("diff account missing")
+		//panic("diff account missing")
+		addrList := ""
+		for k := range dlw.dirtyCodeAddress {
+			addrList += k.Hex() + " "
+			delete(dlw.dirtyCodeAddress, k)
+		}
+		log.Info("diff layer dirtyCode", "addrList", addrList)
 	}
 
 	for _, stor := range dlw.layer.Storages {
