@@ -248,7 +248,7 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 	// It is allowed to call precompiles, even via delegatecall
 	if isPrecompile {
 		ret, gas, err = RunPrecompiledContract(p, input, gas)
-		log.Info("gasused precompiledContract", "used 6", gas)
+		log.Info("gasused preC", "used 6", gas)
 	} else if len(code) == 0 {
 		// If the account has no code, we can abort here
 		// The depth-check is already done, and precompiles handled above
@@ -270,7 +270,7 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 			contract = NewContract(caller, AccountRef(addrCopy), value, gas, evm.config.SkipAnalysis)
 		}
 		contract.SetCallCode(&addrCopy, codeHash, code)
-		log.Info("gasused NewC", "6", gas)
+		log.Info("gasused NewC", "used6", gas)
 		readOnly := false
 		if typ == STATICCALL {
 			readOnly = true
@@ -280,14 +280,14 @@ func (evm *EVM) call(typ OpCode, caller ContractRef, addr libcommon.Address, inp
 		if contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000002000") ||
 			contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000001004") {
 			if value != nil {
-				log.Info("gasused runC", "used 6", gas, "input", hex.EncodeToString(input), "value", value.Hex(),
-					"caller", caller.Address().Hex(), "code", hex.EncodeToString(code), "codeHash", codeHash.String())
+				log.Info("gasused runC", "used6", gas, "input", hex.EncodeToString(input), "value", value.Hex(),
+					"caller", caller.Address().Hex(), "codeHash", codeHash.String())
 			} else {
-				log.Info("gasused runC", "used 6", gas, "input", hex.EncodeToString(input),
-					"caller", caller.Address().Hex(), "code", hex.EncodeToString(code), "codeHash", codeHash.String())
+				log.Info("gasused runC", "used6", gas, "input", hex.EncodeToString(input),
+					"caller", caller.Address().Hex(), "codeHash", codeHash.String())
 			}
 		} else {
-			log.Info("gasused runC", "used 6", gas)
+			log.Info("gasused runC", "used6", gas)
 		}
 
 	}

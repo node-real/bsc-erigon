@@ -663,7 +663,13 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	//	stream.WriteNil()
 	//	return err
 	//}
-	reader := state.NewPlainState(roTx, b.NumberU64(), nil)
+	//reader := state.NewPlainState(roTx, b.NumberU64(), nil)
+	reader, err := rpchelper.CreateHistoryStateReader(roTx, b.NumberU64(), 0, api.historyV3(roTx), chainConfig.ChainName)
+	if err != nil {
+		return err
+	}
+
+	// Create the parent state database
 	intraBlockState := state.New(reader)
 	blockWriter := NewDiffLayerWriter()
 	getHeader := func(hash common.Hash, number uint64) *types.Header {
