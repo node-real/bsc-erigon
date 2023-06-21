@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/holiman/uint256"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/rlp"
@@ -14,22 +13,22 @@ import (
 	"math/big"
 )
 
-var (
-	diffSystemContracts = map[libcommon.Address]struct{}{
-		systemcontracts.ValidatorContract:          {},
-		systemcontracts.SlashContract:              {},
-		systemcontracts.SystemRewardContract:       {},
-		systemcontracts.LightClientContract:        {},
-		systemcontracts.RelayerHubContract:         {},
-		systemcontracts.GovHubContract:             {},
-		systemcontracts.TokenHubContract:           {},
-		systemcontracts.RelayerIncentivizeContract: {},
-		systemcontracts.CrossChainContract:         {},
-		systemcontracts.TokenManagerContract:       {},
-		systemcontracts.MaticTokenContract:         {},
-		systemcontracts.StakingContract:            {},
-	}
-)
+//var (
+//	diffSystemContracts = map[libcommon.Address]struct{}{
+//		systemcontracts.ValidatorContract:          {},
+//		systemcontracts.SlashContract:              {},
+//		systemcontracts.SystemRewardContract:       {},
+//		systemcontracts.LightClientContract:        {},
+//		systemcontracts.RelayerHubContract:         {},
+//		systemcontracts.GovHubContract:             {},
+//		systemcontracts.TokenHubContract:           {},
+//		systemcontracts.RelayerIncentivizeContract: {},
+//		systemcontracts.CrossChainContract:         {},
+//		systemcontracts.TokenManagerContract:       {},
+//		systemcontracts.MaticTokenContract:         {},
+//		systemcontracts.StakingContract:            {},
+//	}
+//)
 
 type DiffLayer struct {
 	Accounts  []DiffAccount
@@ -113,11 +112,12 @@ func (dlw *DiffLayerWriter) UpdateAccountData(address libcommon.Address, origina
 	//		"r1", original.Root.Hex(), "r2", account.Root.Hex())
 	//}
 	if _, ok := dlw.storageSlot[address]; AccountEqual(original, account) && !ok {
-		_, dirtyCodeOK := dlw.dirtyCodeAddress[address]
-		_, systemContractOK := diffSystemContracts[address]
-		if !dirtyCodeOK && !systemContractOK {
-			return nil
-		}
+		//_, dirtyCodeOK := dlw.dirtyCodeAddress[address]
+		//_, systemContractOK := diffSystemContracts[address]
+		//if !dirtyCodeOK && !systemContractOK {
+		//	return nil
+		//}
+		return nil
 	}
 
 	acc := &Account{
@@ -143,10 +143,10 @@ func (dlw *DiffLayerWriter) UpdateAccountCode(address libcommon.Address, incarna
 		Hash: codeHash,
 		Code: code,
 	})
-	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
-		log.Info("UpdateAccountCode", "addr", address.Hex(), "codeHash",
-			codeHash.Hex())
-	}
+	//if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
+	//	log.Info("UpdateAccountCode", "addr", address.Hex(), "codeHash",
+	//		codeHash.Hex())
+	//}
 	dlw.dirtyCodeAddress[address] = struct{}{}
 	return nil
 }
