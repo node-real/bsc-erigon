@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/holiman/uint256"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/rlp"
@@ -89,6 +90,11 @@ func AccountEqual(original, account *accounts.Account) bool {
 
 func (dlw *DiffLayerWriter) UpdateAccountData(address libcommon.Address, original, account *accounts.Account) error {
 	// this may have bugs, warn
+	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
+		log.Info("updateAccountData", "addr", address.Hex(), "n1", original.Nonce, "n2", account.Nonce, "codeHash1",
+			original.CodeHash.Hex(), "codeHash2", account.CodeHash.Hex(), "b1", original.Balance.Hex(), "b2", account.Balance.Hex(),
+			"r1", original.Root.Hex(), "r2", account.Root.Hex())
+	}
 	if _, ok := dlw.storageSlot[address]; AccountEqual(original, account) && !ok {
 		return nil
 	}
@@ -116,6 +122,10 @@ func (dlw *DiffLayerWriter) UpdateAccountCode(address libcommon.Address, incarna
 		Hash: codeHash,
 		Code: code,
 	})
+	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
+		log.Info("UpdateAccountCode", "addr", address.Hex(), "codeHash",
+			codeHash.Hex())
+	}
 	dlw.dirtyCodeAddress[address] = struct{}{}
 	return nil
 }
