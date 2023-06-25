@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/holiman/uint256"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
@@ -219,6 +220,6 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 		}
 	}
 
-	data, _ := rlp.EncodeToBytes(dlw.layer)
+	data, _ := json.Marshal(dlw.layer)
 	return data
 }
