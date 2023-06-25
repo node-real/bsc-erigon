@@ -596,8 +596,13 @@ func newBoolPtr(bb bool) *bool {
 }
 
 // TraceBlockDiff implements debug_traceBlockDiff. Returns Geth style block diff layer.
-func (api *PrivateDebugAPIImpl) TraceBlockDiff(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+func (api *PrivateDebugAPIImpl) TraceBlockDiffByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
 	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithHash(hash, true), config, stream)
+}
+
+// TraceBlockDiff implements debug_traceBlockDiff. Returns Geth style block diff layer.
+func (api *PrivateDebugAPIImpl) TraceBlockDiffByNumber(ctx context.Context, blockNum rpc.BlockNumber, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
+	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithNumber(blockNum), config, stream)
 }
 
 func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
@@ -727,7 +732,7 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 			}
 		}
 		ibs.Prepare(tx.Hash(), block.Hash(), i)
-		log.Info("ApplyTransaction txHash", "hash", tx.Hash().Hex())
+		//log.Info("ApplyTransaction txHash", "hash", tx.Hash().Hex())
 		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
@@ -744,8 +749,8 @@ func (api *PrivateDebugAPIImpl) runBlock1(dbtx kv.Tx, engine consensus.Engine, i
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		tx := block.Transactions()
-		log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
-			ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig(), "systemAddr Balance", ibs.GetBalance(consensus.SystemAddress).ToBig())
+		//log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
+		//	ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig(), "systemAddr Balance", ibs.GetBalance(consensus.SystemAddress).ToBig())
 		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
 			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
 		}
