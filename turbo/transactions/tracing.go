@@ -203,7 +203,6 @@ func TraceTx(
 		callmsg := prepareCallMessage(message)
 		result, err = statefull.ApplyBorMessage(*vmenv, callmsg)
 	} else {
-		log.Info("trace txHash", "hash", txCtx.TxHash.Hex())
 		result, err = core.ApplyMessage(vmenv, message, new(core.GasPool).AddGas(message.Gas()), refunds, false /* gasBailout */)
 	}
 
