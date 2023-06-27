@@ -88,7 +88,7 @@ func init() {
 			}
 		}
 		if chainConfig.PlatoBlock != nil {
-			blockNum := chainConfig.PlanckBlock.Uint64()
+			blockNum := chainConfig.PlatoBlock.Uint64()
 			if blockNum != 0 {
 				addCodeRecords(systemcontracts.PlatoUpgrade[chainName], blockNum, byChain)
 			}
