@@ -182,8 +182,8 @@ func (dlw *DiffLayerWriter) WriteAccountStorage(address libcommon.Address, incar
 		panic("account mismatch")
 	}
 
-	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
-	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
+	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
+	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
 	val := value.Bytes()
 	if len(val) > 0 {
 		val, _ = rlp.EncodeToBytes(val)
