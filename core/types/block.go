@@ -1672,3 +1672,14 @@ type BlockWithReceipts struct {
 	Block    *Block
 	Receipts Receipts
 }
+
+type DiffAccountsInTx struct {
+	TxHash   libcommon.Hash
+	Accounts map[libcommon.Address]*big.Int
+}
+
+type DiffAccountsInBlock struct {
+	Number       uint64
+	BlockHash    libcommon.Hash
+	Transactions []DiffAccountsInTx
+}

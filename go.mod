@@ -3,7 +3,6 @@ module github.com/ledgerwatch/erigon
 go 1.19
 
 require (
-	github.com/ledgerwatch/erigon-lib v0.0.0-20230424042211-39e97b6becde
 	github.com/ledgerwatch/erigon-snapshot v1.1.1-0.20230404044759-5dec854ce336
 	github.com/ledgerwatch/log/v3 v3.7.0
 	github.com/ledgerwatch/secp256k1 v1.0.0
@@ -85,7 +84,6 @@ require (
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
 	github.com/tidwall/btree v1.6.0
 	github.com/ugorji/go/codec v1.1.13
-	github.com/ugorji/go/codec/codecgen v1.1.13
 	github.com/urfave/cli/v2 v2.25.1
 	github.com/valyala/fastjson v1.6.4
 	github.com/vektah/gqlparser/v2 v2.5.1
@@ -108,8 +106,10 @@ require (
 )
 
 require (
+	github.com/ledgerwatch/erigon-lib v0.0.0-20230424042211-39e97b6becde
 	github.com/minio/sha256-simd v1.0.0
 	github.com/pkg/errors v0.9.1
+	github.com/ugorji/go/codec/codecgen v1.1.13
 	github.com/willf/bitset v1.1.10
 )
 
@@ -301,7 +301,7 @@ require (
 replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
 	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1
-	github.com/ledgerwatch/erigon-lib => github.com/node-real/bsc-erigon-lib v1.0.2-0.20230601070202-a68e4d50ea74
+	github.com/ledgerwatch/erigon-lib => github.com/node-real/bsc-erigon-lib v1.0.2-0.20230612073802-74354c0b46c4
 	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230607015520-e2aea6f08f5a
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.15
 )

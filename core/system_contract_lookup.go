@@ -75,6 +75,24 @@ func init() {
 				addCodeRecords(systemcontracts.GibbsUpgrade[chainName], blockNum, byChain)
 			}
 		}
+		if chainConfig.PlanckBlock != nil {
+			blockNum := chainConfig.PlanckBlock.Uint64()
+			if blockNum != 0 {
+				addCodeRecords(systemcontracts.PlanckUpgrade[chainName], blockNum, byChain)
+			}
+		}
+		if chainConfig.LubanBlock != nil {
+			blockNum := chainConfig.LubanBlock.Uint64()
+			if blockNum != 0 {
+				addCodeRecords(systemcontracts.LubanUpgrade[chainName], blockNum, byChain)
+			}
+		}
+		if chainConfig.PlatoBlock != nil {
+			blockNum := chainConfig.PlatoBlock.Uint64()
+			if blockNum != 0 {
+				addCodeRecords(systemcontracts.PlatoUpgrade[chainName], blockNum, byChain)
+			}
+		}
 		if chainConfig.Bor != nil && chainConfig.Bor.CalcuttaBlock != nil {
 			blockNum := chainConfig.Bor.CalcuttaBlock.Uint64()
 			if blockNum != 0 {

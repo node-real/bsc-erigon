@@ -136,7 +136,7 @@ func (m *Migrator) VerifyVersion(db kv.RwDB) error {
 				return fmt.Errorf("cannot downgrade major DB version from %d to %d", major, kv.DBSchemaVersion.Major)
 			} else if major == kv.DBSchemaVersion.Major {
 				if minor > kv.DBSchemaVersion.Minor {
-					return fmt.Errorf("cannot downgrade minor DB version from %d.%d to %d.%d", major, minor, kv.DBSchemaVersion.Major, kv.DBSchemaVersion.Major)
+					return fmt.Errorf("cannot downgrade minor DB version from %d.%d to %d.%d", major, minor, kv.DBSchemaVersion.Major, kv.DBSchemaVersion.Minor)
 				}
 			} else {
 				// major < kv.DBSchemaVersion.Major

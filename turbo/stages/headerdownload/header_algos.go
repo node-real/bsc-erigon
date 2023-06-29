@@ -484,7 +484,7 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	log.Debug("[downloader] Request skeleton", "anchors", len(hd.anchors), "highestInDb", hd.highestInDb)
 	var stride uint64
 	if hd.initialCycle {
-		stride = 192
+		stride = 8 * 192
 	}
 	var length uint64 = 192
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain
@@ -530,6 +530,8 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		if !link.verified {
 			if err := hd.VerifyHeader(link.header); err != nil {
 				hd.badPoSHeaders[link.hash] = link.header.ParentHash
+				// record the bad link
+				hd.badHeaders[link.hash] = struct{}{}
 				if errors.Is(err, consensus.ErrFutureBlock) {
 					// This may become valid later
 					log.Warn("[downloader] Added future link", "hash", link.hash, "height", link.blockHeight, "timestamp", link.header.Time)
@@ -607,6 +609,9 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		if x.IsUint64() {
 			blocksToTTD = x.Uint64()
 		}
+	}
+	if hd.stageSyncStep > 0 && hd.highestInDb%hd.stageSyncStep == 0 {
+		return false, true, 0, lastTime, nil
 	}
 	return hd.insertQueue.Len() > 0 && hd.insertQueue[0].blockHeight <= hd.highestInDb+1, false, blocksToTTD, lastTime, nil
 }
@@ -1229,7 +1234,7 @@ func (hd *HeaderDownload) SetStageSyncUpperBound(stageSyncUpperBound uint64) {
 func (hd *HeaderDownload) SetStageSyncStep(stageSyncStep uint64) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-	hd.stageSyncUpperBound += stageSyncStep
+	hd.stageSyncStep = stageSyncStep
 }
 
 func (hd *HeaderDownload) SetRequestId(requestId int) {

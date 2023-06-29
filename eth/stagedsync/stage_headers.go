@@ -110,6 +110,11 @@ func SpawnStageHeaders(
 		}
 		defer tx.Rollback()
 	}
+	if initialCycle {
+		// Set sync upperbound only at the initalCycle to avoid repeated set.
+		cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
+		cfg.hd.SetStageSyncStep(cfg.StageSyncStep)
+	}
 	if initialCycle && cfg.snapshots != nil && cfg.snapshots.Cfg().Enabled {
 		if err := cfg.hd.AddHeadersFromSnapshot(tx, cfg.snapshots.BlocksAvailable(), cfg.blockReader); err != nil {
 			return err
@@ -800,13 +805,6 @@ func HeadersPOW(
 	}
 	headerInserter := headerdownload.NewHeaderInserter(logPrefix, localTd, headerProgress, cfg.blockReader)
 	cfg.hd.SetHeaderReader(&ChainReaderImpl{config: &cfg.chainConfig, tx: tx, blockReader: cfg.blockReader})
-
-	if cfg.StageSyncUpperBound > 0 && cfg.StageSyncStep == 0 {
-		// if sync upperbound enabled but disabled step sync, then set upperbound, otherwise not to avoid repeated set.
-		cfg.hd.SetStageSyncUpperBound(cfg.StageSyncUpperBound)
-	}
-
-	cfg.hd.SetStageSyncStep(cfg.StageSyncStep)
 
 	stopped := false
 	var noProgressCounter uint = 0
