@@ -205,6 +205,6 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 		}
 	}
 
-	data, _ := json.Marshal(dlw.layer)
+	data, _ := json.Marshal(&dlw.layer)
 	return data
 }
