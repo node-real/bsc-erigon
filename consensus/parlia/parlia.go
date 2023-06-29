@@ -23,6 +23,7 @@ import (
 	"github.com/willf/bitset"
 
 	"github.com/ledgerwatch/erigon/core/rawdb"
+	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto/cryptopool"
 
@@ -38,7 +39,6 @@ import (
 	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/forkid"
-	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/crypto"
@@ -403,6 +403,22 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 	return &attestation, nil
 }
 
+// getParent returns the parent of a given block.
+func (p *Parlia) getParent(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) (*types.Header, error) {
+	var parent *types.Header
+	number := header.Number.Uint64()
+	if len(parents) > 0 {
+		parent = parents[len(parents)-1]
+	} else {
+		parent = chain.GetHeader(header.ParentHash, number-1)
+	}
+
+	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
+		return nil, consensus.ErrUnknownAncestor
+	}
+	return parent, nil
+}
+
 // verifyVoteAttestation checks whether the vote attestation in the header is valid.
 func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
 	attestation, err := getVoteAttestationFromHeader(header, p.chainConfig, p.config)
@@ -419,16 +435,9 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		return fmt.Errorf("invalid attestation, too large extra length: %d", len(attestation.Extra))
 	}
 
-	// Get parent block
-	number := header.Number.Uint64()
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
-	}
-	if parent == nil || parent.Hash() != header.ParentHash {
-		return consensus.ErrUnknownAncestor
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
 	}
 
 	// The target block should be direct parent.
@@ -552,6 +561,22 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		return consensus.ErrUnexpectedWithdrawals
 	}
 
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
+	}
+
+	// Verify the block's gas usage and (if applicable) verify the base fee.
+	if !chain.Config().IsLondon(header.Number.Uint64()) {
+		// Verify BaseFee not present before EIP-1559 fork.
+		if header.BaseFee != nil {
+			return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
+		}
+	} else if err := misc.VerifyEip1559Header(chain.Config(), parent, header); err != nil {
+		// Verify the header's EIP-1559 attributes.
+		return err
+	}
+
 	// All basic checks passed, verify cascading fields
 	return p.verifyCascadingFields(chain, header, parents)
 }
@@ -567,15 +592,9 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 		return nil
 	}
 
-	var parent *types.Header
-	if len(parents) > 0 {
-		parent = parents[len(parents)-1]
-	} else {
-		parent = chain.GetHeader(header.ParentHash, number-1)
-	}
-
-	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
-		return consensus.ErrUnknownAncestor
+	parent, err := p.getParent(chain, header, parents)
+	if err != nil {
+		return err
 	}
 
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
@@ -876,6 +895,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 		}
 	} else {
 		if uint8(validatorsNumber) != header.Extra[extraVanity] {
+			log.Error("verifyValidators failed", "len(validatorsNumber)", validatorsNumber, "header.Extra[extraVanity]", header.Extra[extraVanity])
 			return errMismatchingEpochValidators
 		}
 		validatorsBytes = make([]byte, validatorsNumber*validatorBytesLength)
@@ -949,6 +969,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	// If the block is an epoch end block, verify the validator list
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
+
 	if err := p.verifyValidators(header, parentHeader, state); err != nil {
 		return nil, nil, err
 	}
@@ -1339,7 +1360,8 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	}
 
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
+	ibsWithoutCache := state.New(ibs.StateReader)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsWithoutCache, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}

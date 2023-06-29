@@ -40,6 +40,7 @@ func APIList(db kv.RoDB, borDb kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.
 			Version:   "1.0",
 		})
 	}
+	bscImpl := NewBscAPI(ethImpl)
 
 	for _, enabledAPI := range cfg.API {
 		switch enabledAPI {
@@ -125,6 +126,13 @@ func APIList(db kv.RoDB, borDb kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.
 				Namespace: "ots",
 				Public:    true,
 				Service:   OtterscanAPI(otsImpl),
+				Version:   "1.0",
+			})
+		case "bsc":
+			list = append(list, rpc.API{
+				Namespace: "bsc",
+				Public:    true,
+				Service:   BscAPI(bscImpl),
 				Version:   "1.0",
 			})
 		}
