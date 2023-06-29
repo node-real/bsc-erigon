@@ -23,8 +23,6 @@ import (
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/math"
-	"github.com/ledgerwatch/log/v3"
-
 	"github.com/ledgerwatch/erigon/core/vm/stack"
 )
 
@@ -257,11 +255,6 @@ func (in *EVMInterpreter) Run(contract *Contract, input []byte, readOnly bool) (
 		op = contract.GetOp(_pc)
 		operation := in.jt[op]
 		cost = operation.constantGas // For tracing
-		//if contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000002000") ||
-		//	contract.Address() == libcommon.HexToAddress("0x0000000000000000000000000000000000001004") {
-		//	log.Info("interpreter", "g", contract.Gas, "op", op, "cos", cost)
-		//}
-
 		// Validate stack
 		if sLen := locStack.Len(); sLen < operation.numPop {
 			return nil, &ErrStackUnderflow{stackLen: sLen, required: operation.numPop}

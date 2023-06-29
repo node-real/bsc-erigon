@@ -529,12 +529,12 @@ func newBoolPtr(bb bool) *bool {
 	return &b
 }
 
-// TraceBlockDiff implements debug_traceBlockDiff. Returns Geth style block diff layer.
+// TraceBlockDiffByHash implements debug_traceBlockDiffByHash. Returns Geth style block diff layer.
 func (api *PrivateDebugAPIImpl) TraceBlockDiffByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
 	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithHash(hash, true), config, stream)
 }
 
-// TraceBlockDiff implements debug_traceBlockDiff. Returns Geth style block diff layer.
+// TraceBlockDiffByNumber implements debug_traceBlockDiffByNumber. Returns Geth style block diff layer.
 func (api *PrivateDebugAPIImpl) TraceBlockDiffByNumber(ctx context.Context, blockNum rpc.BlockNumber, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
 	return api.traceBlockDiff(ctx, rpc.BlockNumberOrHashWithNumber(blockNum), config, stream)
 }
@@ -596,12 +596,6 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 		return err
 	}
 	engine := api.engine()
-	//log.Info("traceBlockDiff begin", "hash", b.Hash(), "number", b.NumberU64(), "ParentHash", b.ParentHash())
-	//_, _, _, intraBlockState, _, err := transactions.ComputeTxEnv(ctx, engine, b, chainConfig, api._blockReader, roTx, 0, api.historyV3(roTx))
-	//if err != nil {
-	//	stream.WriteNil()
-	//	return err
-	//}
 	// do not use state.NewPlainState, use this method, will cause different code in BSC: Cross Chain contract at 4369997
 	//reader := state.NewPlainState(roTx, b.NumberU64(), nil)
 	reader, err := rpchelper.CreateHistoryStateReader(roTx, b.NumberU64(), 0, api.historyV3(roTx), chainConfig.ChainName)
@@ -635,10 +629,6 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 	stream.Write(blockWriter.GetData())
 	stream.WriteObjectEnd()
 	stream.Flush()
-	//filename := fmt.Sprintf("diff_%010d_%s", b.NumberU64(), b.Hash())
-	//if err := ioutil.WriteFile(filename, blockWriter.GetData(), 0664); err != nil {
-	//	panic(fmt.Errorf("write diff failed: %v", err))
-	//}
 	return nil
 }
 
@@ -656,7 +646,6 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	posa, okPosa := engine.(consensus.PoSA)
-	//balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
 	for i, tx := range block.Transactions() {
 		if okPosa {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
@@ -671,9 +660,6 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
 		}
-		//log.Info("ApplyTransaction ret", "usedGas", *usedGas, "systemAddr Balance",
-		//	ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
-		//balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
 		if trace {
 			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
 		}
@@ -683,18 +669,9 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 	if !vmConfig.ReadOnly {
 		// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 		tx := block.Transactions()
-		//log.Info("FinalizeAndAssemble begin", "number", header.Number.Uint64(), "coinbase", header.Coinbase.String(), "coinBase Nonce",
-		//	ibs.GetNonce(header.Coinbase), "coinBase Balance", ibs.GetBalance(header.Coinbase).ToBig(), "systemAddr Balance", ibs.GetBalance(consensus.SystemAddress).ToBig())
 		if _, _, _, err := engine.FinalizeAndAssemble(chainConfig, header, ibs, tx, block.Uncles(), receipts, block.Withdrawals(), stagedsync.NewChainReaderImpl(chainConfig, dbtx, api._blockReader), nil, nil); err != nil {
 			return nil, fmt.Errorf("finalize of block %d failed: %w", block.NumberU64(), err)
 		}
-		//if posa, ok := engine.(consensus.PoSA); ok {
-		//	for _, tx := range block.Transactions() {
-		//		if isSystem, _ := posa.IsSystemTransaction(tx, header); isSystem {
-		//			ibs.SetNonce(header.Coinbase, ibs.GetNonce(header.Coinbase)+1)
-		//		}
-		//	}
-		//}
 		if err := ibs.CommitBlock(rules, blockWriter); err != nil {
 			return nil, fmt.Errorf("committing block %d failed: %w", block.NumberU64(), err)
 		}

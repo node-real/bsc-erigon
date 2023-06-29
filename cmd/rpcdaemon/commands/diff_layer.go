@@ -9,27 +9,9 @@ import (
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/rlp"
-	"github.com/ledgerwatch/log/v3"
 	"io"
 	"math/big"
 )
-
-//var (
-//	diffSystemContracts = map[libcommon.Address]struct{}{
-//		systemcontracts.ValidatorContract:          {},
-//		systemcontracts.SlashContract:              {},
-//		systemcontracts.SystemRewardContract:       {},
-//		systemcontracts.LightClientContract:        {},
-//		systemcontracts.RelayerHubContract:         {},
-//		systemcontracts.GovHubContract:             {},
-//		systemcontracts.TokenHubContract:           {},
-//		systemcontracts.RelayerIncentivizeContract: {},
-//		systemcontracts.CrossChainContract:         {},
-//		systemcontracts.TokenManagerContract:       {},
-//		systemcontracts.MaticTokenContract:         {},
-//		systemcontracts.StakingContract:            {},
-//	}
-//)
 
 type DiffLayer struct {
 	Accounts  []DiffAccount
@@ -144,10 +126,6 @@ func (dlw *DiffLayerWriter) UpdateAccountCode(address libcommon.Address, incarna
 		Hash: codeHash,
 		Code: code,
 	})
-	//if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
-	//	log.Info("UpdateAccountCode", "addr", address.Hex(), "codeHash",
-	//		codeHash.Hex())
-	//}
 	dlw.dirtyCodeAddress[address] = struct{}{}
 	return nil
 }
@@ -206,7 +184,6 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 	}
 
 	if len(dlw.dirtyCodeAddress) != 0 {
-		//panic("diff account missing")
 		addrList := ""
 		for k := range dlw.dirtyCodeAddress {
 			addrList += k.Hex() + " "

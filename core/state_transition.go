@@ -386,7 +386,6 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 			st.state.AddAddressToAccessList(st.evm.Context().Coinbase)
 		}
 	}
-	//log.Info("gasused", "used 5", st.gasUsed())
 	var (
 		ret   []byte
 		vmerr error // vm errors do not effect consensus and are therefore not assigned to err
@@ -411,7 +410,6 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 			st.refundGas(params.RefundQuotient)
 		}
 	}
-	//log.Info("gasused", "used 7", st.gasUsed())
 	effectiveTip := st.gasPrice
 	if rules.IsLondon {
 		if st.gasFeeCap.Gt(st.evm.Context().BaseFee) {
