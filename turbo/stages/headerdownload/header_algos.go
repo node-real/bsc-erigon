@@ -558,6 +558,7 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		}
 		// Some blocks may be marked as non-valid on PoS chain because they were far into the future.
 		delete(hd.badPoSHeaders, link.hash)
+		delete(hd.badHeaders, link.hash)
 		if td != nil {
 			if hd.seenAnnounces.Pop(link.hash) {
 				hd.toAnnounce = append(hd.toAnnounce, Announce{Hash: link.hash, Number: link.blockHeight})
