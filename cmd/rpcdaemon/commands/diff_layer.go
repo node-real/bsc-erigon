@@ -2,10 +2,10 @@ package commands
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/holiman/uint256"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/rlp"
@@ -162,12 +162,16 @@ func (dlw *DiffLayerWriter) WriteAccountStorage(address libcommon.Address, incar
 	}
 
 	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
-	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
+	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
+	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key[:]))
 	val := value.Bytes()
 	if len(val) > 0 {
 		val, _ = rlp.EncodeToBytes(val)
 	}
-	log.Info("storage", "key", key.Hex(), "value", value.Hex(), "addr", address.Hex())
+
+	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
+		log.Info("storage", "key", string(key[:]), "value", value.Hex(), "addr", address.Hex())
+	}
 	dlw.layer.Storages[idx].Vals = append(dlw.layer.Storages[idx].Vals, val)
 	return nil
 }
@@ -200,6 +204,7 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 		}
 	}
 
-	data, _ := json.Marshal(dlw.layer)
+	//data, _ := json.Marshal(dlw.layer)
+	data, _ := rlp.EncodeToBytes(&dlw.layer)
 	return data
 }
