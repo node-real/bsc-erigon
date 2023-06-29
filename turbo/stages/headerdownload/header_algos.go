@@ -530,8 +530,6 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		if !link.verified {
 			if err := hd.VerifyHeader(link.header); err != nil {
 				hd.badPoSHeaders[link.hash] = link.header.ParentHash
-				// record the bad link
-				hd.badHeaders[link.hash] = struct{}{}
 				if errors.Is(err, consensus.ErrFutureBlock) {
 					// This may become valid later
 					log.Warn("[downloader] Added future link", "hash", link.hash, "height", link.blockHeight, "timestamp", link.header.Time)
@@ -558,7 +556,6 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		}
 		// Some blocks may be marked as non-valid on PoS chain because they were far into the future.
 		delete(hd.badPoSHeaders, link.hash)
-		delete(hd.badHeaders, link.hash)
 		if td != nil {
 			if hd.seenAnnounces.Pop(link.hash) {
 				hd.toAnnounce = append(hd.toAnnounce, Announce{Hash: link.hash, Number: link.blockHeight})
