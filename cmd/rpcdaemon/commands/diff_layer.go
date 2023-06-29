@@ -34,8 +34,9 @@ type DiffAccount struct {
 
 type DiffStorage struct {
 	Account libcommon.Address
-	Keys    []string
-	Vals    [][]byte
+	//Keys    []string
+	Keys [][]byte
+	Vals [][]byte
 }
 
 type Account struct {
@@ -164,14 +165,14 @@ func (dlw *DiffLayerWriter) WriteAccountStorage(address libcommon.Address, incar
 
 	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
 	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
-	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key[:]))
+	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key[:])
 	val := value.Bytes()
 	if len(val) > 0 {
 		val, _ = rlp.EncodeToBytes(val)
 	}
 
-	if address == systemcontracts.RelayerHubContract || address == systemcontracts.CrossChainContract {
-		log.Info("storage", "key", string(key[:]), "value", value.Hex(), "addr", address.Hex())
+	if address == systemcontracts.ValidatorContract || address == systemcontracts.CrossChainContract {
+		log.Info("storage", "key", key[:], "value", value.Hex(), "addr", address.Hex())
 	}
 	dlw.layer.Storages[idx].Vals = append(dlw.layer.Storages[idx].Vals, val)
 	return nil
