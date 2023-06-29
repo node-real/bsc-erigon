@@ -188,7 +188,7 @@ func (s *PlainState) ReadAccountData(address libcommon.Address) (*accounts.Accou
 		//restore codehash
 		if records, ok := s.systemContractLookup[address]; ok {
 			p := sort.Search(len(records), func(i int) bool {
-				return records[i].BlockNumber > s.blockNr
+				return records[i].BlockNumber >= s.blockNr
 			})
 			a.CodeHash = records[p-1].CodeHash
 		} else if a.Incarnation > 0 && a.IsEmptyCodeHash() {
