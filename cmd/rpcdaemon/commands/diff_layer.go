@@ -34,9 +34,8 @@ type DiffAccount struct {
 
 type DiffStorage struct {
 	Account libcommon.Address
-	//Keys    []string
-	Keys [][]byte
-	Vals [][]byte
+	Keys    []string
+	Vals    [][]byte
 }
 
 type Account struct {
@@ -163,14 +162,12 @@ func (dlw *DiffLayerWriter) WriteAccountStorage(address libcommon.Address, incar
 		panic("account mismatch")
 	}
 
-	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
+	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, string(key.Bytes()))
 	//dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key.Hex())
-	dlw.layer.Storages[idx].Keys = append(dlw.layer.Storages[idx].Keys, key[:])
 	val := value.Bytes()
 	if len(val) > 0 {
 		val, _ = rlp.EncodeToBytes(val)
 	}
-
 	if address == systemcontracts.ValidatorContract || address == systemcontracts.CrossChainContract {
 		log.Info("storage", "key", key[:], "value", value.Hex(), "addr", address.Hex())
 	}
@@ -183,7 +180,7 @@ func (dlw *DiffLayerWriter) CreateContract(address libcommon.Address) error {
 	return nil
 }
 
-func (dlw *DiffLayerWriter) GetData() []byte {
+func (dlw *DiffLayerWriter) GetData() json.RawMessage {
 	diffAccountMap := make(map[libcommon.Address]struct{})
 	for _, acc := range dlw.layer.Accounts {
 		delete(dlw.dirtyCodeAddress, acc.Account)
@@ -207,5 +204,5 @@ func (dlw *DiffLayerWriter) GetData() []byte {
 	}
 
 	data, _ := json.Marshal(&dlw.layer)
-	return data
+	return json.RawMessage(data)
 }
