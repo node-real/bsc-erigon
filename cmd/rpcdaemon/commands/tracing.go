@@ -626,7 +626,12 @@ func (api *PrivateDebugAPIImpl) traceBlockDiff(ctx context.Context, blockNrOrHas
 
 	stream.WriteObjectStart()
 	stream.WriteObjectField("diff_rlp")
-	stream.Write(blockWriter.GetData())
+	dataLen, err := stream.Write(blockWriter.GetData())
+	if err != nil {
+		log.Info("stream writ data", "data", blockWriter.GetData(), "wlen", dataLen, "err", err.Error())
+		return err
+	}
+
 	stream.WriteObjectEnd()
 	stream.Flush()
 	return nil

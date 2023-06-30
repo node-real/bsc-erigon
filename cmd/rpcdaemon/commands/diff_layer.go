@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/holiman/uint256"
+	jsoniter "github.com/json-iterator/go"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
@@ -202,7 +203,10 @@ func (dlw *DiffLayerWriter) GetData() json.RawMessage {
 			panic("diff account x missing")
 		}
 	}
-
-	data, _ := json.Marshal(&dlw.layer)
-	return json.RawMessage(data)
+	buf := &bytes.Buffer{}
+	jsonEncoder := jsoniter.NewEncoder(buf)
+	jsonEncoder.SetEscapeHTML(false)
+	_ = jsonEncoder.Encode(&dlw.layer)
+	//data, _ := json.Marshal(&dlw.layer)
+	return json.RawMessage(buf.Bytes())
 }
