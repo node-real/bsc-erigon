@@ -1237,8 +1237,8 @@ github.com/neelance/sourcemap v0.0.0-20151028013722-8c68805598ab/go.mod h1:Qr6/a
 github.com/nishanths/predeclared v0.0.0-20200524104333-86fad755b4d3/go.mod h1:nt3d53pc1VYcphSCIaYAJtnPYnr3Zyn8fMq2wvPGPso=
 github.com/node-real/bsc-erigon-lib v1.0.2-0.20230612073802-74354c0b46c4 h1:7ippsj8q6BHTkV8yZd4jP/eOXs0KTZFrR1G6tOXEVHk=
 github.com/node-real/bsc-erigon-lib v1.0.2-0.20230612073802-74354c0b46c4/go.mod h1:fis+CS9DEtVJ6YV/P+CC7Dx27XtiaTf8tsEDy89wcZU=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230629111255-a1366bf5ee0e h1:jHsaN6LD3hFiInDiBLQyGeV28zUShmXOyaloV/5Wv6g=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230629111255-a1366bf5ee0e/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230705034909-4eb1c8d660f8 h1:arp5JCQ0I8D7leKdw9xH76EaOziYmyExQQ9qljKqI6o=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230705034909-4eb1c8d660f8/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/nxadm/tail v1.4.9-0.20211216163028-4472660a31a6 h1:iZ5rEHU561k2tdi/atkIsrP5/3AX3BjyhYtC96nJ260=
