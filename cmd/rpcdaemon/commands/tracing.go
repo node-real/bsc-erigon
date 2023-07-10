@@ -651,7 +651,7 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, ibs)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	posa, okPosa := engine.(consensus.PoSA)
-	balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
+	//balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)
 	for i, tx := range block.Transactions() {
 		if okPosa {
 			if isSystemTx, err := posa.IsSystemTransaction(tx, block.Header()); err != nil {
@@ -661,16 +661,16 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 			}
 		}
 		ibs.Prepare(tx.Hash(), block.Hash(), i)
-		gasUsedTmp1 := uint256.NewInt(*usedGas)
+		//gasUsedTmp1 := uint256.NewInt(*usedGas)
 		//log.Info("ApplyTransaction txHash", "hash", tx.Hash().Hex())
 		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, tx, usedGas, vmConfig, excessDataGas)
 		if err != nil {
 			return nil, fmt.Errorf("could not apply tx %d [%x] failed: %w", i, tx.Hash(), err)
 		}
-		gasUsedTmp2 := uint256.NewInt(*usedGas)
-		log.Info("ApplyTransaction ret", "usedGas", gasUsedTmp2.Sub(gasUsedTmp2, gasUsedTmp1).Hex(), "systemAddr Balance",
-			ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
-		balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
+		//gasUsedTmp2 := uint256.NewInt(*usedGas)
+		//log.Info("ApplyTransaction ret", "txIndex", i, "usedGas", gasUsedTmp2.Sub(gasUsedTmp2, gasUsedTmp1).Hex(), "systemAddr Balance",
+		//	ibs.GetBalance(consensus.SystemAddress).Hex(), "systemAddr Balance diff", balanceResult.Sub(ibs.GetBalance(consensus.SystemAddress), &balanceDiff).Hex())
+		//balanceDiff = *ibs.GetBalance(consensus.SystemAddress)
 		if trace {
 			log.Info("tx idx %d, gas used %d", i, receipt.GasUsed)
 		}

@@ -84,7 +84,8 @@ func NewDiffLayerWriter() *DiffLayerWriter {
 
 func AccountEqual(original, account *accounts.Account) bool {
 	return original.Nonce == account.Nonce && original.CodeHash == account.CodeHash &&
-		original.Balance == account.Balance && original.Root == account.Root
+		original.Balance.Cmp(&account.Balance) == 0 && original.Root == account.Root
+	//original.Balance == account.Balance && original.Root == account.Root
 	//&& original.Incarnation == account.Incarnation &&
 	//	original.Root == account.Root
 }
