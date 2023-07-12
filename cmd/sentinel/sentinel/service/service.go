@@ -176,7 +176,6 @@ func (s *SentinelServer) ListenToGossip() {
 			return
 		case <-refreshTicker.C:
 		}
-		s.mu.RUnlock()
 	}
 }
 
