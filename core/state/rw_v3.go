@@ -17,9 +17,11 @@ import (
 	"github.com/ledgerwatch/erigon-lib/common/length"
 	"github.com/ledgerwatch/erigon-lib/etl"
 	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/erigon-lib/kv/order"
 	libstate "github.com/ledgerwatch/erigon-lib/state"
 	"github.com/ledgerwatch/erigon/cmd/state/exec22"
 	"github.com/ledgerwatch/erigon/common/dbutils"
+	"github.com/ledgerwatch/erigon/core/state/temporal"
 	"github.com/ledgerwatch/erigon/core/types/accounts"
 	"github.com/ledgerwatch/erigon/turbo/shards"
 	"github.com/ledgerwatch/log/v3"
@@ -519,7 +521,7 @@ func recoverCodeHashPlain(acc *accounts.Account, db kv.Tx, key []byte) {
 func (rs *StateV3) Unwind(ctx context.Context, tx kv.RwTx, txUnwindTo uint64, agg *libstate.AggregatorV3, accumulator *shards.Accumulator) error {
 	agg.SetTx(tx)
 	var currentInc uint64
-	if err := agg.Unwind(ctx, txUnwindTo, func(k, v []byte, table etl.CurrentTableReader, next etl.LoadNextFunc) error {
+	handle := func(k, v []byte, table etl.CurrentTableReader, next etl.LoadNextFunc) error {
 		if len(k) == length.Addr {
 			if len(v) > 0 {
 				var acc accounts.Account
@@ -528,7 +530,6 @@ func (rs *StateV3) Unwind(ctx context.Context, tx kv.RwTx, txUnwindTo uint64, ag
 				}
 				currentInc = acc.Incarnation
 				// Fetch the code hash
-				recoverCodeHashPlain(&acc, tx, k)
 				var address common.Address
 				copy(address[:], k)
 
@@ -595,7 +596,50 @@ func (rs *StateV3) Unwind(ctx context.Context, tx kv.RwTx, txUnwindTo uint64, ag
 			}
 		}
 		return nil
-	}); err != nil {
+	}
+	stateChanges := etl.NewCollector("", "", etl.NewOldestEntryBuffer(etl.BufferOptimalSize))
+	defer stateChanges.Close()
+	var actx *libstate.AggregatorV3Context
+	switch ttx := tx.(type) {
+	case *temporal.Tx:
+		actx = ttx.AggCtx()
+	default:
+		actx = agg.MakeContext()
+	}
+	{
+		iter, err := actx.AccountHistoryRange(int(txUnwindTo), -1, order.Asc, -1, tx)
+		if err != nil {
+			return err
+		}
+		for iter.HasNext() {
+			k, v, err := iter.Next()
+			if err != nil {
+				return err
+			}
+			if err := stateChanges.Collect(k, v); err != nil {
+				return err
+			}
+		}
+	}
+	{
+		iter, err := actx.StorageHistoryRange(int(txUnwindTo), -1, order.Asc, -1, tx)
+		if err != nil {
+			return err
+		}
+		for iter.HasNext() {
+			k, v, err := iter.Next()
+			if err != nil {
+				return err
+			}
+			if err := stateChanges.Collect(k, v); err != nil {
+				return err
+			}
+		}
+	}
+	if err := stateChanges.Load(tx, kv.PlainState, handle, etl.TransformArgs{Quit: ctx.Done()}); err != nil {
+		return err
+	}
+	if err := agg.Unwind(ctx, txUnwindTo); err != nil {
 		return err
 	}
 	return nil
