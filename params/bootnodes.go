@@ -95,7 +95,7 @@ var SepoliaStaticPeers = []string{
 }
 
 var BscStaticPeers = []string{
-	// From https://api.binance.org/v1/discovery/peers
+	// From https://docs.bnbchain.org/docs/beaconchain/develop/api-reference/dex-api/paths-testnet#apiv1peers
 	"enode://c014bbf48209cdf8ca6d3bf3ff5cf2fade45104283dcfc079df6c64e0f4b65e4afe28040fa1731a0732bd9cbb90786cf78f0174b5de7bd5b303088e80d8e6a83@54.74.101.143:30311",
 	"enode://f3cd7b3c2f3fe8083c4b7f062e66cb048e32f4bd81c3abafda08c283d804121a90d3f27a680d10fd77d9d37c79affca8b3d24995b9be44a47849868f58bd8bfb@44.200.133.198:30311",
 	"enode://322a42a08959aefd3423d17d8aeb802e0dbfb8bb0096aa712b6bf3036c91a80b0abc45c7a3d1320eda9a9c0337dd028967e4b84357080c258c8d0a3aaa02a821@34.245.12.138:30311",

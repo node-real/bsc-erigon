@@ -48,7 +48,7 @@ var rootCmd = &cobra.Command{
 		}
 		// Apply special hacks for BSC params
 		if chainConfig.Parlia != nil {
-			params.ApplyBinanceSmartChainParams()
+			params.ApplyBNBSmartChainParams()
 		}
 
 		if chaindata == "" {

@@ -239,7 +239,7 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 
 	// Apply special hacks for BSC params
 	if chainConfig.Parlia != nil {
-		params.ApplyBinanceSmartChainParams()
+		params.ApplyBNBSmartChainParams()
 	}
 
 	if err := chainKv.Update(context.Background(), func(tx kv.RwTx) error {
@@ -1049,7 +1049,7 @@ func (s *Ethereum) Start() error {
 	s.sentriesClient.StartStreamLoops(s.sentryCtx)
 	time.Sleep(10 * time.Millisecond) // just to reduce logs order confusion
 
-	hook := stages2.NewHook(s.sentryCtx, s.notifications, s.stagedSync, s.chainConfig,  s.sentriesClient.UpdateHead)
+	hook := stages2.NewHook(s.sentryCtx, s.notifications, s.stagedSync, s.chainConfig, s.sentriesClient.UpdateHead)
 	go stages2.StageLoop(s.sentryCtx, s.chainDB, s.stagedSync, s.sentriesClient.Hd, s.waitForStageLoopStop, s.config.Sync.LoopThrottle, nil, hook)
 
 	return nil

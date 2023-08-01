@@ -209,7 +209,7 @@ func NewBackend(stack *node.Node, config *ethconfig.Config, logger log.Logger) (
 
 	// Apply special hacks for BSC params
 	if chainConfig.Parlia != nil {
-		params.ApplyBinanceSmartChainParams()
+		params.ApplyBNBSmartChainParams()
 	}
 
 	if err := chainKv.Update(context.Background(), func(tx kv.RwTx) error {

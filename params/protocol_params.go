@@ -194,6 +194,6 @@ var (
 	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 )
 
-func ApplyBinanceSmartChainParams() {
+func ApplyBNBSmartChainParams() {
 	GasLimitBoundDivisor = 256
 }

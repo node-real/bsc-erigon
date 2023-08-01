@@ -1294,7 +1294,7 @@ func newDomains(ctx context.Context, db kv.RwDB, stepSize uint64, mode libstate.
 
 	// Apply special hacks for BSC params
 	if chainConfig.Parlia != nil {
-		params.ApplyBinanceSmartChainParams()
+		params.ApplyBNBSmartChainParams()
 	}
 
 	var batchSize datasize.ByteSize
@@ -1334,7 +1334,7 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig)
 
 	// Apply special hacks for BSC params
 	if chainConfig.Parlia != nil {
-		params.ApplyBinanceSmartChainParams()
+		params.ApplyBNBSmartChainParams()
 	}
 
 	var batchSize datasize.ByteSize
