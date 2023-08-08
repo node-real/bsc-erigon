@@ -920,7 +920,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 	}
 	canonicalHash, err := rawdb.ReadCanonicalHash(db, blockHeight)
 	if err != nil {
-		log.Warn(fmt.Sprintf("[%s] Get canonicalHash err (IntermediateHashesAt)", hi.logPrefix, "err", err))
+		log.Warn(fmt.Sprintf("[%s] Get canonicalHash err (IntermediateHashesAt)", hi.logPrefix), "err", err)
 		return nil, err
 	}
 	if hash == canonicalHash && blockHeight <= hi.highest {
