@@ -302,6 +302,6 @@ replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
 	github.com/grpc-ecosystem/grpc-gateway/v2 => github.com/prysmaticlabs/grpc-gateway/v2 v2.3.1-0.20210702154020-550e1cd83ec1
 	github.com/ledgerwatch/erigon-lib => github.com/node-real/bsc-erigon-lib v1.0.2-0.20230724023158-8adca9da31b4
-	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230705034909-4eb1c8d660f8
+	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20230809061931-b65a98986532
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.15
 )
