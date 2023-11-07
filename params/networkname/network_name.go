@@ -14,6 +14,7 @@ const (
 	BorDevnetChainName  = "bor-devnet"
 	GnosisChainName     = "gnosis"
 	ChiadoChainName     = "chiado"
+	DefaultChainName    = "default"
 )
 
 var All = []string{

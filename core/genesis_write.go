@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"math/big"
 	"sync"
 
@@ -97,7 +98,7 @@ func WriteGenesisBlock(tx kv.RwTx, genesis *types.Genesis, overrideShanghaiTime 
 			config.ShanghaiTime = overrideShanghaiTime
 		}
 	}
-
+	systemcontracts.GenesisHash = storedHash
 	if (storedHash == libcommon.Hash{}) {
 		custom := true
 		if genesis == nil {

@@ -3,6 +3,7 @@ package systemcontracts
 import (
 	"encoding/hex"
 	"fmt"
+	"github.com/ledgerwatch/erigon/params"
 	"math/big"
 
 	"github.com/ledgerwatch/erigon-lib/chain"
@@ -29,6 +30,7 @@ type Upgrade struct {
 type upgradeHook func(blockNumber *big.Int, contractAddr libcommon.Address, statedb *state.IntraBlockState) error
 
 var (
+	GenesisHash libcommon.Hash
 	//upgrade config
 	RamanujanUpgrade = make(map[string]*Upgrade)
 
@@ -49,6 +51,8 @@ var (
 	LubanUpgrade = make(map[string]*Upgrade)
 
 	PlatoUpgrade = make(map[string]*Upgrade)
+
+	LatestUpgrade = PlatoUpgrade
 
 	CalcuttaUpgrade = make(map[string]*Upgrade)
 
@@ -723,56 +727,70 @@ func init() {
 		},
 	}
 
+	LatestUpgrade[networkname.DefaultChainName] = LatestUpgrade[networkname.RialtoChainName]
+
 }
 
 func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, statedb *state.IntraBlockState) {
 	if config == nil || blockNumber == nil || statedb == nil {
 		return
 	}
+	var network string
+	switch GenesisHash {
+	/* Add mainnet genesis hash */
+	case params.BSCGenesisHash:
+		network = networkname.BSCChainName
+	case params.ChapelGenesisHash:
+		network = networkname.ChapelChainName
+	case params.RialtoGenesisHash:
+		network = networkname.RialtoChainName
+	default:
+		network = networkname.DefaultChainName
+	}
 
-	logger := log.New("system-contract-upgrade", config.ChainName)
+	logger := log.New("system-contract-upgrade", network)
 	if config.IsOnRamanujan(blockNumber) {
-		applySystemContractUpgrade(RamanujanUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(RamanujanUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnNiels(blockNumber) {
-		applySystemContractUpgrade(NielsUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(NielsUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnMirrorSync(blockNumber) {
-		applySystemContractUpgrade(MirrorUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(MirrorUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnBruno(blockNumber) {
-		applySystemContractUpgrade(BrunoUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(BrunoUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnEuler(blockNumber) {
-		applySystemContractUpgrade(EulerUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(EulerUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnMoran(blockNumber) {
-		applySystemContractUpgrade(MoranUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(MoranUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnPlanck(blockNumber) {
-		applySystemContractUpgrade(PlanckUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(PlanckUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnGibbs(blockNumber) {
-		applySystemContractUpgrade(GibbsUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(GibbsUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.Bor != nil && config.Bor.IsOnCalcutta(blockNumber) {
-		applySystemContractUpgrade(CalcuttaUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(CalcuttaUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnLuban(blockNumber) {
-		applySystemContractUpgrade(LubanUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(LubanUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	if config.IsOnPlato(blockNumber) {
-		applySystemContractUpgrade(PlatoUpgrade[config.ChainName], blockNumber, statedb, logger)
+		applySystemContractUpgrade(PlatoUpgrade[network], blockNumber, statedb, logger)
 	}
 
 	/*
