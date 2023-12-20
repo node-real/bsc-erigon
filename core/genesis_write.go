@@ -38,7 +38,6 @@ import (
 	"github.com/ledgerwatch/erigon/consensus/serenity"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/state"
-	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
@@ -98,7 +97,6 @@ func WriteGenesisBlock(tx kv.RwTx, genesis *types.Genesis, overrideShanghaiTime 
 			config.ShanghaiTime = overrideShanghaiTime
 		}
 	}
-	systemcontracts.GenesisHash = storedHash
 	if (storedHash == libcommon.Hash{}) {
 		custom := true
 		if genesis == nil {
