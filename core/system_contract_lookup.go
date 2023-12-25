@@ -36,67 +36,73 @@ func init() {
 		if chainConfig.RamanujanBlock != nil {
 			blockNum := chainConfig.RamanujanBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.RamanujanUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.RamanujanUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.NielsBlock != nil {
 			blockNum := chainConfig.NielsBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.NielsUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.NielsUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.MirrorSyncBlock != nil {
 			blockNum := chainConfig.MirrorSyncBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.MirrorUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.MirrorUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.BrunoBlock != nil {
 			blockNum := chainConfig.BrunoBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.BrunoUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.BrunoUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.EulerBlock != nil {
 			blockNum := chainConfig.EulerBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.EulerUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.EulerUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.MoranBlock != nil {
 			blockNum := chainConfig.MoranBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.MoranUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.MoranUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.GibbsBlock != nil {
 			blockNum := chainConfig.GibbsBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.GibbsUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.GibbsUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.PlanckBlock != nil {
 			blockNum := chainConfig.PlanckBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.PlanckUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.PlanckUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.LubanBlock != nil {
 			blockNum := chainConfig.LubanBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.LubanUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.LubanUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 		if chainConfig.PlatoBlock != nil {
 			blockNum := chainConfig.PlatoBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.PlatoUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.PlatoUpgrade[chainName], blockNum, 0, byChain)
+			}
+		}
+		if chainConfig.KeplerTime != nil {
+			blockTime := chainConfig.KeplerTime.Uint64()
+			if blockTime != 0 {
+				addCodeRecords(systemcontracts.KeplerUpgrade[chainName], 0, blockTime, byChain)
 			}
 		}
 		if chainConfig.Bor != nil && chainConfig.Bor.CalcuttaBlock != nil {
 			blockNum := chainConfig.Bor.CalcuttaBlock.Uint64()
 			if blockNum != 0 {
-				addCodeRecords(systemcontracts.CalcuttaUpgrade[chainName], blockNum, byChain)
+				addCodeRecords(systemcontracts.CalcuttaUpgrade[chainName], blockNum, 0, byChain)
 			}
 		}
 	}
@@ -136,7 +142,7 @@ func addGnosisSpecialCase() {
 	byChain[address] = list
 }
 
-func addCodeRecords(upgrade *systemcontracts.Upgrade, blockNum uint64, byChain map[libcommon.Address][]libcommon.CodeRecord) {
+func addCodeRecords(upgrade *systemcontracts.Upgrade, blockNum uint64, blockTime uint64, byChain map[libcommon.Address][]libcommon.CodeRecord) {
 	for _, config := range upgrade.Configs {
 		list := byChain[config.ContractAddr]
 		code, err := hex.DecodeString(config.Code)
@@ -147,7 +153,11 @@ func addCodeRecords(upgrade *systemcontracts.Upgrade, blockNum uint64, byChain m
 		if err != nil {
 			panic(fmt.Errorf("failed to hash system contract code: %s", err.Error()))
 		}
-		list = append(list, libcommon.CodeRecord{BlockNumber: blockNum, CodeHash: codeHash})
+		if blockTime == 0 {
+			list = append(list, libcommon.CodeRecord{BlockNumber: blockNum, CodeHash: codeHash})
+		} else {
+			list = append(list, libcommon.CodeRecord{BlockTime: blockTime, CodeHash: codeHash})
+		}
 		byChain[config.ContractAddr] = list
 	}
 }

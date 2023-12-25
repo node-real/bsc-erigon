@@ -115,7 +115,8 @@ func CreateStateReaderFromBlockNumber(ctx context.Context, tx kv.Tx, blockNumber
 
 func CreateHistoryStateReader(tx kv.Tx, blockNumber uint64, txnIndex int, historyV3 bool, chainName string) (state.StateReader, error) {
 	if !historyV3 {
-		r := state.NewPlainState(tx, blockNumber, systemcontracts.SystemContractCodeLookup[chainName])
+		header := rawdb.ReadHeaderByNumber(tx, blockNumber)
+		r := state.NewPlainState(tx, blockNumber, header.Time, systemcontracts.SystemContractCodeLookup[chainName])
 		//r.SetTrace(true)
 		return r, nil
 	}

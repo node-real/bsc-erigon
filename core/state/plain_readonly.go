@@ -52,12 +52,13 @@ type PlainState struct {
 	accChangesC, storageChangesC kv.CursorDupSort
 	tx                           kv.Tx
 	blockNr                      uint64
+	blockTime                    uint64
 	storage                      map[libcommon.Address]*btree.BTree
 	trace                        bool
 	systemContractLookup         map[libcommon.Address][]libcommon.CodeRecord
 }
 
-func NewPlainState(tx kv.Tx, blockNr uint64, systemContractLookup map[libcommon.Address][]libcommon.CodeRecord) *PlainState {
+func NewPlainState(tx kv.Tx, blockNr uint64, blockTime uint64, systemContractLookup map[libcommon.Address][]libcommon.CodeRecord) *PlainState {
 	histV3, _ := kvcfg.HistoryV3.Enabled(tx)
 	if histV3 {
 		panic("Please use HistoryStateReaderV3 with HistoryV3")
@@ -65,6 +66,7 @@ func NewPlainState(tx kv.Tx, blockNr uint64, systemContractLookup map[libcommon.
 	ps := &PlainState{
 		tx:                   tx,
 		blockNr:              blockNr,
+		blockTime:            blockTime,
 		storage:              make(map[libcommon.Address]*btree.BTree),
 		systemContractLookup: systemContractLookup,
 	}
@@ -188,7 +190,7 @@ func (s *PlainState) ReadAccountData(address libcommon.Address) (*accounts.Accou
 		//restore codehash
 		if records, ok := s.systemContractLookup[address]; ok {
 			p := sort.Search(len(records), func(i int) bool {
-				return records[i].BlockNumber >= s.blockNr
+				return records[i].BlockNumber >= s.blockNr || records[i].BlockTime >= s.blockTime
 			})
 			a.CodeHash = records[p-1].CodeHash
 		} else if a.Incarnation > 0 && a.IsEmptyCodeHash() {

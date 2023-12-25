@@ -57,6 +57,7 @@ func New(db kv.RwDB, agg *state.AggregatorV3, cb1 tConvertV3toV2, cb2 tRestoreCo
 			var err error
 			for _, list := range systemContractLookup {
 				for i := range list {
+					// Need TO DO for timestamp HardFork.
 					list[i].TxNumber, err = rawdbv3.TxNums.Min(tx, list[i].BlockNumber)
 					if err != nil {
 						return err

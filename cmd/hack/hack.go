@@ -215,7 +215,7 @@ func readAccountAtVersion(chaindata string, account string, block uint64) error 
 	}
 	defer tx.Rollback()
 
-	ps := state.NewPlainState(tx, block, nil)
+	ps := state.NewPlainState(tx, block, 0, nil)
 
 	addr := libcommon.HexToAddress(account)
 	acc, err := ps.ReadAccountData(addr)
