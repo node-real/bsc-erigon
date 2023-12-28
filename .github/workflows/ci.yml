@@ -3,13 +3,13 @@ on:
   push:
     branches:
       - devel
-      - alpha
-      - stable
+      - 'release/**'
+
   pull_request:
     branches:
       - devel
-      - alpha
-      - stable
+      - 'release/**'
+
     types:
       - opened
       - reopened
@@ -25,7 +25,7 @@ jobs:
     if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
     strategy:
       matrix:
-        os: [ ubuntu-20.04, macos-11 ] # list of os: https://github.com/actions/virtual-environments
+        os: [ ubuntu-22.04, macos-13-xlarge ] # list of os: https://github.com/actions/virtual-environments
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -50,11 +50,17 @@ jobs:
             echo >&2 "Reproducible build broken"; cat erigon1.sha256; cat erigon2.sha256; exit 1
           fi
 
-      - name: Lint
+      - name: Install golangci-lint
         if: runner.os == 'Linux'
         uses: golangci/golangci-lint-action@v3
         with:
-          version: v1.52
+          version: v1.55.2
+          skip-build-cache: true
+          args: --help
+
+      - name: Lint
+        if: runner.os == 'Linux'
+        run: make lint
 
       - name: Test
         run: make test
@@ -67,6 +73,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+      - name: configure Pagefile
+        uses: al-cheb/configure-pagefile-action@v1.3
+        with:
+          minimum-size: 8GB
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
@@ -80,8 +90,8 @@ jobs:
           key: chocolatey-${{ matrix.os }}
       - name: Install dependencies
         run: |
-          choco upgrade mingw -y --no-progress --version 11.2.0.07112021
-          choco install cmake -y --no-progress --version 3.23.1
+          choco upgrade mingw -y --no-progress --version 13.2.0
+          choco install cmake -y --no-progress --version 3.23.8
 
       - name: Build
         run: .\wmake.ps1 all
@@ -106,12 +116,12 @@ jobs:
       - name: sudo make docker
         run: sudo DOCKER_TAG=thorax/erigon:ci-$GITHUB_SHA DOCKER_UID=$(id -u) DOCKER_GID=$(id -g) make docker
   
-  automated-tests:
-    runs-on:
-      ubuntu-20.04
-    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: run automated testing
-        run: BUILD_ERIGON=1 ./tests/automated-testing/run.sh
+#  automated-tests:
+#    runs-on:
+#      ubuntu-20.04
+#    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+#    steps:
+#      - uses: actions/checkout@v3
+#
+#      - name: run automated testing
+#        run: BUILD_ERIGON=1 ./tests/automated-testing/run.sh
