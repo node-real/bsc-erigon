@@ -193,7 +193,7 @@ Label "remote" means: `--private.api.addr` flag is required.
 The following table shows the current implementation status of Erigon's RPC daemon.
 
 | Command                                    | Avail   | Notes                                |
-| ------------------------------------------ |---------|--------------------------------------|
+|--------------------------------------------|---------|--------------------------------------|
 | admin_nodeInfo                             | Yes     |                                      |
 | admin_peers                                | Yes     |                                      |
 |                                            |         |                                      |
@@ -330,6 +330,24 @@ The following table shows the current implementation status of Erigon's RPC daem
 | bor_getCurrentProposer                     | Yes     | Bor only                             |
 | bor_getCurrentValidators                   | Yes     | Bor only                             |
 | bor_getRootHash                            | Yes     | Bor only                             |
+|                                            |         |                                      |
+| eth_etherbase                              | Yes     | Bsc only                             |
+| eth_fillTransaction                        | No      | Bsc only                             |
+| eth_getDiffAccounts                        | No      | Bsc only                             |
+| eth_getDiffAccountsWithScope               | No      | Bsc only                             |
+| eth_getFilterLogs                          | No      | Bsc only                             |
+| eth_getHeaderByHash                        | Yes     | Bsc only                             |
+| eth_getHeaderByNumber                      | Yes     | Bsc only                             |
+| eth_getHashrate                            | Yes     | Bsc only                             |
+| eth_getTransactionDataAndReceipt           | Yes     | Bsc only                             |
+| eth_getTransactionReceiptsByBlockNumber    | Yes     | Bsc only                             |
+| eth_getTransactionsByBlockNumber           | Yes     | Bsc only                             |
+| eth_getVerifyResult                        | No      | Bsc only                             |
+| eth_health                                 | Yes     | Bsc only                             |
+| eth_pendingTransactions                    | No      | Bsc only                             |
+| eth_resend                                 | No      | Bsc only                             |
+| eth_subscribeSyncStatus                    | Yes     | Bsc only                             |
+
 
 ### GraphQL
 
