@@ -54,6 +54,8 @@ var (
 
 	KeplerUpgrade = make(map[string]*Upgrade)
 
+	LatestUpgrade = KeplerUpgrade
+
 	CalcuttaUpgrade = make(map[string]*Upgrade)
 
 	// SystemContractCodeLookup is used to address a flaw in the upgrade logic of the system contracts. Since they are updated directly, without first being self-destructed
@@ -789,6 +791,8 @@ func init() {
 			},
 		},
 	}
+
+	LatestUpgrade[networkname.DefaultChainName] = LatestUpgrade[networkname.RialtoChainName]
 
 }
 
