@@ -220,7 +220,6 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 		genesisSpec := config.Genesis
 		if h != (libcommon.Hash{}) { // fallback to db content
 			chainConfig = genesisSpec.Config
-			systemcontracts.GenesisHash = h
 			genesis = rawdb.ReadBlock(tx, h, 0)
 		} else {
 			var genesisErr error

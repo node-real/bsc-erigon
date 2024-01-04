@@ -3,7 +3,6 @@ package systemcontracts
 import (
 	"encoding/hex"
 	"fmt"
-	"github.com/ledgerwatch/erigon/params"
 	"math/big"
 
 	"github.com/ledgerwatch/erigon-lib/chain"
@@ -30,7 +29,6 @@ type Upgrade struct {
 type upgradeHook func(blockNumber *big.Int, contractAddr libcommon.Address, statedb *state.IntraBlockState) error
 
 var (
-	GenesisHash libcommon.Hash
 	//upgrade config
 	RamanujanUpgrade = make(map[string]*Upgrade)
 
@@ -801,14 +799,11 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 		return
 	}
 	var network string
-	switch GenesisHash {
-	/* Add mainnet genesis hash */
-	case params.BSCGenesisHash:
+	switch config.ChainName {
+	case networkname.BSCChainName:
 		network = networkname.BSCChainName
-	case params.ChapelGenesisHash:
+	case networkname.ChapelChainName:
 		network = networkname.ChapelChainName
-	case params.RialtoGenesisHash:
-		network = networkname.RialtoChainName
 	default:
 		network = networkname.DefaultChainName
 	}
