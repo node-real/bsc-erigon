@@ -47,21 +47,6 @@ import (
 	"github.com/ledgerwatch/erigon/turbo/services"
 )
 
-// ReadGenesisStateSpec retrieves the genesis state specification based on the
-// given genesis (block-)hash.
-func ReadGenesisStateSpec(db kv.Getter, blockhash libcommon.Hash) ([]byte, error) {
-	data, err := db.GetOne(kv.IncarnationMap, genesisStateSpecKey(blockhash))
-	return data, err
-}
-
-// WriteGenesisStateSpec writes the genesis state specification (alloc) into the disk.
-func WriteGenesisStateSpec(db kv.Putter, blockhash libcommon.Hash, data []byte) error {
-	if err := db.Put(kv.IncarnationMap, genesisStateSpecKey(blockhash), data); err != nil {
-		return fmt.Errorf("failed to store genesis state spec: %w", err)
-	}
-	return nil
-}
-
 // ReadCanonicalHash retrieves the hash assigned to a canonical block number.
 func ReadCanonicalHash(db kv.Getter, number uint64) (libcommon.Hash, error) {
 	data, err := db.GetOne(kv.HeaderCanonical, hexutility.EncodeTs(number))

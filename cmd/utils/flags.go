@@ -18,7 +18,6 @@
 package utils
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
@@ -40,7 +39,6 @@ import (
 	common2 "github.com/ledgerwatch/erigon/common"
 	"github.com/ledgerwatch/erigon/consensus/ethash/ethashcfg"
 	"github.com/ledgerwatch/erigon/eth/gasprice/gaspricecfg"
-	"github.com/ledgerwatch/erigon/node"
 	"github.com/ledgerwatch/log/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -1571,29 +1569,14 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 		genesis := core.GenesisBlockByChainName(chain)
 		genesisHash := params.GenesisHashByChainName(chain)
 		if (genesis == nil) || (genesisHash == nil) { // custom genesis
-			chainKv, err := node.OpenDatabase(nodeConfig, kv.ChainDB)
-			if err != nil {
-				panic(err)
-			}
-			err = chainKv.View(context.Background(), func(tx kv.Tx) error {
-				genesis, err = core.ReadGenesis(tx)
-				return err
-			})
-
-			if err != nil {
-				panic(err)
-			}
-			chainKv.Close()
+			Fatalf("ChainDB name is not recognized: %s", chain)
+			return
 		}
 		cfg.Genesis = genesis
 		if !ctx.IsSet(NetworkIdFlag.Name) {
 			cfg.NetworkID = params.NetworkIDByChainName(chain)
 		}
-		if genesisHash != nil {
-			SetDNSDiscoveryDefaults(cfg, *genesisHash)
-		} else {
-			SetDNSDiscoveryDefaults(cfg, libcommon.Hash{})
-		}
+		SetDNSDiscoveryDefaults(cfg, *genesisHash)
 	case "":
 		if cfg.NetworkID == 1 {
 			SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
