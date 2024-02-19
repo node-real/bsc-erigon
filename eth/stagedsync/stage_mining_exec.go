@@ -102,8 +102,9 @@ func SpawnMiningExecStage(s *StageState, tx kv.RwTx, cfg MiningExecCfg, quit <-c
 	if cfg.chainConfig.DAOForkBlock != nil && cfg.chainConfig.DAOForkBlock.Cmp(current.Header.Number) == 0 {
 		misc.ApplyDAOHardFork(ibs)
 	}
-	systemcontracts.UpgradeBuildInSystemContract(&cfg.chainConfig, current.Header.Number, current.Header.Time, current.Header.Time, ibs)
-
+	if !cfg.chainConfig.IsFeynman(current.Header.Number.Uint64(), current.Header.Time) {
+		systemcontracts.UpgradeBuildInSystemContract(&cfg.chainConfig, current.Header.Number, current.Header.Time, current.Header.Time, ibs)
+	}
 	// Create an empty block based on temporary copied state for
 	// sealing in advance without waiting block execution finished.
 	if !noempty {

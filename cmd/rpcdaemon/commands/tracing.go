@@ -649,7 +649,9 @@ func (api *PrivateDebugAPIImpl) runBlockDiff(dbtx kv.Tx, engine consensus.Engine
 	if chainConfig.DAOForkBlock != nil && chainConfig.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(ibs)
 	}
-	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, parent.Time, header.Time, ibs)
+	if !chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+		systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, parent.Time, header.Time, ibs)
+	}
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	posa, okPosa := engine.(consensus.PoSA)
 	//balanceDiff, balanceResult := *ibs.GetBalance(consensus.SystemAddress), new(uint256.Int)

@@ -158,7 +158,9 @@ func (rw *Worker) RunTxTaskNoLock(txTask *exec22.TxTask) {
 		// Block initialisation
 		//fmt.Printf("txNum=%d, blockNum=%d, initialisation of the block\n", txTask.TxNum, txTask.BlockNum)
 		if rw.isPoSA {
-			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, parent.Time, header.Time, ibs)
+			if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, parent.Time, header.Time, ibs)
+			}
 		}
 		syscall := func(contract libcommon.Address, data []byte) ([]byte, error) {
 			return core.SysCallContract(contract, data, *rw.chainConfig, ibs, header, rw.engine, false /* constCall */, nil /*excessDataGas*/)

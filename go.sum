@@ -227,13 +227,15 @@ github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edY
 github.com/bits-and-blooms/bitset v1.2.2 h1:J5gbX05GpMdBjCvQ9MteIg2KKDExr7DrgK+Yc15FvIk=
 github.com/bits-and-blooms/bitset v1.2.2/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
+github.com/blxdyx/bsc-erigon-lib v0.0.0-20240219090225-fef53b05fc7d h1:u8PQbOC4yewQa4rYKhk1NKf+xR7DuJVGaIRV+Y1v2NY=
+github.com/blxdyx/bsc-erigon-lib v0.0.0-20240219090225-fef53b05fc7d/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
 github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
 github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2 h1:jubavYCs/mCFj/g6Utl+l4SfpykdBdWJFPsvb9FcEXU=
 github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2/go.mod h1:9q11eHNRY9FDwFH+4pompzPNGv//Z3VcfvkELaHJPMs=
 github.com/bnb-chain/ics23 v0.1.0 h1:DvjGOts2FBfbxB48384CYD1LbcrfjThFz8kowY/7KxU=
 github.com/bnb-chain/ics23 v0.1.0/go.mod h1:cU6lTGolbbLFsGCgceNB2AzplH1xecLp6+KXvxM32nI=
-github.com/bnb-chain/tendermint v0.31.15 h1:Xyn/Hifb/7X4E1zSuMdnZdMSoM2Fx6cZuKCNnqIxbNU=
-github.com/bnb-chain/tendermint v0.31.15/go.mod h1:cmt8HHmQUSVaWQ/hoTefRxsh5X3ERaM1zCUIR0DPbFU=
+github.com/bnb-chain/tendermint v0.31.16 h1:rOO6WG61JDAuRCCL8TKnGhorJftQDVygq0mqR7A0ck4=
+github.com/bnb-chain/tendermint v0.31.16/go.mod h1:cmt8HHmQUSVaWQ/hoTefRxsh5X3ERaM1zCUIR0DPbFU=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBTaaSFSlLx/70C2HPIMNZpVV8+vt/A+FMnYP11g=
 github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d/go.mod h1:PmM6Mmwb0LSuEubjR8N7PtNe1KxZLtOUHtbeikc5h60=
@@ -1220,8 +1222,6 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/neelance/astrewrite v0.0.0-20160511093645-99348263ae86/go.mod h1:kHJEU3ofeGjhHklVoIGuVj85JJwZ6kWPaJwCIxgnFmo=
 github.com/neelance/sourcemap v0.0.0-20151028013722-8c68805598ab/go.mod h1:Qr6/a/Q4r9LP1IltGz7tA7iOK1WonHEYhu1HRBA7ZiM=
 github.com/nishanths/predeclared v0.0.0-20200524104333-86fad755b4d3/go.mod h1:nt3d53pc1VYcphSCIaYAJtnPYnr3Zyn8fMq2wvPGPso=
-github.com/node-real/bsc-erigon-lib v1.0.2-0.20240130122525-9eaa5c899416 h1:Ak8VviVtbcbdoDC+PUTgmlccCenmhMBsZTFxVtEoszY=
-github.com/node-real/bsc-erigon-lib v1.0.2-0.20240130122525-9eaa5c899416/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
 github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64 h1:GGpuAFOQpd+9wNThgSYa4zC2LAI4dLMiMa5nu/hAPhg=
 github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=

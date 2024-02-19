@@ -148,7 +148,7 @@ var DefaultFlags = []cli.Flag{
 	&utils.WithoutHeimdallFlag,
 	&utils.HeimdallgRPCAddressFlag,
 	&utils.EthStatsURLFlag,
-	&utils.OverrideShanghaiTime,
+	&utils.OverrideFeynmanTime,
 
 	&utils.ConfigFlag,
 	&logging.LogConsoleVerbosityFlag,

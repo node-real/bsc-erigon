@@ -108,7 +108,9 @@ func ExecuteBlockEphemerallyForBSC(
 	if chainConfig.DAOForkBlock != nil && chainConfig.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(ibs)
 	}
-	systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, parent.Time, header.Time, ibs)
+	if !chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+		systemcontracts.UpgradeBuildInSystemContract(chainConfig, header.Number, parent.Time, header.Time, ibs)
+	}
 	noop := state.NewNoopWriter()
 	posa, isPoSA := engine.(consensus.PoSA)
 	//fmt.Printf("====txs processing start: %d====\n", block.NumberU64())
