@@ -137,7 +137,8 @@ func (p *Parlia) getValidatorElectionInfo(header *types.Header, ibs *state.Intra
 	}
 	msgData := (hexutil.Bytes)(data)
 
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibs, header, u256.Num0)
+	ibsWithoutCache := state.New(ibs.StateReader)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +177,8 @@ func (p *Parlia) getMaxElectedValidators(header *types.Header, ibs *state.IntraB
 	}
 	msgData := (hexutil.Bytes)(data)
 
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibs, header, u256.Num0)
+	ibsWithoutCache := state.New(ibs.StateReader)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
