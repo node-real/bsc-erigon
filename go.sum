@@ -227,8 +227,6 @@ github.com/bits-and-blooms/bitset v1.2.0/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edY
 github.com/bits-and-blooms/bitset v1.2.2 h1:J5gbX05GpMdBjCvQ9MteIg2KKDExr7DrgK+Yc15FvIk=
 github.com/bits-and-blooms/bitset v1.2.2/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
-github.com/blxdyx/bsc-erigon-lib v0.0.0-20240219090225-fef53b05fc7d h1:u8PQbOC4yewQa4rYKhk1NKf+xR7DuJVGaIRV+Y1v2NY=
-github.com/blxdyx/bsc-erigon-lib v0.0.0-20240219090225-fef53b05fc7d/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
 github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40/go.mod h1:8rLXio+WjiTceGBHIoTvn60HIbs7Hm7bcHjyrSqYB9c=
 github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2 h1:jubavYCs/mCFj/g6Utl+l4SfpykdBdWJFPsvb9FcEXU=
 github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2/go.mod h1:9q11eHNRY9FDwFH+4pompzPNGv//Z3VcfvkELaHJPMs=
@@ -1222,6 +1220,8 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/neelance/astrewrite v0.0.0-20160511093645-99348263ae86/go.mod h1:kHJEU3ofeGjhHklVoIGuVj85JJwZ6kWPaJwCIxgnFmo=
 github.com/neelance/sourcemap v0.0.0-20151028013722-8c68805598ab/go.mod h1:Qr6/a/Q4r9LP1IltGz7tA7iOK1WonHEYhu1HRBA7ZiM=
 github.com/nishanths/predeclared v0.0.0-20200524104333-86fad755b4d3/go.mod h1:nt3d53pc1VYcphSCIaYAJtnPYnr3Zyn8fMq2wvPGPso=
+github.com/node-real/bsc-erigon-lib v1.0.2-0.20240301070046-60304527e4c5 h1:TvSINfSF69yBv1gvcfAd1TAMjL4TkwBBw9HOdIryw8s=
+github.com/node-real/bsc-erigon-lib v1.0.2-0.20240301070046-60304527e4c5/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
 github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64 h1:GGpuAFOQpd+9wNThgSYa4zC2LAI4dLMiMa5nu/hAPhg=
 github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
