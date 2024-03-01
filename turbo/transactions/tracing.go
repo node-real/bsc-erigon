@@ -79,7 +79,8 @@ func ComputeTxEnv(ctx context.Context, engine consensus.EngineReader, block *typ
 	consensusHeaderReader := stagedsync.NewChainReaderImpl(cfg, dbtx, nil, nil)
 
 	logger := log.New("tracing")
-	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, header, cfg, statedb, logger)
+	parent := getHeader(header.ParentHash, header.Number.Uint64()-1)
+	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, header, parent, cfg, statedb, logger)
 	if err != nil {
 		return nil, evmtypes.BlockContext{}, evmtypes.TxContext{}, nil, nil, err
 	}

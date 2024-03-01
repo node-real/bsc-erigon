@@ -947,10 +947,6 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 // Initialize runs any pre-transaction state modifications (e.g. epoch start)
 func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, header *types.Header,
 	state *state.IntraBlockState, syscall consensus.SysCallCustom, logger log.Logger) {
-	if chain != nil {
-		ph := chain.GetHeaderByHash(header.ParentHash)
-		systemcontracts.UpgradeBuildInSystemContract(config, header.Number, ph.Time, header.Time, state, logger)
-	}
 }
 
 func (p *Parlia) splitTxs(txs types.Transactions, header *types.Header) (userTxs types.Transactions, systemTxs types.Transactions, err error) {

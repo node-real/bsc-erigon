@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/holiman/uint256"
 	"github.com/ledgerwatch/erigon-lib/common/hexutil"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"math/big"
 	"time"
 
@@ -103,7 +104,8 @@ func ExecuteBlockEphemerallyForBSC(
 		receipts    types.Receipts
 	)
 
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), chainConfig, ibs, logger); err != nil {
+	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger); err != nil {
 		return nil, err
 	}
 
@@ -249,7 +251,8 @@ func ExecuteBlockEphemerally(
 	gp := new(GasPool)
 	gp.AddGas(block.GasLimit()).AddBlobGas(chainConfig.GetMaxBlobGasPerBlock())
 
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), chainConfig, ibs, logger); err != nil {
+	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger); err != nil {
 		return nil, err
 	}
 
@@ -493,12 +496,14 @@ func FinalizeBlockExecution(
 	return newBlock, newTxs, newReceipt, nil
 }
 
-func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header *types.Header,
+func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header, parent *types.Header,
 	cc *chain.Config, ibs *state.IntraBlockState, logger log.Logger,
 ) error {
 	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
 	}, logger)
+	systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
+
 	noop := state.NewNoopWriter()
 	ibs.FinalizeTx(cc.Rules(header.Number.Uint64(), header.Time), noop)
 	return nil

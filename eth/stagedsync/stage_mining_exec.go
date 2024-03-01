@@ -89,7 +89,8 @@ func SpawnMiningExecStage(s *StageState, tx kv.RwTx, cfg MiningExecCfg, quit <-c
 	stateWriter := state.NewPlainStateWriter(tx, tx, current.Header.Number.Uint64())
 
 	chainReader := ChainReader{Cfg: cfg.chainConfig, Db: tx, BlockReader: cfg.blockReader, Logger: logger}
-	core.InitializeBlockExecution(cfg.engine, chainReader, current.Header, &cfg.chainConfig, ibs, logger)
+	parent := chainReader.GetHeader(current.Header.ParentHash, current.Header.Number.Uint64()-1)
+	core.InitializeBlockExecution(cfg.engine, chainReader, current.Header, parent, &cfg.chainConfig, ibs, logger)
 
 	// Create an empty block based on temporary copied state for
 	// sealing in advance without waiting block execution finished.

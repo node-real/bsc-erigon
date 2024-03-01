@@ -2,6 +2,7 @@ package exec3
 
 import (
 	"context"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"math/big"
 	"sync"
 
@@ -158,6 +159,8 @@ func (rw *Worker) RunTxTaskNoLock(txTask *exec22.TxTask) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, constCall /* constCall */)
 		}
 		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, logger)
+		parent := rw.chain.GetHeaderByHash(header.ParentHash)
+		systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, parent.Time, header.Time, ibs, logger)
 		txTask.Error = ibs.FinalizeTx(rules, noop)
 	case txTask.Final:
 		if txTask.BlockNum == 0 {

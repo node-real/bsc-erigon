@@ -931,7 +931,11 @@ func (api *TraceAPIImpl) callManyTransactions(
 	engine := api.engine()
 	consensusHeaderReader := stagedsync.NewChainReaderImpl(cfg, dbtx, nil, nil)
 	logger := log.New("trace_filtering")
-	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), cfg, initialState, logger)
+	parent, err := api._blockReader.HeaderByHash(ctx, dbtx, block.ParentHash())
+	if err != nil {
+		return nil, nil, err
+	}
+	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), parent, cfg, initialState, logger)
 	if err != nil {
 		return nil, nil, err
 	}
