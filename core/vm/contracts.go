@@ -17,9 +17,13 @@
 package vm
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"github.com/ledgerwatch/erigon/core/types"
+	"github.com/ledgerwatch/erigon/rlp"
+	"github.com/ledgerwatch/secp256k1"
 	"github.com/prysmaticlabs/prysm/v4/crypto/bls"
 	"math/big"
 
@@ -244,7 +248,27 @@ var PrecompiledContractsHertz = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidateHertz{},
 }
 
+var PrecompiledContractsFeynman = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{1}): &ecrecover{},
+	libcommon.BytesToAddress([]byte{2}): &sha256hash{},
+	libcommon.BytesToAddress([]byte{3}): &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{4}): &dataCopy{},
+	libcommon.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{9}): &blake2F{},
+
+	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
+	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlato{},
+	libcommon.BytesToAddress([]byte{102}): &blsSignatureVerify{},
+	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidateHertz{},
+	libcommon.BytesToAddress([]byte{104}): &verifyDoubleSignEvidence{},
+	libcommon.BytesToAddress([]byte{105}): &secp256k1SignatureRecover{},
+}
+
 var (
+	PrecompiledAddressesFeynman        []libcommon.Address
 	PrecompiledAddressesHertz          []libcommon.Address
 	PrecompiledAddressesPlato          []libcommon.Address
 	PrecompiledAddressesLuban          []libcommon.Address
@@ -299,11 +323,17 @@ func init() {
 	for k := range PrecompiledContractsHertz {
 		PrecompiledAddressesHertz = append(PrecompiledAddressesHertz, k)
 	}
+
+	for k := range PrecompiledContractsFeynman {
+		PrecompiledAddressesFeynman = append(PrecompiledAddressesFeynman, k)
+	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules *chain.Rules) []libcommon.Address {
 	switch {
+	case rules.IsFeynman:
+		return PrecompiledAddressesFeynman
 	case rules.IsHertz:
 		return PrecompiledAddressesHertz
 	case rules.IsPlato:
@@ -1331,4 +1361,96 @@ func (c *blsSignatureVerify) Run(input []byte) ([]byte, error) {
 	}
 
 	return big1.Bytes(), nil
+}
+
+// verifyDoubleSignEvidence implements bsc header verification precompile.
+type verifyDoubleSignEvidence struct{}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *verifyDoubleSignEvidence) RequiredGas(input []byte) uint64 {
+	return params.DoubleSignEvidenceVerifyGas
+}
+
+type DoubleSignEvidence struct {
+	ChainId      *big.Int
+	HeaderBytes1 []byte
+	HeaderBytes2 []byte
+}
+
+const (
+	extraSeal = 65
+)
+
+var (
+	errInvalidEvidence = errors.New("invalid double sign evidence")
+)
+
+// Run input: rlp encoded DoubleSignEvidence
+// return:
+// signer address| evidence height|
+// 20 bytes      | 32 bytes       |
+func (c *verifyDoubleSignEvidence) Run(input []byte) ([]byte, error) {
+	evidence := &DoubleSignEvidence{}
+	err := rlp.DecodeBytes(input, evidence)
+	if err != nil {
+		return nil, ErrExecutionReverted
+	}
+
+	header1 := &types.Header{}
+	err = rlp.DecodeBytes(evidence.HeaderBytes1, header1)
+	if err != nil {
+		return nil, ErrExecutionReverted
+	}
+
+	header2 := &types.Header{}
+	err = rlp.DecodeBytes(evidence.HeaderBytes2, header2)
+	if err != nil {
+		return nil, ErrExecutionReverted
+	}
+
+	// basic check
+	if len(header1.Number.Bytes()) > 32 || len(header2.Number.Bytes()) > 32 { // block number should be less than 2^256
+		return nil, errInvalidEvidence
+	}
+	if header1.Number.Cmp(header2.Number) != 0 {
+		return nil, errInvalidEvidence
+	}
+	if header1.ParentHash != header2.ParentHash {
+		return nil, errInvalidEvidence
+	}
+
+	if len(header1.Extra) < extraSeal || len(header2.Extra) < extraSeal {
+		return nil, errInvalidEvidence
+	}
+	sig1 := header1.Extra[len(header1.Extra)-extraSeal:]
+	sig2 := header2.Extra[len(header2.Extra)-extraSeal:]
+	if bytes.Equal(sig1, sig2) {
+		return nil, errInvalidEvidence
+	}
+
+	// check sig
+	msgHash1 := types.SealHash(header1, evidence.ChainId)
+	msgHash2 := types.SealHash(header2, evidence.ChainId)
+	if bytes.Equal(msgHash1.Bytes(), msgHash2.Bytes()) {
+		return nil, errInvalidEvidence
+	}
+	pubkey1, err := secp256k1.RecoverPubkey(msgHash1.Bytes(), sig1)
+	if err != nil {
+		return nil, ErrExecutionReverted
+	}
+	pubkey2, err := secp256k1.RecoverPubkey(msgHash2.Bytes(), sig2)
+	if err != nil {
+		return nil, ErrExecutionReverted
+	}
+	if !bytes.Equal(pubkey1, pubkey2) {
+		return nil, errInvalidEvidence
+	}
+
+	returnBz := make([]byte, 52) // 20 + 32
+	signerAddr := crypto.Keccak256(pubkey1[1:])[12:]
+	evidenceHeightBz := header1.Number.Bytes()
+	copy(returnBz[:20], signerAddr)
+	copy(returnBz[52-len(evidenceHeightBz):], evidenceHeightBz)
+
+	return returnBz, nil
 }

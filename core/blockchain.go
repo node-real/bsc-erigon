@@ -502,7 +502,9 @@ func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHead
 	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
 	}, logger)
-	systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
+	if !cc.IsFeynman(header.Number.Uint64(), header.Time) {
+		systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
+	}
 
 	noop := state.NewNoopWriter()
 	ibs.FinalizeTx(cc.Rules(header.Number.Uint64(), header.Time), noop)

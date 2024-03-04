@@ -27,6 +27,7 @@
   "hertzfixBlock":35682300,
   "shanghaiTime":1702972800,
   "keplerTime": 1702972800,
+  "feynmanTime": 1710136800,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
