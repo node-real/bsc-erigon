@@ -1040,7 +1040,7 @@ func (hi *HeaderInserter) BestHeaderChanged() bool {
 func (hd *HeaderDownload) ProcessHeader(sh ChainSegmentHeader, newBlock bool, peerID [64]byte) bool {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
-	log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
+	//log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
 	if sh.Number > hd.stats.RespMaxBlock {
 		hd.stats.RespMaxBlock = sh.Number
 	}
