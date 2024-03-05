@@ -1046,7 +1046,7 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
 			var tx types.Transaction
 			var receipt *types.Receipt
-			if systemTxs, tx, receipt, err = p.updateValidatorSetV2(chain, state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
+			if systemTxs, tx, receipt, err = p.updateValidatorSetV2(chain, state, header, txs, systemTxs, &header.GasUsed, false); err != nil {
 				return nil, nil, err
 			}
 			txs = append(txs, tx)

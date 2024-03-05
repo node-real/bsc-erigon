@@ -3,8 +3,8 @@ package parlia
 import (
 	"container/heap"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon/common/u256"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/core/state"
@@ -95,7 +95,7 @@ func (h *ValidatorHeap) Pop() interface{} {
 }
 
 func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
-	txs types.Transactions, receipts types.Receipts, systemTxs types.Transactions, usedGas *uint64, mining bool,
+	txs types.Transactions, systemTxs types.Transactions, usedGas *uint64, mining bool,
 ) (types.Transactions, types.Transaction, *types.Receipt, error) {
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
@@ -132,7 +132,7 @@ func (p *Parlia) getValidatorElectionInfo(header *types.Header, ibs *state.Intra
 		log.Error("Unable to pack tx for getValidatorElectionInfo", "error", err)
 		return nil, err
 	}
-	msgData := (hexutil.Bytes)(data)
+	msgData := (hexutility.Bytes)(data)
 
 	ibsWithoutCache := state.New(ibs.StateReader)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)
@@ -172,7 +172,7 @@ func (p *Parlia) getMaxElectedValidators(header *types.Header, ibs *state.IntraB
 		log.Error("Unable to pack tx for maxElectedValidators", "error", err)
 		return nil, err
 	}
-	msgData := (hexutil.Bytes)(data)
+	msgData := (hexutility.Bytes)(data)
 
 	ibsWithoutCache := state.New(ibs.StateReader)
 	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)

@@ -943,7 +943,6 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 		network = networkname.DefaultChainName
 	}
 
-	logger := log.New("system-contract-upgrade", network)
 	if config.IsOnRamanujan(blockNumber) {
 		applySystemContractUpgrade(RamanujanUpgrade[network], blockNumber, statedb, logger)
 	}
