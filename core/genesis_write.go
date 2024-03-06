@@ -65,13 +65,13 @@ func CommitGenesisBlock(db kv.RwDB, genesis *types.Genesis, tmpDir string) (*cha
 	return CommitGenesisBlockWithOverride(db, genesis, nil, tmpDir)
 }
 
-func CommitGenesisBlockWithOverride(db kv.RwDB, genesis *types.Genesis, overrideShanghaiTime *big.Int, tmpDir string) (*chain.Config, *types.Block, error) {
+func CommitGenesisBlockWithOverride(db kv.RwDB, genesis *types.Genesis, overrideFeynmanTime *big.Int, tmpDir string) (*chain.Config, *types.Block, error) {
 	tx, err := db.BeginRw(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
 	defer tx.Rollback()
-	c, b, err := WriteGenesisBlock(tx, genesis, overrideShanghaiTime, tmpDir)
+	c, b, err := WriteGenesisBlock(tx, genesis, overrideFeynmanTime, tmpDir)
 	if err != nil {
 		return c, b, err
 	}
@@ -82,7 +82,7 @@ func CommitGenesisBlockWithOverride(db kv.RwDB, genesis *types.Genesis, override
 	return c, b, nil
 }
 
-func WriteGenesisBlock(tx kv.RwTx, genesis *types.Genesis, overrideShanghaiTime *big.Int, tmpDir string) (*chain.Config, *types.Block, error) {
+func WriteGenesisBlock(tx kv.RwTx, genesis *types.Genesis, overrideFeynmanTime *big.Int, tmpDir string) (*chain.Config, *types.Block, error) {
 	if genesis != nil && genesis.Config == nil {
 		return params.AllProtocolChanges, nil, types.ErrGenesisNoConfig
 	}
@@ -93,8 +93,8 @@ func WriteGenesisBlock(tx kv.RwTx, genesis *types.Genesis, overrideShanghaiTime 
 	}
 
 	applyOverrides := func(config *chain.Config) {
-		if overrideShanghaiTime != nil {
-			config.ShanghaiTime = overrideShanghaiTime
+		if overrideFeynmanTime != nil {
+			config.FeynmanTime = overrideFeynmanTime
 		}
 	}
 	if (storedHash == libcommon.Hash{}) {

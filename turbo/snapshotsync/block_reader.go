@@ -569,7 +569,7 @@ func (back *BlockReaderWithSnapshots) txnByID(txnID uint64, sn *TxnSegment, buf 
 	return
 }
 
-func (back *BlockReaderWithSnapshots) txnByHash(txnHash libcommon.Hash, segments []*TxnSegment, buf []byte) (txn types.Transaction, blockNum, txnID uint64, err error) {
+func (back *BlockReaderWithSnapshots) txnByHash(txnHash libcommon.Hash, segments []*TxnSegment, buf []byte) (types.Transaction, uint64, bool, error) {
 	for i := len(segments) - 1; i >= 0; i-- {
 		sn := segments[i]
 		if sn.IdxTxnHash == nil || sn.IdxTxnHash2BlockNum == nil {
@@ -589,22 +589,22 @@ func (back *BlockReaderWithSnapshots) txnByHash(txnHash libcommon.Hash, segments
 		senderByte, txnRlp := buf[1:1+20], buf[1+20:]
 		sender := *(*libcommon.Address)(senderByte)
 
-		txn, err = types.DecodeTransaction(rlp.NewStream(bytes.NewReader(txnRlp), uint64(len(txnRlp))))
+		txn, err := types.DecodeTransaction(rlp.NewStream(bytes.NewReader(txnRlp), uint64(len(txnRlp))))
 		if err != nil {
-			return
+			return nil, 0, false, err
 		}
 
 		txn.SetSender(sender) // see: https://tip.golang.org/ref/spec#Conversions_from_slice_to_array_pointer
 
 		reader2 := recsplit.NewIndexReader(sn.IdxTxnHash2BlockNum)
-		blockNum = reader2.Lookup(txnHash[:])
+		blockNum := reader2.Lookup(txnHash[:])
 
 		// final txnHash check  - completely avoid false-positives
 		if txn.Hash() == txnHash {
-			return
+			return txn, blockNum, true, nil
 		}
 	}
-	return
+	return nil, 0, false, nil
 }
 
 // TxnByIdxInBlock - doesn't include system-transactions in the begin/end of block

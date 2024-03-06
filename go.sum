@@ -232,8 +232,8 @@ github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2 h1
 github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2/go.mod h1:9q11eHNRY9FDwFH+4pompzPNGv//Z3VcfvkELaHJPMs=
 github.com/bnb-chain/ics23 v0.1.0 h1:DvjGOts2FBfbxB48384CYD1LbcrfjThFz8kowY/7KxU=
 github.com/bnb-chain/ics23 v0.1.0/go.mod h1:cU6lTGolbbLFsGCgceNB2AzplH1xecLp6+KXvxM32nI=
-github.com/bnb-chain/tendermint v0.31.15 h1:Xyn/Hifb/7X4E1zSuMdnZdMSoM2Fx6cZuKCNnqIxbNU=
-github.com/bnb-chain/tendermint v0.31.15/go.mod h1:cmt8HHmQUSVaWQ/hoTefRxsh5X3ERaM1zCUIR0DPbFU=
+github.com/bnb-chain/tendermint v0.31.16 h1:rOO6WG61JDAuRCCL8TKnGhorJftQDVygq0mqR7A0ck4=
+github.com/bnb-chain/tendermint v0.31.16/go.mod h1:cmt8HHmQUSVaWQ/hoTefRxsh5X3ERaM1zCUIR0DPbFU=
 github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/bradfitz/go-smtpd v0.0.0-20170404230938-deb6d6237625/go.mod h1:HYsPBTaaSFSlLx/70C2HPIMNZpVV8+vt/A+FMnYP11g=
 github.com/bradfitz/gomemcache v0.0.0-20170208213004-1952afaa557d/go.mod h1:PmM6Mmwb0LSuEubjR8N7PtNe1KxZLtOUHtbeikc5h60=
@@ -1220,10 +1220,10 @@ github.com/nats-io/nuid v1.0.1/go.mod h1:19wcPz3Ph3q0Jbyiqsd0kePYG7A95tJPxeL+1OS
 github.com/neelance/astrewrite v0.0.0-20160511093645-99348263ae86/go.mod h1:kHJEU3ofeGjhHklVoIGuVj85JJwZ6kWPaJwCIxgnFmo=
 github.com/neelance/sourcemap v0.0.0-20151028013722-8c68805598ab/go.mod h1:Qr6/a/Q4r9LP1IltGz7tA7iOK1WonHEYhu1HRBA7ZiM=
 github.com/nishanths/predeclared v0.0.0-20200524104333-86fad755b4d3/go.mod h1:nt3d53pc1VYcphSCIaYAJtnPYnr3Zyn8fMq2wvPGPso=
-github.com/node-real/bsc-erigon-lib v1.0.2-0.20240130122525-9eaa5c899416 h1:Ak8VviVtbcbdoDC+PUTgmlccCenmhMBsZTFxVtEoszY=
-github.com/node-real/bsc-erigon-lib v1.0.2-0.20240130122525-9eaa5c899416/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64 h1:GGpuAFOQpd+9wNThgSYa4zC2LAI4dLMiMa5nu/hAPhg=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240115024543-30e2c549ee64/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
+github.com/node-real/bsc-erigon-lib v1.0.2-0.20240301070046-60304527e4c5 h1:TvSINfSF69yBv1gvcfAd1TAMjL4TkwBBw9HOdIryw8s=
+github.com/node-real/bsc-erigon-lib v1.0.2-0.20240301070046-60304527e4c5/go.mod h1:VfsdM52udAY3ghsNxdJcIVQJDEqE5eVBkFfYQkNHnO4=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240304022943-7a97dd2756bc h1:DrD2z40klN63lTACQyl77aa7YK6E7tHadSO66gTnQ5M=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240304022943-7a97dd2756bc/go.mod h1:3AuPxZc85jkehh/HA9h8gabv5MSi3kb/ddtzBsTVJFo=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/nxadm/tail v1.4.9-0.20211216163028-4472660a31a6 h1:iZ5rEHU561k2tdi/atkIsrP5/3AX3BjyhYtC96nJ260=

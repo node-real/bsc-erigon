@@ -105,9 +105,9 @@ var (
 		Name:  "whitelist",
 		Usage: "Comma separated block number-to-hash mappings to enforce (<number>=<hash>)",
 	}
-	OverrideShanghaiTime = flags.BigFlag{
-		Name:  "override.shanghaiTime",
-		Usage: "Manually specify Shanghai fork time, overriding the bundled setting",
+	OverrideFeynmanTime = flags.BigFlag{
+		Name:  "override.feynman",
+		Usage: "Manually specify the Feynman fork timestamp, overriding the bundled setting",
 	}
 	// Ethash settings
 	EthashCachesInMemoryFlag = cli.IntFlag{
@@ -1601,9 +1601,9 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 		}
 	}
 
-	if ctx.IsSet(OverrideShanghaiTime.Name) {
-		cfg.OverrideShanghaiTime = flags.GlobalBig(ctx, OverrideShanghaiTime.Name)
-		cfg.TxPool.OverrideShanghaiTime = cfg.OverrideShanghaiTime
+	if ctx.IsSet(OverrideFeynmanTime.Name) {
+		cfg.OverrideFeynmanTime = flags.GlobalBig(ctx, OverrideFeynmanTime.Name)
+		cfg.TxPool.OverrideFeynmanTime = cfg.OverrideFeynmanTime
 	}
 
 	if ctx.IsSet(InternalConsensusFlag.Name) && clparams.EmbeddedEnabledByDefault(cfg.NetworkID) {

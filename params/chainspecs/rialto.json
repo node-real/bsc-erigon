@@ -29,6 +29,7 @@
   "hertzfixBlock":8,
   "shanghaiTime": 0,
   "keplerTime": 0,
+  "feynmanTime": 0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,

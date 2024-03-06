@@ -249,7 +249,8 @@ type Config struct {
 	SentinelAddr                string
 	SentinelPort                uint64
 
-	OverrideShanghaiTime *big.Int `toml:",omitempty"`
+	// OverrideFeynman (TODO: remove after the fork)
+	OverrideFeynmanTime *big.Int `toml:",omitempty"`
 
 	DropUselessPeers bool
 

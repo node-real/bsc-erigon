@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"sort"
 	"strings"
@@ -89,6 +88,11 @@ var (
 		systemcontracts.TokenHubContract:           {},
 		systemcontracts.RelayerIncentivizeContract: {},
 		systemcontracts.CrossChainContract:         {},
+		systemcontracts.StakeHubContract:           {},
+		systemcontracts.GovernorContract:           {},
+		systemcontracts.GovTokenContract:           {},
+		systemcontracts.TimelockContract:           {},
+		systemcontracts.TokenRecoverPortalContract: {},
 	}
 )
 
@@ -171,7 +175,7 @@ func ecrecover(header *types.Header, sigCache *lru.ARCCache[libcommon.Hash, libc
 	signature := header.Extra[len(header.Extra)-extraSeal:]
 
 	// Recover the public key and the Ethereum address
-	pubkey, err := crypto.Ecrecover(SealHash(header, chainId).Bytes(), signature)
+	pubkey, err := crypto.Ecrecover(types.SealHash(header, chainId).Bytes(), signature)
 	if err != nil {
 		return libcommon.Address{}, err
 	}
@@ -180,40 +184,6 @@ func ecrecover(header *types.Header, sigCache *lru.ARCCache[libcommon.Hash, libc
 
 	sigCache.Add(hash, signer)
 	return signer, nil
-}
-
-// SealHash returns the hash of a block prior to it being sealed.
-func SealHash(header *types.Header, chainId *big.Int) (hash libcommon.Hash) {
-	hasher := cryptopool.NewLegacyKeccak256()
-	defer cryptopool.ReturnToPoolKeccak256(hasher)
-
-	encodeSigHeader(hasher, header, chainId)
-	hasher.Sum(hash[:0])
-	return hash
-}
-
-func encodeSigHeader(w io.Writer, header *types.Header, chainId *big.Int) {
-	err := rlp.Encode(w, []interface{}{
-		chainId,
-		header.ParentHash,
-		header.UncleHash,
-		header.Coinbase,
-		header.Root,
-		header.TxHash,
-		header.ReceiptHash,
-		header.Bloom,
-		header.Difficulty,
-		header.Number,
-		header.GasLimit,
-		header.GasUsed,
-		header.Time,
-		header.Extra[:len(header.Extra)-65], // this will panic if extra is too short, should check before calling encodeSigHeader
-		header.MixDigest,
-		header.Nonce,
-	})
-	if err != nil {
-		panic("can't encode: " + err.Error())
-	}
 }
 
 // parliaRLP returns the rlp bytes which needs to be signed for the parlia
@@ -225,7 +195,7 @@ func encodeSigHeader(w io.Writer, header *types.Header, chainId *big.Int) {
 // or not), which could be abused to produce different hashes for the same header.
 func parliaRLP(header *types.Header, chainId *big.Int) []byte {
 	b := new(bytes.Buffer)
-	encodeSigHeader(b, header, chainId)
+	types.EncodeSigHeader(b, header, chainId)
 	return b.Bytes()
 }
 
@@ -249,6 +219,7 @@ type Parlia struct {
 	validatorSetABIBeforeLuban abi.ABI
 	validatorSetABI            abi.ABI
 	slashABI                   abi.ABI
+	stakeHubABI                abi.ABI
 
 	// The fields below are for testing only
 	fakeDiff               bool     // Skip difficulty verifications
@@ -292,6 +263,10 @@ func New(
 	if err != nil {
 		panic(err)
 	}
+	stABI, err := abi.JSON(strings.NewReader(stakeABI))
+	if err != nil {
+		panic(err)
+	}
 	c := &Parlia{
 		chainConfig:                chainConfig,
 		config:                     parliaConfig,
@@ -302,6 +277,7 @@ func New(
 		validatorSetABIBeforeLuban: vABIBeforeLuban,
 		validatorSetABI:            vABI,
 		slashABI:                   sABI,
+		stakeHubABI:                stABI,
 		signer:                     types.LatestSigner(chainConfig),
 		snapshots:                  snapshots,
 	}
@@ -990,6 +966,17 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	if err := p.verifyValidators(header, parentHeader, state); err != nil {
 		return nil, nil, err
 	}
+
+	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+		systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, state)
+	}
+
+	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
+		if txs, systemTxs, receipts, err = p.initializeFeynmanContract(state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
+			log.Error("init feynman contract failed", "error", err)
+			return nil, nil, fmt.Errorf("init feynman contract failed: %v", err)
+		}
+	}
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	if number == 1 {
 		var err error
@@ -1033,8 +1020,21 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
-		if systemTxs, _, receipts, err = p.distributeFinalityReward(chain, state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
+		if systemTxs, txs, receipts, err = p.distributeFinalityReward(chain, state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
 			return nil, nil, err
+		}
+	}
+	// update validators every day
+	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
+		// we should avoid update validators in the Feynman upgrade block
+		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
+			var tx types.Transaction
+			var receipt *types.Receipt
+			if systemTxs, tx, receipt, err = p.updateValidatorSetV2(chain, state, header, txs, receipts, systemTxs, &header.GasUsed, false); err != nil {
+				return nil, nil, err
+			}
+			txs = append(txs, tx)
+			receipts = append(receipts, receipt)
 		}
 	}
 	//log.Debug("distribute successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
@@ -1049,12 +1049,12 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
 	txs types.Transactions, receipts types.Receipts, systemTxs types.Transactions,
 	usedGas *uint64, mining bool) (types.Transactions,
-	types.Transaction, types.Receipts, error) {
+	types.Transactions, types.Receipts, error) {
 	currentHeight := header.Number.Uint64()
 	epoch := p.config.Epoch
 	chainConfig := chain.Config()
 	if currentHeight%epoch != 0 {
-		return nil, nil, receipts, nil
+		return systemTxs, txs, receipts, nil
 	}
 
 	head := header
@@ -1121,7 +1121,8 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 	outTxs, tx, receipt, err := p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header,
 		len(txs), systemTxs, usedGas, mining)
 	receipts = append(receipts, receipt)
-	return outTxs, tx, receipts, err
+	txs = append(txs, tx)
+	return outTxs, txs, receipts, err
 }
 
 // FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
@@ -1228,7 +1229,7 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 		select {
 		case results <- block.WithSeal(header):
 		default:
-			log.Warn("[parlia] Sealing result is not read by miner", "sealhash", SealHash(header, p.chainConfig.ChainID))
+			log.Warn("[parlia] Sealing result is not read by miner", "sealhash", types.SealHash(header, p.chainConfig.ChainID))
 		}
 	}()
 
@@ -1236,8 +1237,13 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
-func (p *Parlia) SealHash(header *types.Header) libcommon.Hash {
-	return SealHash(header, p.chainConfig.ChainID)
+func (p *Parlia) SealHash(header *types.Header) (hash libcommon.Hash) {
+	hasher := cryptopool.NewLegacyKeccak256()
+	defer cryptopool.ReturnToPoolKeccak256(hasher)
+
+	types.EncodeSigHeaderWithoutVoteAttestation(hasher, header, p.chainConfig.ChainID)
+	hasher.Sum(hash[:0])
+	return hash
 }
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
@@ -1399,7 +1405,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	return valSet, voteAddrmap, nil
 }
 
-// slash spoiled validators
+// distributeToValidator deposits validator reward to validator contract
 func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlockState, header *types.Header,
 	txs types.Transactions, receipts types.Receipts, systemTxs types.Transactions,
 	usedGas *uint64, mining bool,
@@ -1415,7 +1421,7 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 	doDistributeSysReward := !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
 		state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 	if doDistributeSysReward {
-		var rewards = new(uint256.Int)
+		rewards := new(uint256.Int)
 		rewards = rewards.Rsh(balance, systemRewardPercent)
 		if rewards.Cmp(u256.Num0) > 0 {
 			var err error
