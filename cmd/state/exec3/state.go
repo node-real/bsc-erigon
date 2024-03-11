@@ -160,10 +160,9 @@ func (rw *Worker) RunTxTaskNoLock(txTask *exec22.TxTask) {
 		}
 		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, logger)
 		if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-		        parent := rw.chain.GetHeaderByHash(header.ParentHash)
+			parent := rw.chain.GetHeaderByHash(header.ParentHash)
 			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, parent.Time, header.Time, ibs, logger)
 		}
-``` I think we need only parent inside the condition
 		txTask.Error = ibs.FinalizeTx(rules, noop)
 	case txTask.Final:
 		if txTask.BlockNum == 0 {
