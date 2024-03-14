@@ -1020,10 +1020,11 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 			//log.Trace("slash validator", "block hash", header.Hash(), "address", spoiledVal)
 			var tx types.Transaction
 			var receipt *types.Receipt
-			if systemTxs, tx, receipt, err = p.slash(spoiledVal, state, header, len(txs), systemTxs, &header.GasUsed, mining); err != nil {
+			if _, tx, receipt, err = p.slash(spoiledVal, state, header, len(txs), systemTxs, &header.GasUsed, mining); err != nil {
 				// it is possible that slash validator failed because of the slash channel is disabled.
 				p.logger.Error("slash validator failed", "block hash", header.Hash(), "address", spoiledVal, "error", err)
 			} else {
+				systemTxs = systemTxs[1:]
 				txs = append(txs, tx)
 				receipts = append(receipts, receipt)
 				p.logger.Trace("slash successful", "txns", txs.Len(), "receipts", len(receipts), "gasUsed", header.GasUsed)
