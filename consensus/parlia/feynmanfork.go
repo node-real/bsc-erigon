@@ -3,6 +3,8 @@ package parlia
 import (
 	"container/heap"
 	"fmt"
+	"math/big"
+
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/hexutility"
 	"github.com/ledgerwatch/erigon/common/u256"
@@ -11,7 +13,6 @@ import (
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/log/v3"
-	"math/big"
 )
 
 const SecondsPerDay uint64 = 86400
@@ -27,8 +28,8 @@ func isBreatheBlock(lastBlockTime, blockTime uint64) bool {
 
 // initializeFeynmanContract initialize new contracts of Feynman fork
 func (p *Parlia) initializeFeynmanContract(state *state.IntraBlockState, header *types.Header,
-	txs types.Transactions, receipts types.Receipts, systemTxs types.Transactions, usedGas *uint64, mining bool,
-) (types.Transactions, types.Transactions, types.Receipts, error) {
+	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions, usedGas *uint64, mining bool,
+) error {
 	// method
 	method := "initialize"
 
@@ -44,20 +45,16 @@ func (p *Parlia) initializeFeynmanContract(state *state.IntraBlockState, header 
 	data, err := p.stakeHubABI.Pack(method)
 	if err != nil {
 		log.Error("Unable to pack tx for initialize feynman contracts", "error", err)
-		return nil, nil, nil, err
+		return err
 	}
 	for _, c := range contracts {
 		// apply message
 		log.Info("initialize feynman contract", "block number", header.Number.Uint64(), "contract", c)
-		var tx types.Transaction
-		var receipt *types.Receipt
-		if systemTxs, tx, receipt, err = p.applyTransaction(header.Coinbase, c, u256.Num0, data, state, header, len(txs), systemTxs, usedGas, mining); err != nil {
-			return nil, nil, nil, err
+		if err := p.applyTransaction(header.Coinbase, c, u256.Num0, data, state, header, txs, receipts, systemTxs, usedGas, mining); err != nil {
+			return err
 		}
-		txs = append(txs, tx)
-		receipts = append(receipts, receipt)
 	}
-	return txs, systemTxs, receipts, nil
+	return nil
 }
 
 type ValidatorItem struct {
@@ -95,17 +92,17 @@ func (h *ValidatorHeap) Pop() interface{} {
 }
 
 func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
-	txs types.Transactions, systemTxs types.Transactions, usedGas *uint64, mining bool,
-) (types.Transactions, types.Transaction, *types.Receipt, error) {
+	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions, usedGas *uint64, mining bool,
+) error {
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	validatorItems, err := p.getValidatorElectionInfo(parent, state)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 	maxElectedValidators, err := p.getMaxElectedValidators(parent, state)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 
 	// 2. sort by voting power
@@ -116,11 +113,11 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *
 	data, err := p.validatorSetABI.Pack(method, eValidators, eVotingPowers, eVoteAddrs)
 	if err != nil {
 		log.Error("Unable to pack tx for updateValidatorSetV2", "error", err)
-		return nil, nil, nil, err
+		return err
 	}
 
 	// apply message
-	return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header, len(txs), systemTxs, usedGas, mining)
+	return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header, txs, receipts, systemTxs, usedGas, mining)
 }
 
 func (p *Parlia) getValidatorElectionInfo(header *types.Header, ibs *state.IntraBlockState) ([]ValidatorItem, error) {
