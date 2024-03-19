@@ -28,6 +28,7 @@
   "shanghaiTime":1702972800,
   "keplerTime": 1702972800,
   "feynmanTime": 1710136800,
+  "feynmanFixTime":1711342800,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
