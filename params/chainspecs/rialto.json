@@ -30,6 +30,7 @@
   "shanghaiTime": 0,
   "keplerTime": 0,
   "feynmanTime": 0,
+  "feynmanFixTime":0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
