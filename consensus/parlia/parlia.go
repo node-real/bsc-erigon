@@ -749,7 +749,8 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 				}
 			}
 		}
-		if number == 0 || (number%p.config.Epoch == 0 && (len(headers) > params.FullImmutabilityThreshold/10)) {
+		// If we're at the genesis, snapshot the initial state.
+		if number == 0 {
 			// Headers included into the snapshots have to be trusted as checkpoints
 			checkpoint := chain.GetHeader(hash, number)
 			if checkpoint != nil {
@@ -760,12 +761,10 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 				}
 				// new snapshot
 				snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
-				if snap.Number%CheckpointInterval == 0 { // snapshot will only be loaded when snap.Number%checkpointInterval == 0
-					if err := snap.store(p.db); err != nil {
-						return nil, err
-					}
-					p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+				if err := snap.store(p.db); err != nil {
+					return nil, err
 				}
+				p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
 				break
 			}
 		}
