@@ -83,7 +83,7 @@ func VerifyPresenceOfCancunHeaderFields(header *types.Header) error {
 	if header.ParentBeaconBlockRoot != nil {
 		return fmt.Errorf("header has no nil ParentBeaconBlockRoot")
 	}
-	if header.WithdrawalsHash == nil {
+	if header.WithdrawalsHash == nil || *header.WithdrawalsHash != types.EmptyRootHash {
 		return errors.New("header has wrong WithdrawalsHash")
 	}
 	return nil
