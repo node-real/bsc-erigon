@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ledgerwatch/erigon-lib/common"
-
 	"github.com/holiman/uint256"
 
 	"github.com/ledgerwatch/erigon-lib/chain"
@@ -85,7 +83,7 @@ func VerifyPresenceOfCancunHeaderFields(header *types.Header) error {
 	if header.ParentBeaconBlockRoot != nil {
 		return fmt.Errorf("header has no nil ParentBeaconBlockRoot")
 	}
-	if (header.WithdrawalsHash == nil || *header.WithdrawalsHash != common.Hash{}) {
+	if header.WithdrawalsHash == nil {
 		return errors.New("header has wrong WithdrawalsHash")
 	}
 	return nil

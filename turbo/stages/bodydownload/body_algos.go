@@ -141,10 +141,7 @@ func (bd *BodyDownload) RequestMoreBodies(tx kv.RwTx, blockReader services.FullB
 		}
 		if request {
 			if header.UncleHash == types.EmptyUncleHash && header.TxHash == types.EmptyRootHash &&
-				(header.WithdrawalsHash == nil || *header.WithdrawalsHash == types.EmptyRootHash ||
-					*header.WithdrawalsHash == (libcommon.Hash{})) {
-				// Suggest replace (libcommon.Hash{}) with EmptyRootHash TODO @blxdyx
-				// Empty block body
+				(header.WithdrawalsHash == nil || *header.WithdrawalsHash == types.EmptyRootHash) {
 				body := &types.RawBody{}
 				if header.WithdrawalsHash != nil {
 					// implies *header.WithdrawalsHash == types.EmptyRootHash

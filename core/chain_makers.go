@@ -614,7 +614,7 @@ func MakeEmptyHeader(parent *types.Header, chainConfig *chain.Config, timestamp 
 		header.ExcessBlobGas = &excessBlobGas
 		header.BlobGasUsed = new(uint64)
 		if chainConfig.Parlia != nil {
-			header.WithdrawalsHash = new(libcommon.Hash)
+			header.WithdrawalsHash = &types.EmptyRootHash
 		}
 		if chainConfig.Parlia == nil {
 			header.ParentBeaconBlockRoot = new(libcommon.Hash)
