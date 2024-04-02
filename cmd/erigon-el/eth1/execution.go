@@ -366,7 +366,7 @@ func HeaderToHeaderRPC(header *types.Header) *execution.Header {
 		TransactionHash: gointerfaces.ConvertHashToH256(header.TxHash),
 		LogsBloom:       gointerfaces.ConvertBytesToH2048(header.Bloom[:]),
 		ReceiptRoot:     gointerfaces.ConvertHashToH256(header.ReceiptHash),
-		PrevRandao:       gointerfaces.ConvertHashToH256(header.MixDigest),
+		PrevRandao:      gointerfaces.ConvertHashToH256(header.MixDigest),
 		BlockNumber:     header.Number.Uint64(),
 		Nonce:           header.Nonce.Uint64(),
 		GasLimit:        header.GasLimit,

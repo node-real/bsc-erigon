@@ -122,7 +122,7 @@ func StageLoop(ctx context.Context,
 	}
 }
 
-func StageLoopStep(ctx context.Context, db kv.RwDB, sync *stagedsync.Sync, initialCycle bool,  blockSnapshots *snapshotsync.RoSnapshots, hook *Hook) (headBlockHash libcommon.Hash, err error) {
+func StageLoopStep(ctx context.Context, db kv.RwDB, sync *stagedsync.Sync, initialCycle bool, blockSnapshots *snapshotsync.RoSnapshots, hook *Hook) (headBlockHash libcommon.Hash, err error) {
 	defer func() {
 		if rec := recover(); rec != nil {
 			err = fmt.Errorf("%+v, trace: %s", rec, dbg.Stack())
@@ -234,7 +234,7 @@ type Hook struct {
 	updateHead    func(ctx context.Context, headHeight uint64, headTime uint64, hash libcommon.Hash, td *uint256.Int)
 }
 
-func NewHook(ctx context.Context, notifications *shards.Notifications, sync *stagedsync.Sync, chainConfig *chain.Config,  updateHead func(ctx context.Context, headHeight uint64, headTime uint64, hash libcommon.Hash, td *uint256.Int)) *Hook {
+func NewHook(ctx context.Context, notifications *shards.Notifications, sync *stagedsync.Sync, chainConfig *chain.Config, updateHead func(ctx context.Context, headHeight uint64, headTime uint64, hash libcommon.Hash, td *uint256.Int)) *Hook {
 	return &Hook{ctx: ctx, notifications: notifications, sync: sync, chainConfig: chainConfig, updateHead: updateHead}
 }
 func (h *Hook) BeforeRun(tx kv.Tx, canRunCycleInOneTransaction bool) error {
