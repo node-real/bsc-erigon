@@ -256,11 +256,17 @@ func BodiesForward(
 					}
 				}
 				if ok && cfg.chanConfig.Parlia != nil && cfg.chanConfig.IsCancun(headerNumber, header.Time) {
-					err = cfg.blobStore.WriteBlobSidecars(ctx, header.Hash(), rawBody.Sidecars)
+					_, foundOnDisk, err := cfg.blobStore.ReadBlobSidecars(ctx, header.Number.Uint64(), header.Hash())
 					if err != nil {
-						return false, fmt.Errorf("WriteBlobSidecars: %w", err)
+						return false, err
 					}
-					logger.Debug("WriteBlobSidecars", "block number", header.Number, "len(sidecars)", len(rawBody.Sidecars))
+					if !foundOnDisk {
+						err = cfg.blobStore.WriteBlobSidecars(ctx, header.Hash(), rawBody.Sidecars)
+						if err != nil {
+							return false, fmt.Errorf("WriteBlobSidecars: %w", err)
+						}
+						logger.Debug("WriteBlobSidecars", "block number", header.Number, "len(sidecars)", len(rawBody.Sidecars))
+					}
 				}
 				if ok {
 					dataflow.BlockBodyDownloadStates.AddChange(blockHeight, dataflow.BlockBodyCleared)
