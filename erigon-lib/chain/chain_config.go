@@ -70,8 +70,7 @@ type Config struct {
 	FeynmanFixTime *big.Int `json:"feynmanFixTime,omitempty"`
 	CancunTime     *big.Int `json:"cancunTime,omitempty"`
 	PragueTime     *big.Int `json:"pragueTime,omitempty"`
-	OsakaTime    *big.Int `json:"osakaTime,omitempty"`
-
+	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
 
 	// Parlia fork blocks
 	RamanujanBlock  *big.Int `json:"ramanujanBlock,omitempty" toml:",omitempty"`  // ramanujanBlock switch block (nil = no fork, 0 = already activated)

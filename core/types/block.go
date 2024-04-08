@@ -606,8 +606,8 @@ type RawBody struct {
 	Sidecars     BlobSidecars
 }
 
-func (r RawBody) CleanSidecars() {
-	r.Sidecars = nil
+func (r *RawBody) CleanSidecars() {
+	r.Sidecars = make(BlobSidecars, 0)
 }
 
 type BodyForStorage struct {
@@ -1659,10 +1659,6 @@ func (b *Block) WithSidecars(sidecars BlobSidecars) *Block {
 		transactions: b.transactions,
 		uncles:       b.uncles,
 		withdrawals:  b.withdrawals,
-	}
-	if sidecars != nil {
-		block.sidecars = make(BlobSidecars, len(sidecars))
-		copy(block.sidecars, sidecars)
 	}
 	if sidecars != nil {
 		block.sidecars = make(BlobSidecars, len(sidecars))
