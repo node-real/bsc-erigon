@@ -110,7 +110,7 @@ type Header struct {
 	// The verkle proof is ignored in legacy headers
 	Verkle        bool
 	VerkleProof   []byte
-	VerkleKeyVals []verkle.KeyValuePair
+	VerkleKeyVals []verkle.LeafNode // TODO @blxdyx Change for go1.21
 }
 
 func (h *Header) EncodingSize() int {

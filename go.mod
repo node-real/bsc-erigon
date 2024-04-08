@@ -1,6 +1,8 @@
 module github.com/ledgerwatch/erigon
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6
 
 require (
 	github.com/erigontech/mdbx-go v0.27.24
@@ -40,9 +42,9 @@ require (
 	github.com/dop251/goja v0.0.0-20230806174421-c933cf95e127
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/emicklei/dot v1.6.1
-	github.com/ethereum/go-ethereum v1.11.3
-	github.com/fjl/gencodec v0.0.0-20220412091415-8bb9e558978c
-	github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
+	github.com/ethereum/go-ethereum v1.13.5-0.20231027145059-2d7dba024d76
+	github.com/fjl/gencodec v0.0.0-20230517082657-f9840df7b83e
+	github.com/gballet/go-verkle v0.0.0-20230607174250-df487255f46b
 	github.com/gfx-labs/sse v0.0.0-20231226060816-f747e26a9baa
 	github.com/go-chi/chi/v5 v5.0.11
 	github.com/go-chi/cors v1.2.1
@@ -80,7 +82,7 @@ require (
 	github.com/protolambda/ztyp v0.2.2
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20210809151128-385d8c5e3fb7
 	github.com/prysmaticlabs/gohashtree v0.0.3-alpha.0.20230502123415-aafd8b3ca202
-	github.com/prysmaticlabs/prysm/v4 v4.0.2
+	github.com/prysmaticlabs/prysm/v4 v4.2.0
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22
 	github.com/rs/cors v1.10.1
 	github.com/spf13/afero v1.10.0
@@ -101,7 +103,7 @@ require (
 	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/crypto v0.18.0
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
+	golang.org/x/exp v0.0.0-20231214170342-aacd6d4b4611
 	golang.org/x/net v0.20.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.16.0
@@ -197,9 +199,8 @@ require (
 	github.com/kr/text v0.2.0 // indirect
 	github.com/ledgerwatch/erigon-snapshot v1.3.1-0.20240222083139-3cef6c872d07 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
-	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
-	github.com/libp2p/go-libp2p-asn-util v0.3.0 // indirect
+	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
 	github.com/libp2p/go-mplex v0.7.0 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
 	github.com/libp2p/go-nat v0.2.0 // indirect
@@ -259,7 +260,7 @@ require (
 	github.com/prometheus/common v0.45.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/prysmaticlabs/eth2-types v0.0.0-20210303084904-c9735a06829d // indirect
-	github.com/prysmaticlabs/fastssz v0.0.0-20220628121656-93dfe28febab // indirect
+	github.com/prysmaticlabs/fastssz v0.0.0-20221107182844-78142813af44 // indirect
 	github.com/prysmaticlabs/prysm v0.0.0-20220124113610-e26cde5e091b // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.4 // indirect
