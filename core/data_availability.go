@@ -16,8 +16,6 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 			return errors.New("sidecars present in block body before cancun")
 		}
 		return nil
-	} else if body.Sidecars == nil {
-		return errors.New("missing sidecars in block body after cancun")
 	}
 
 	current := chain.CurrentHeader()
