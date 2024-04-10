@@ -219,7 +219,7 @@ func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockN
 		return nil, err
 	}
 	blobSidecars, found, err := bsc.BlobStore.ReadBlobSidecars(ctx, blockNumber, blockHash)
-	if err != nil || !found || len(blobSidecars) == 0 {
+	if err != nil || !found {
 		return nil, err
 	}
 	result := make([]map[string]interface{}, len(blobSidecars))

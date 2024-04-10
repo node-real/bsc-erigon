@@ -108,6 +108,10 @@ func (bs *BlobStore) ReadBlobSidecars(ctx context.Context, number uint64, hash l
 	}
 	blobTxCount := binary.LittleEndian.Uint32(val)
 
+	if blobTxCount == uint32(0) {
+		return nil, false, nil
+	}
+
 	var blobSidecars types.BlobSidecars
 	for i := uint32(0); i < blobTxCount; i++ {
 		_, filePath := blobSidecarFilePath(number, uint64(i), hash)
