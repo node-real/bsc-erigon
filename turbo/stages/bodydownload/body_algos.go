@@ -165,7 +165,7 @@ func (bd *BodyDownload) RequestMoreBodies(tx kv.RwTx, blockReader services.FullB
 			var tripleHash TripleHash
 			copy(tripleHash[:], header.UncleHash.Bytes())
 			copy(tripleHash[length.Hash:], header.TxHash.Bytes())
-			if header.WithdrawalsHash != nil && *header.WithdrawalsHash != (libcommon.Hash{}) {
+			if header.WithdrawalsHash != nil {
 				copy(tripleHash[2*length.Hash:], header.WithdrawalsHash.Bytes())
 			} else {
 				copy(tripleHash[2*length.Hash:], types.EmptyRootHash.Bytes())
