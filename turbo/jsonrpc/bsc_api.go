@@ -109,6 +109,9 @@ func (api *BscImpl) GetHeaderByHash(ctx context.Context, hash libcommon.Hash) (m
 	}
 	defer tx.Rollback()
 	header, err := api.ethApi._blockReader.HeaderByHash(ctx, tx, hash)
+	if err != nil {
+		return nil, err
+	}
 	fields := ethapi.RPCMarshalHeader(header)
 	td, err := rawdb.ReadTd(tx, header.Hash(), header.Number.Uint64())
 	if err != nil {
@@ -126,6 +129,9 @@ func (api *BscImpl) GetHeaderByNumber(ctx context.Context, number rpc.BlockNumbe
 	}
 	defer tx.Rollback()
 	header, err := api.ethApi._blockReader.HeaderByNumber(ctx, tx, uint64(number.Int64()))
+	if err != nil {
+		return nil, err
+	}
 	fields := ethapi.RPCMarshalHeader(header)
 	td, err := rawdb.ReadTd(tx, header.Hash(), header.Number.Uint64())
 	if err != nil {
