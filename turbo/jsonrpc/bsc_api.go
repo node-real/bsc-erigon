@@ -7,6 +7,7 @@ import (
 	"github.com/ledgerwatch/erigon-lib/common/hexutil"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/consensus/parlia"
+	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
@@ -108,7 +109,13 @@ func (api *BscImpl) GetHeaderByHash(ctx context.Context, hash libcommon.Hash) (m
 	}
 	defer tx.Rollback()
 	header, err := api.ethApi._blockReader.HeaderByHash(ctx, tx, hash)
-	return ethapi.RPCMarshalHeader(header), err
+	fields := ethapi.RPCMarshalHeader(header)
+	td, err := rawdb.ReadTd(tx, header.Hash(), header.Number.Uint64())
+	if err != nil {
+		return nil, err
+	}
+	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	return fields, nil
 }
 
 // GetHeaderByNumber returns the requested canonical block header.
@@ -119,7 +126,13 @@ func (api *BscImpl) GetHeaderByNumber(ctx context.Context, number rpc.BlockNumbe
 	}
 	defer tx.Rollback()
 	header, err := api.ethApi._blockReader.HeaderByNumber(ctx, tx, uint64(number.Int64()))
-	return ethapi.RPCMarshalHeader(header), err
+	fields := ethapi.RPCMarshalHeader(header)
+	td, err := rawdb.ReadTd(tx, header.Hash(), header.Number.Uint64())
+	if err != nil {
+		return nil, err
+	}
+	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	return fields, nil
 }
 
 // GetTransactionDataAndReceipt returns the original transaction data and transaction receipt for the given transaction hash.
