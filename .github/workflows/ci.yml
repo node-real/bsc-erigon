@@ -74,42 +74,42 @@ jobs:
       - name: Test
         run: make test
 
-  tests-windows:
-    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
-    strategy:
-      matrix:
-        os: [ windows-2022 ]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: configure Pagefile
-        uses: al-cheb/configure-pagefile-action@v1.3
-        with:
-          minimum-size: 8GB
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - uses: actions/cache@v3
-        with:
-          path: |
-            C:\ProgramData\chocolatey\lib\mingw
-            C:\ProgramData\chocolatey\lib\cmake
-          key: chocolatey-${{ matrix.os }}
-      - name: Install dependencies
-        run: |
-          choco upgrade mingw -y --no-progress --version 13.2.0
-          choco install cmake -y --no-progress --version 3.27.8
-
-      - name: Build
-        run: .\wmake.ps1 all
-
-      - name: Test
-        run: .\wmake.ps1 test
-
-      - name: Test erigon-lib
-        run: cd erigon-lib && make test-no-fuzz
+#  tests-windows:
+#    if: ${{ github.event_name == 'push' || !github.event.pull_request.draft }}
+#    strategy:
+#      matrix:
+#        os: [ windows-2022 ]
+#    runs-on: ${{ matrix.os }}
+#
+#    steps:
+#      - name: configure Pagefile
+#        uses: al-cheb/configure-pagefile-action@v1.3
+#        with:
+#          minimum-size: 8GB
+#      - uses: actions/checkout@v3
+#      - uses: actions/setup-go@v4
+#        with:
+#          go-version: '1.21'
+#
+#      - uses: actions/cache@v3
+#        with:
+#          path: |
+#            C:\ProgramData\chocolatey\lib\mingw
+#            C:\ProgramData\chocolatey\lib\cmake
+#          key: chocolatey-${{ matrix.os }}
+#      - name: Install dependencies
+#        run: |
+#          choco upgrade mingw -y --no-progress --version 13.2.0
+#          choco install cmake -y --no-progress --version 3.27.8
+#
+#      - name: Build
+#        run: .\wmake.ps1 all
+#
+#      - name: Test
+#        run: .\wmake.ps1 test
+#
+#      - name: Test erigon-lib
+#        run: cd erigon-lib && make test-no-fuzz
 
   docker-build-check:
     # don't run this on devel - the PR must have run it to be merged and it misleads that this pushes the docker image

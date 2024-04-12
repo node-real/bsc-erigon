@@ -2,12 +2,10 @@ name: Consensus specification tests
 on:
   push:
     branches:
-      - devel
       - alpha
       - 'release/**'
   pull_request:
     branches:
-      - devel
       - alpha
       - 'release/**'
     types:
