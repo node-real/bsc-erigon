@@ -641,14 +641,14 @@ func TestCanEncodeAndDecodeRawBody4844(t *testing.T) {
 		},
 		Withdrawals: []*Withdrawal{},
 		Sidecars: []*BlobSidecar{
-			&BlobSidecar{
+			{
 				BlockNumber:   blockNumber,
 				BlockHash:     blockHash,
 				TxIndex:       txIndex,
 				TxHash:        txHash,
 				BlobTxSidecar: newRandBlobTxSidecar(1),
 			},
-			&BlobSidecar{
+			{
 				BlockNumber:   blockNumber,
 				BlockHash:     blockHash,
 				TxIndex:       txIndex,

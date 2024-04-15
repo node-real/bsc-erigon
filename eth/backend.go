@@ -1073,6 +1073,25 @@ func (s *Ethereum) StartMining(ctx context.Context, db kv.RwDB, stateDiffClient 
 		})
 	}
 
+	var prl *parlia.Parlia
+	if p, ok := s.engine.(*parlia.Parlia); ok {
+		prl = p
+	} else if cl, ok := s.engine.(*merge.Merge); ok {
+		if p, ok := cl.InnerEngine().(*parlia.Parlia); ok {
+			prl = p
+		}
+	}
+	if prl != nil {
+		if miner.MiningConfig.SigKey == nil {
+			log.Error("Etherbase account unavailable locally", "err", err)
+			return fmt.Errorf("signer missing: %w", err)
+		}
+
+		prl.Authorize(eb, func(validator libcommon.Address, payload []byte, chainId *big.Int) ([]byte, error) {
+			return crypto.Sign(payload, miner.MiningConfig.SigKey)
+		})
+	}
+
 	streamCtx, streamCancel := context.WithCancel(ctx)
 	stream, err := stateDiffClient.StateChanges(streamCtx, &remote.StateChangeRequest{WithStorage: false, WithTransactions: true}, grpc.WaitForReady(true))
 
@@ -1092,25 +1111,6 @@ func (s *Ethereum) StartMining(ctx context.Context, db kv.RwDB, stateDiffClient 
 			}
 		}
 	}()
-
-	var prl *parlia.Parlia
-	if p, ok := s.engine.(*parlia.Parlia); ok {
-		prl = p
-	} else if cl, ok := s.engine.(*merge.Merge); ok {
-		if p, ok := cl.InnerEngine().(*parlia.Parlia); ok {
-			prl = p
-		}
-	}
-	if prl != nil {
-		if miner.MiningConfig.SigKey == nil {
-			log.Error("Etherbase account unavailable locally", "err", err)
-			return fmt.Errorf("signer missing: %w", err)
-		}
-
-		prl.Authorize(eb, func(validator libcommon.Address, payload []byte, chainId *big.Int) ([]byte, error) {
-			return crypto.Sign(payload, miner.MiningConfig.SigKey)
-		})
-	}
 
 	go func() {
 		defer debug.LogPanic()

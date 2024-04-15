@@ -314,7 +314,6 @@ Loop:
 		case <-logEvery.C:
 			progress := cfg.hd.Progress()
 			if cfg.StageSyncUpperBound > 0 && progress > cfg.StageSyncUpperBound {
-				stopped = true
 				log.Warn("Stage progress is over StageSyncUpperBound and stop the stage sync here")
 				return nil
 			}
