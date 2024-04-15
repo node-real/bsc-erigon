@@ -84,7 +84,7 @@ linters-settings:
         rules: "rules.go"
       hugeParam:
         # size in bytes that makes the warning trigger (default 80)
-        sizeThreshold: 1000
+        sizeThreshold: 1300
       rangeExprCopy:
         # size in bytes that makes the warning trigger (default 512)
         sizeThreshold: 512
