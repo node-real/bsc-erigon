@@ -3,6 +3,7 @@ package headerdownload_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -85,7 +86,7 @@ func TestSideChainInsert(t *testing.T) {
 		{"td(incoming) = td(current), number(incoming) = number(current), hash different", chain7, finalExpectedHash, 10},
 	}
 
-	for _, tc := range testCases {
+	for k, tc := range testCases {
 		tc := tc
 		for i, h := range tc.chain {
 			h := h
@@ -94,6 +95,7 @@ func TestSideChainInsert(t *testing.T) {
 				t.Errorf("feed empty header for %s, err: %v", tc.name, err)
 			}
 		}
+		fmt.Sprintf("testcase %d", k)
 
 		if hi.GetHighestHash() != tc.expectedHash {
 			t.Errorf("incorrect highest hash for %s, expected %s, got %s", tc.name, tc.expectedHash, hi.GetHighestHash())

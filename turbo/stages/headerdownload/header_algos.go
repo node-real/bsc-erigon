@@ -954,7 +954,17 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 			}
 			return justifiedNumber > curJustifiedNumber, nil
 		}
-		return false, nil
+
+		if td.Cmp(hi.localTd) == 0 {
+			if blockHeight > hi.highest {
+				return false, nil
+			} else if blockHeight == hi.highest {
+				// Compare hashes of block in case of tie breaker. Lexicographically larger hash wins.
+				return bytes.Compare(hi.highestHash.Bytes(), hash.Bytes()) < 0, nil
+			}
+			return true, nil
+		}
+		return td.Cmp(hi.localTd) > 0, nil
 	}
 	// Now we can decide wether this header will create a change in the canonical head
 	reorg, err := reorgFunc()
