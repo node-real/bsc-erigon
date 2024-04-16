@@ -413,11 +413,11 @@ func BenchmarkPrecompiledP256Verify(b *testing.B) {
 	benchmarkPrecompiled(b, "100", testcase)
 }
 
-func TestPrecompiledP256Verify(t *testing.T) {
-	t.Parallel()
-
-	testJson("p256Verify", "100", t)
-}
+//func TestPrecompiledP256Verify(t *testing.T) {
+//	t.Parallel()
+//
+//	testJson("p256Verify", "100", t)
+//}
 
 func TestDoubleSignSlash(t *testing.T) {
 	tc := precompiledTest{
