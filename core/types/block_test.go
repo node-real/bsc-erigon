@@ -182,7 +182,7 @@ func TestEIP1559BlockEncoding(t *testing.T) {
 	check("Nonce", block.NonceU64(), uint64(0xa13a5a8c8f2bb1c4))
 	check("Time", block.Time(), uint64(1426516743))
 	check("Size", block.Size(), common.StorageSize(len(blockEnc)))
-	check("BaseFee", block.BaseFee(), new(big.Int).SetUint64(params.InitialBaseFee))
+	check("BaseFee", block.BaseFee(), new(big.Int).SetUint64(params.InitialBaseFeeForBSC))
 
 	var tx1 Transaction = NewTransaction(0, libcommon.HexToAddress("095e7baea6a6c7c4c2dfeb977efac326af552d87"), new(uint256.Int).SetUint64(10), 50000, new(uint256.Int).SetUint64(10), nil)
 	tx1, _ = tx1.WithSignature(*LatestSignerForChainID(nil), libcommon.Hex2Bytes("9bea4c4daac7c7c52e093e6a4c35dbbcf8856f1af7b059ba20253e70848d094f8a8fae537ce25ed8cb5af9adac3f141af69bd515bd2ba031522df09b97dd72b100"))
