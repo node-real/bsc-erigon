@@ -191,11 +191,11 @@ func (b *SimulatedBackend) stateByBlockNumber(db kv.Tx, blockNumber *big.Int) *s
 	if blockNumber == nil || blockNumber.Cmp(b.pendingBlock.Number()) == 0 {
 		return state.New(b.m.NewHistoryStateReader(b.pendingBlock.NumberU64()+1, b.pendingBlock.Time(), db))
 	}
-	header, err := b.BlockReader().HeaderByNumber(context.Background(), db, blockNumber.Uint64()+1)
+	header, err := b.BlockReader().HeaderByNumber(context.Background(), db, blockNumber.Uint64())
 	if err != nil {
 		return nil
 	}
-	return state.New(b.m.NewHistoryStateReader(blockNumber.Uint64()+1, header.Time, db))
+	return state.New(b.m.NewHistoryStateReader(blockNumber.Uint64()+1, header.Time+1, db))
 }
 
 // CodeAt returns the code associated with a certain account in the blockchain.
