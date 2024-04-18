@@ -26,8 +26,9 @@ func NewCallTracer() *CallTracer {
 	}
 }
 
-func (ct *CallTracer) CaptureTxStart(gasLimit uint64) {}
-func (ct *CallTracer) CaptureTxEnd(restGas uint64)    {}
+func (ct *CallTracer) CaptureTxStart(gasLimit uint64)         {}
+func (ct *CallTracer) CaptureTxEnd(restGas uint64)            {}
+func (ct *CallTracer) CaptureSystemTxEnd(intrinsicGas uint64) {}
 
 // CaptureStart and CaptureEnter also capture SELFDESTRUCT opcode invocations
 func (ct *CallTracer) captureStartOrEnter(from, to libcommon.Address, create bool, code []byte) {

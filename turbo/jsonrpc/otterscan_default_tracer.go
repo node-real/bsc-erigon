@@ -17,6 +17,8 @@ func (t *DefaultTracer) CaptureTxStart(gasLimit uint64) {}
 
 func (t *DefaultTracer) CaptureTxEnd(restGas uint64) {}
 
+func (t *DefaultTracer) CaptureSystemTxEnd(intrinsicGas uint64) {}
+
 func (t *DefaultTracer) CaptureStart(env *vm.EVM, from common.Address, to common.Address, precompile bool, create bool, input []byte, gas uint64, value *uint256.Int, code []byte) {
 }
 
