@@ -134,6 +134,9 @@ func (l *StructLogger) CaptureTxStart(gasLimit uint64) {}
 
 func (l *StructLogger) CaptureTxEnd(restGas uint64) {}
 
+func (l *StructLogger) CaptureSystemTxEnd(intrinsicGas uint64) {
+}
+
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
 func (l *StructLogger) CaptureStart(env *vm.EVM, from libcommon.Address, to libcommon.Address, precompile bool, create bool, input []byte, gas uint64, value *uint256.Int, code []byte) {
 	l.env = env
@@ -355,6 +358,8 @@ func NewMarkdownLogger(cfg *LogConfig, writer io.Writer) *mdLogger {
 func (t *mdLogger) CaptureTxStart(gasLimit uint64) {}
 
 func (t *mdLogger) CaptureTxEnd(restGas uint64) {}
+
+func (*mdLogger) CaptureSystemTxEnd(intrinsicGas uint64) {}
 
 func (t *mdLogger) captureStartOrEnter(from, to libcommon.Address, create bool, input []byte, gas uint64, value *uint256.Int) {
 	if !create {

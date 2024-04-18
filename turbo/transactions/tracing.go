@@ -136,6 +136,7 @@ func TraceTx(
 	chainConfig *chain.Config,
 	stream *jsoniter.Stream,
 	callTimeout time.Duration,
+	intrinsicGas uint64,
 ) error {
 	tracer, streaming, cancel, err := AssembleTracer(ctx, config, txCtx.TxHash, stream, callTimeout)
 	if err != nil {
@@ -150,7 +151,7 @@ func TraceTx(
 		return core.ApplyMessage(evm, message, gp, refunds, false /* gasBailout */)
 	}
 
-	return ExecuteTraceTx(blockCtx, txCtx, ibs, config, chainConfig, stream, tracer, streaming, execCb)
+	return ExecuteTraceTx(blockCtx, txCtx, ibs, config, chainConfig, stream, tracer, streaming, execCb, intrinsicGas)
 }
 
 func AssembleTracer(
@@ -208,6 +209,7 @@ func ExecuteTraceTx(
 	tracer vm.EVMLogger,
 	streaming bool,
 	execCb func(evm *vm.EVM, refunds bool) (*core.ExecutionResult, error),
+	intrinsicGas uint64,
 ) error {
 	// Run the transaction with tracing enabled.
 	evm := vm.NewEVM(blockCtx, txCtx, ibs, chainConfig, vm.Config{Debug: true, Tracer: tracer})
@@ -222,8 +224,8 @@ func ExecuteTraceTx(
 		stream.WriteObjectField("structLogs")
 		stream.WriteArrayStart()
 	}
-
 	result, err := execCb(evm, refunds)
+	tracer.CaptureSystemTxEnd(intrinsicGas)
 	if err != nil {
 		if streaming {
 			stream.WriteArrayEnd()
@@ -233,13 +235,12 @@ func ExecuteTraceTx(
 		}
 		return fmt.Errorf("tracing failed: %w", err)
 	}
-
 	// Depending on the tracer type, format and return the output
 	if streaming {
 		stream.WriteArrayEnd()
 		stream.WriteMore()
 		stream.WriteObjectField("gas")
-		stream.WriteUint64(result.UsedGas)
+		stream.WriteUint64(result.UsedGas - intrinsicGas)
 		stream.WriteMore()
 		stream.WriteObjectField("failed")
 		stream.WriteBool(result.Failed())
