@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/holiman/uint256"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -85,11 +87,26 @@ func ComputeTxEnv(ctx context.Context, engine consensus.EngineReader, block *typ
 		return nil, evmtypes.BlockContext{}, evmtypes.TxContext{}, nil, nil, err
 	}
 
+	var beforeSystemTx = true
 	for idx, txn := range block.Transactions() {
 		select {
 		default:
 		case <-ctx.Done():
 			return nil, evmtypes.BlockContext{}, evmtypes.TxContext{}, nil, nil, ctx.Err()
+		}
+		if beforeSystemTx {
+			if posa, ok := engine.(consensus.PoSA); ok {
+				if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
+					balance := statedb.GetBalance(consensus.SystemAddress)
+					if balance.Cmp(uint256.NewInt(0)) > 0 {
+						statedb.SetBalance(consensus.SystemAddress, uint256.NewInt(0))
+						statedb.AddBalance(block.Header().Coinbase, balance)
+					}
+				}
+				if cfg.IsFeynman(block.NumberU64(), block.Time()) {
+					systemcontracts.UpgradeBuildInSystemContract(cfg, header.Number, parent.Time, header.Time, statedb, logger)
+				}
+			}
 		}
 		statedb.SetTxContext(txn.Hash(), block.Hash(), idx)
 
