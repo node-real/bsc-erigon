@@ -102,11 +102,11 @@ func ComputeTxEnv(ctx context.Context, engine consensus.EngineReader, block *typ
 						statedb.SetBalance(consensus.SystemAddress, uint256.NewInt(0))
 						statedb.AddBalance(block.Header().Coinbase, balance)
 					}
+					if cfg.IsFeynman(block.NumberU64(), block.Time()) {
+						systemcontracts.UpgradeBuildInSystemContract(cfg, header.Number, parent.Time, header.Time, statedb, logger)
+					}
+					beforeSystemTx = false
 				}
-				if cfg.IsFeynman(block.NumberU64(), block.Time()) {
-					systemcontracts.UpgradeBuildInSystemContract(cfg, header.Number, parent.Time, header.Time, statedb, logger)
-				}
-				beforeSystemTx = false
 			}
 		}
 		statedb.SetTxContext(txn.Hash(), block.Hash(), idx)
