@@ -623,39 +623,6 @@ func (c *Config) checkCompatible(newcfg *Config, head uint64) *ConfigCompatError
 	if incompatible(c.NielsBlock, newcfg.NielsBlock, head) {
 		return newCompatError("Niels fork block", c.NielsBlock, newcfg.NielsBlock)
 	}
-	if incompatible(c.MirrorSyncBlock, newcfg.MirrorSyncBlock, head) {
-		return newCompatError("MirrorSync fork block", c.MirrorSyncBlock, newcfg.MirrorSyncBlock)
-	}
-	if incompatible(c.BrunoBlock, newcfg.BrunoBlock, head) {
-		return newCompatError("Bruno fork block", c.BrunoBlock, newcfg.BrunoBlock)
-	}
-	if incompatible(c.EulerBlock, newcfg.EulerBlock, head) {
-		return newCompatError("Euler fork block", c.EulerBlock, newcfg.EulerBlock)
-	}
-	if incompatible(c.GibbsBlock, newcfg.GibbsBlock, head) {
-		return newCompatError("Gibbs fork block", c.GibbsBlock, newcfg.GibbsBlock)
-	}
-	if incompatible(c.NanoBlock, newcfg.NanoBlock, head) {
-		return newCompatError("Nano fork block", c.NanoBlock, newcfg.NanoBlock)
-	}
-	if incompatible(c.MoranBlock, newcfg.MoranBlock, head) {
-		return newCompatError("moran fork block", c.MoranBlock, newcfg.MoranBlock)
-	}
-	if incompatible(c.PlanckBlock, newcfg.PlanckBlock, head) {
-		return newCompatError("planck fork block", c.PlanckBlock, newcfg.PlanckBlock)
-	}
-	if incompatible(c.LubanBlock, newcfg.LubanBlock, head) {
-		return newCompatError("luban fork block", c.LubanBlock, newcfg.LubanBlock)
-	}
-	if incompatible(c.PlatoBlock, newcfg.PlatoBlock, head) {
-		return newCompatError("plato fork block", c.PlatoBlock, newcfg.PlatoBlock)
-	}
-	if incompatible(c.HertzBlock, newcfg.HertzBlock, head) {
-		return newCompatError("hertz fork block", c.HertzBlock, newcfg.HertzBlock)
-	}
-	if incompatible(c.HertzfixBlock, newcfg.HertzfixBlock, head) {
-		return newCompatError("hertzfix fork block", c.HertzfixBlock, newcfg.HertzfixBlock)
-	}
 	return nil
 }
 
