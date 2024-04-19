@@ -106,6 +106,7 @@ func ComputeTxEnv(ctx context.Context, engine consensus.EngineReader, block *typ
 				if cfg.IsFeynman(block.NumberU64(), block.Time()) {
 					systemcontracts.UpgradeBuildInSystemContract(cfg, header.Number, parent.Time, header.Time, statedb, logger)
 				}
+				beforeSystemTx = false
 			}
 		}
 		statedb.SetTxContext(txn.Hash(), block.Hash(), idx)
