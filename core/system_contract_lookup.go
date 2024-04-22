@@ -88,6 +88,18 @@ func init() {
 				addCodeRecords(systemcontracts.KeplerUpgrade[chainName], 0, blockTime, byChain)
 			}
 		}
+		if chainConfig.FeynmanTime != nil {
+			blockTime := chainConfig.FeynmanTime.Uint64()
+			if blockTime != 0 {
+				addCodeRecords(systemcontracts.FeynmanUpgrade[chainName], 0, blockTime, byChain)
+			}
+		}
+		if chainConfig.FeynmanFixTime != nil {
+			blockTime := chainConfig.FeynmanFixTime.Uint64()
+			if blockTime != 0 {
+				addCodeRecords(systemcontracts.FeynmanFixUpgrade[chainName], 0, blockTime, byChain)
+			}
+		}
 	}
 
 	addGnosisSpecialCase()
