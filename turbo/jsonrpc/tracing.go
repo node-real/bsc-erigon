@@ -109,12 +109,6 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 		}
 	}
 
-	//logger := log.New("tracing")
-	//var beforeSystemTx = true
-	//parent, err := api.blockWithSenders(tx, block.ParentHash(), blockNumber-1)
-	//if err != nil {
-	//	return err
-	//}
 	for idx, txn := range txns {
 		isBorStateSyncTxn := borStateSyncTxn == txn
 		var txnHash common.Hash
@@ -136,22 +130,6 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 			stream.WriteArrayEnd()
 			return ctx.Err()
 		}
-		//// upgrade build-in system contract before system txs if Feynman is enabled
-		//if beforeSystemTx {
-		//	if posa, ok := engine.(consensus.PoSA); ok {
-		//		if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
-		//			balance := ibs.GetBalance(consensus.SystemAddress)
-		//			if balance.Cmp(uint256.NewInt(0)) > 0 {
-		//				ibs.SetBalance(consensus.SystemAddress, uint256.NewInt(0))
-		//				ibs.AddBalance(block.Header().Coinbase, balance)
-		//			}
-		//			if chainConfig.IsFeynman(block.NumberU64(), block.Time()) {
-		//				systemcontracts.UpgradeBuildInSystemContract(chainConfig, block.Number(), parent.Time(), block.Time(), ibs, logger)
-		//			}
-		//			beforeSystemTx = false
-		//		}
-		//	}
-		//}
 		ibs.SetTxContext(txnHash, block.Hash(), idx)
 		msg, _ := txn.AsMessage(*signer, block.BaseFee(), rules)
 
