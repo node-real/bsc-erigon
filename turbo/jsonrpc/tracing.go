@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"github.com/ledgerwatch/erigon/consensus"
 	"time"
@@ -281,6 +282,10 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	engine := api.engine()
 
 	msg, blockCtx, txCtx, ibs, _, err := transactions.ComputeTxEnv(ctx, engine, block, chainConfig, api._blockReader, tx, txnIndex, api.historyV3(tx))
+	data := hex.EncodeToString(msg.Data())
+	if data == "nil" {
+
+	}
 	if err != nil {
 		stream.WriteNil()
 		return err
