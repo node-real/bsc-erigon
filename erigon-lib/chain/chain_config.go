@@ -615,14 +615,6 @@ func (c *Config) checkCompatible(newcfg *Config, head uint64) *ConfigCompatError
 	if incompatible(c.MergeNetsplitBlock, newcfg.MergeNetsplitBlock, head) {
 		return newCompatError("Merge netsplit block", c.MergeNetsplitBlock, newcfg.MergeNetsplitBlock)
 	}
-
-	// Parlia forks
-	if incompatible(c.RamanujanBlock, newcfg.RamanujanBlock, head) {
-		return newCompatError("Ramanujan fork block", c.RamanujanBlock, newcfg.RamanujanBlock)
-	}
-	if incompatible(c.NielsBlock, newcfg.NielsBlock, head) {
-		return newCompatError("Niels fork block", c.NielsBlock, newcfg.NielsBlock)
-	}
 	return nil
 }
 
