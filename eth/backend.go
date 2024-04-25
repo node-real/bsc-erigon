@@ -1403,6 +1403,10 @@ func (s *Ethereum) Start() error {
 		s.engine.(*bor.Bor).Start(s.chainDB)
 	}
 
+	if s.chainConfig.Parlia != nil {
+		parlia.RegisterService()
+	}
+
 	if s.silkwormRPCDaemonService != nil {
 		if err := s.silkwormRPCDaemonService.Start(); err != nil {
 			s.logger.Error("silkworm.StartRpcDaemon error", "err", err)

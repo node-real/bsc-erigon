@@ -1059,6 +1059,10 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	}
 	// Re-order receipts so that are in right order
 	slices.SortFunc(receipts, func(a, b *types.Receipt) int { return cmp.Compare(a.TransactionIndex, b.TransactionIndex) })
+
+	if fs := GetFinalizationService(); fs != nil {
+		fs.UpdateFinality(snap)
+	}
 	return txs, receipts, nil
 }
 
