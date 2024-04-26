@@ -1576,13 +1576,14 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 	if err != nil {
 		return err
 	}
-	receipt := types.NewReceipt(false, *usedGas)
-	receipt.TxHash = expectedTx.Hash()
-	receipt.GasUsed = gasUsed
 	if err := ibs.FinalizeTx(p.chainConfig.Rules(header.Number.Uint64(), header.Time), state.NewNoopWriter()); err != nil {
 		return err
 	}
 	*usedGas += gasUsed
+	receipt := types.NewReceipt(false, *usedGas)
+	receipt.TxHash = expectedTx.Hash()
+	receipt.GasUsed = gasUsed
+
 	*txs = append(*txs, expectedTx)
 	// Set the receipt logs and create a bloom for filtering
 	receipt.Logs = ibs.GetLogs(expectedTx.Hash())
