@@ -38,6 +38,7 @@ import (
 	"github.com/ledgerwatch/erigon/common/u256"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/consensus/misc"
+	"github.com/ledgerwatch/erigon/consensus/parlia/finality"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/forkid"
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
@@ -1060,8 +1061,10 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	// Re-order receipts so that are in right order
 	slices.SortFunc(receipts, func(a, b *types.Receipt) int { return cmp.Compare(a.TransactionIndex, b.TransactionIndex) })
 
-	if fs := GetFinalizationService(); fs != nil {
-		fs.UpdateFinality(snap)
+	if fs := finality.GetFinalizationService(); fs != nil {
+		if snap.Attestation != nil {
+			fs.UpdateFinality(snap.Attestation.SourceHash, snap.Attestation.TargetHash)
+		}
 	}
 	return txs, receipts, nil
 }

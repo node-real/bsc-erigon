@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ledgerwatch/erigon/consensus/parlia"
+	parliafinality "github.com/ledgerwatch/erigon/consensus/parlia/finality"
 	"github.com/ledgerwatch/erigon/turbo/services"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
@@ -69,7 +69,7 @@ func _GetBlockNumber(requireCanonical bool, blockNrOrHash rpc.BlockNumberOrHash,
 				blockHash := rawdb.ReadHeaderByNumber(tx, blockNum).Hash()
 				return blockNum, blockHash, false, nil
 			}
-			if fs := parlia.GetFinalizationService(); fs != nil {
+			if fs := parliafinality.GetFinalizationService(); fs != nil {
 				blockHash := fs.GetFinalizeBlockHash()
 				blockNum := rawdb.ReadHeaderNumber(tx, blockHash)
 				return *blockNum, blockHash, false, nil
@@ -79,7 +79,7 @@ func _GetBlockNumber(requireCanonical bool, blockNrOrHash rpc.BlockNumberOrHash,
 				return 0, libcommon.Hash{}, false, err
 			}
 		case rpc.SafeBlockNumber:
-			if fs := parlia.GetFinalizationService(); fs != nil {
+			if fs := parliafinality.GetFinalizationService(); fs != nil {
 				blockHash := fs.GetSafeBlockHash()
 				blockNum := rawdb.ReadHeaderNumber(tx, blockHash)
 				return *blockNum, blockHash, false, nil

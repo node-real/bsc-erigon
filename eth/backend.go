@@ -83,6 +83,7 @@ import (
 	"github.com/ledgerwatch/erigon/consensus/merge"
 	"github.com/ledgerwatch/erigon/consensus/misc"
 	"github.com/ledgerwatch/erigon/consensus/parlia"
+	parliafinality "github.com/ledgerwatch/erigon/consensus/parlia/finality"
 	"github.com/ledgerwatch/erigon/core"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/rawdb/blockio"
@@ -1404,7 +1405,7 @@ func (s *Ethereum) Start() error {
 	}
 
 	if s.chainConfig.Parlia != nil {
-		parlia.RegisterService()
+		parliafinality.RegisterService()
 	}
 
 	if s.silkwormRPCDaemonService != nil {

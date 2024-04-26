@@ -1,4 +1,4 @@
-package parlia
+package finality
 
 import (
 	"sync"
@@ -29,13 +29,11 @@ func NewFinalizationService() *FinalizationService {
 	}
 }
 
-func (fs *FinalizationService) UpdateFinality(snap *Snapshot) {
-	if snap.Attestation != nil {
-		fs.mux.Lock()
-		defer fs.mux.Unlock()
-		fs.FinalizeBlockHash = snap.Attestation.SourceHash
-		fs.SafeBlockHash = snap.Attestation.TargetHash
-	}
+func (fs *FinalizationService) UpdateFinality(finalizedHash libcommon.Hash, safeHash libcommon.Hash) {
+	fs.mux.Lock()
+	defer fs.mux.Unlock()
+	fs.FinalizeBlockHash = finalizedHash
+	fs.SafeBlockHash = safeHash
 }
 
 func (fs *FinalizationService) GetFinalization() (libcommon.Hash, libcommon.Hash) {
