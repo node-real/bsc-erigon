@@ -2,8 +2,7 @@ name: Integration tests
 on:
   push:
     branches:
-      - devel
-      - alpha
+      - main
       - 'release/**'
   schedule:
     - cron: '20 16 * * *' # daily at 16:20 UTC
