@@ -1292,7 +1292,7 @@ func (b *Block) HashCheck() error {
 		}
 		return nil
 	}
-	if b.Withdrawals() == nil {
+	if b.Withdrawals() == nil || *b.WithdrawalsHash() == EmptyRootHash {
 		return errors.New("body missing Withdrawals")
 	}
 	if hash := DeriveSha(b.Withdrawals()); hash != *b.WithdrawalsHash() {
