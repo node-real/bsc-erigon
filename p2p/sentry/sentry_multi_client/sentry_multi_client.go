@@ -521,6 +521,7 @@ func (cs *MultiClient) newBlock66(ctx context.Context, inreq *proto_sentry.Inbou
 		request.Block = request.Block.WithSidecars(request.Sidecars)
 	}
 
+	log.Info("Received newBlock66 ", "block", request.Block.Header().Number.Uint64(), "len(sidecars)", request.Sidecars, "peerId", sentry2.ConvertH512ToPeerID(inreq.PeerId))
 	if segments, penalty, err := cs.Hd.SingleHeaderAsSegment(headerRaw, request.Block.Header(), true /* penalizePoSBlocks */); err == nil {
 		if penalty == headerdownload.NoPenalty {
 			propagate := !cs.ChainConfig.TerminalTotalDifficultyPassed
