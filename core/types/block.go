@@ -1286,13 +1286,13 @@ func (b *Block) HashCheck() error {
 		return fmt.Errorf("block has invalid uncle hash: have %x, exp: %x", hash, b.UncleHash())
 	}
 
-	if b.WithdrawalsHash() == nil {
+	if b.WithdrawalsHash() == nil || *b.WithdrawalsHash() == EmptyRootHash {
 		if b.Withdrawals() != nil {
 			return errors.New("header missing WithdrawalsHash")
 		}
 		return nil
 	}
-	if b.Withdrawals() == nil || *b.WithdrawalsHash() == EmptyRootHash {
+	if b.Withdrawals() == nil {
 		return errors.New("body missing Withdrawals")
 	}
 	if hash := DeriveSha(b.Withdrawals()); hash != *b.WithdrawalsHash() {
