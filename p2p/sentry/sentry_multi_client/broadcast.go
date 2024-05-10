@@ -93,6 +93,8 @@ func (cs *MultiClient) BroadcastNewBlock(ctx context.Context, header *types.Head
 			}
 			log.Error("broadcastNewBlock", "err", err)
 		}
+
+		log.Info("broadcastNewBlock", "block", block.NumberU64(), "len(sidecar)", len(body.Sidecars))
 	}
 }
 
