@@ -239,8 +239,7 @@ func BodiesForward(
 
 				if cfg.chanConfig.Parlia != nil && cfg.chanConfig.IsCancun(headerNumber, header.Time) {
 					if err = core.IsDataAvailable(cr, header, rawBody); err != nil {
-						u.UnwindTo(blockHeight-1, BadBlock(header.Hash(), fmt.Errorf("CheckDataAvaliabe failed: %w", err)))
-						return true, err
+						return false, err
 					}
 				}
 
