@@ -413,6 +413,7 @@ func UnwindBodiesStage(u *UnwindState, tx kv.RwTx, cfg BodiesCfg, ctx context.Co
 		}
 	}
 
+	log.Info("[5/15 Bodies] unwind", "UnwindPoint", u.UnwindPoint)
 	if err := cfg.blockWriter.MakeBodiesNonCanonical(tx, u.UnwindPoint+1); err != nil {
 		return err
 	}
