@@ -206,6 +206,7 @@ func BodiesForward(
 			}
 			nextBlock := requestedLow + i
 			rawBody := cfg.bd.GetBodyFromCache(nextBlock, write /* delete */)
+			log.Debug("GetBodyFromCache", "nextBlock", nextBlock)
 			if rawBody == nil {
 				cfg.bd.NotDelivered(nextBlock)
 				write = false

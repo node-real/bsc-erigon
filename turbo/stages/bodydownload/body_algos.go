@@ -156,9 +156,9 @@ func (bd *BodyDownload) RequestMoreBodies(tx kv.RwTx, blockReader services.FullB
 				// Perhaps we already have this block
 				block, _, _ := bd.br.BlockWithSenders(context.Background(), tx, hash, blockNum)
 				if block != nil {
-					bd.addBodyToCache(blockNum, block.RawBody())
+					//bd.addBodyToCache(blockNum, block.RawBody())
 					dataflow.BlockBodyDownloadStates.AddChange(blockNum, dataflow.BlockBodyInDb)
-					request = false
+					//request = false
 				}
 			}
 		}
