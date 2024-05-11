@@ -194,14 +194,12 @@ func (bd *BodyDownload) checkPrefetchedBlock(hash libcommon.Hash, tx kv.RwTx, bl
 		return false
 	}
 
-	var want uint64
 	if header.BlobGasUsed != nil {
-		want = *header.BlobGasUsed / params.BlobTxBlobGasPerBlob
-	}
-
-	if want != uint64(len(body.Sidecars)) {
-		bd.logger.Debug("Prefetched Block Error", "Number", header.Number.Uint64(), "Hash", header.Hash(), "want", want, "actual", len(body.Sidecars))
-		return false
+		want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob
+		if want != uint64(len(body.Sidecars)) {
+			bd.logger.Debug("Prefetched Block Error", "Number", header.Number.Uint64(), "Hash", header.Hash(), "want", want, "actual", len(body.Sidecars))
+			return false
+		}
 	}
 
 	// Block is prefetched, no need to request
