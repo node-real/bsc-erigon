@@ -206,7 +206,6 @@ func BodiesForward(
 			}
 			nextBlock := requestedLow + i
 			rawBody := cfg.bd.GetBodyFromCache(nextBlock, write /* delete */)
-			log.Debug("GetBodyFromCache", "nextBlock", nextBlock)
 			if rawBody == nil {
 				cfg.bd.NotDelivered(nextBlock)
 				write = false
@@ -414,7 +413,6 @@ func UnwindBodiesStage(u *UnwindState, tx kv.RwTx, cfg BodiesCfg, ctx context.Co
 		}
 	}
 
-	log.Info("[5/15 Bodies] unwind", "UnwindPoint", u.UnwindPoint)
 	if err := cfg.blockWriter.MakeBodiesNonCanonical(tx, u.UnwindPoint+1); err != nil {
 		return err
 	}

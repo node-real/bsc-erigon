@@ -330,7 +330,6 @@ Loop:
 			}
 			delete(bd.requestedMap, tripleHash) // Delivered, cleaning up
 
-			bd.logger.Info("add block to cache", "blockNum", blockNum, "len(sidecars)", len(sidecars[i]), "peerId", fmt.Sprintf("%x", delivery.peerID)[:8])
 			bd.addBodyToCache(blockNum, &types.RawBody{Transactions: txs[i], Uncles: uncles[i], Withdrawals: withdrawals[i], Sidecars: sidecars[i]})
 			bd.delivered.Add(blockNum)
 			delivered++
