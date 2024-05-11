@@ -155,10 +155,11 @@ func (bd *BodyDownload) RequestMoreBodies(tx kv.RwTx, blockReader services.FullB
 			} else {
 				// Perhaps we already have this block
 				block, _, _ := bd.br.BlockWithSenders(context.Background(), tx, hash, blockNum)
-				if block != nil {
-					//bd.addBodyToCache(blockNum, block.RawBody())
+				withoutSidecar := block.Header().BlobGasUsed == nil || *block.Header().BlobGasUsed == 0
+				if block != nil && withoutSidecar {
+					bd.addBodyToCache(blockNum, block.RawBody())
 					dataflow.BlockBodyDownloadStates.AddChange(blockNum, dataflow.BlockBodyInDb)
-					//request = false
+					request = false
 				}
 			}
 		}
