@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/ledgerwatch/erigon/params"
 	"math/big"
 
 	"github.com/holiman/uint256"
@@ -189,6 +190,12 @@ func (bd *BodyDownload) checkPrefetchedBlock(hash libcommon.Hash, tx kv.RwTx, bl
 	header, body := bd.prefetchedBlocks.Get(hash)
 
 	if body == nil {
+		return false
+	}
+
+	want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob
+
+	if want != uint64(len(body.Sidecars)) {
 		return false
 	}
 
