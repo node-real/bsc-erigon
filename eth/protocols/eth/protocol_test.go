@@ -18,6 +18,10 @@ package eth
 
 import (
 	"bytes"
+	"github.com/holiman/uint256"
+	types2 "github.com/ledgerwatch/erigon-lib/types"
+	"github.com/ledgerwatch/erigon/params"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -227,5 +231,89 @@ func TestEth66Messages(t *testing.T) {
 		if have, _ := rlp.EncodeToBytes(tc.message); !bytes.Equal(have, tc.want) {
 			t.Errorf("test %d, type %T, have\n\t%x\nwant\n\t%x", i, tc.message, have, tc.want)
 		}
+	}
+}
+
+func TestNewBlockPacket_EncodeDecode(t *testing.T) {
+	dynamicTx := &types.DynamicFeeTransaction{
+		CommonTx: types.CommonTx{
+			Nonce: 0,
+			Gas:   25000,
+			To:    &libcommon.Address{0x03, 0x04, 0x05},
+			Value: uint256.NewInt(99), // wei amount
+			Data:  make([]byte, 50),
+		},
+		ChainID:    uint256.NewInt(716),
+		Tip:        uint256.NewInt(22),
+		FeeCap:     uint256.NewInt(5),
+		AccessList: types2.AccessList{},
+	}
+	txSidecar := types.BlobTxSidecar{
+		Blobs:       types.Blobs{types.Blob{}, types.Blob{}},
+		Commitments: types.BlobKzgs{types.KZGCommitment{}, types.KZGCommitment{}},
+		Proofs:      types.KZGProofs{types.KZGProof{}, types.KZGProof{}},
+	}
+	blobTx := &types.BlobTx{
+		DynamicFeeTransaction: *dynamicTx,
+		MaxFeePerBlobGas:      uint256.NewInt(5),
+		BlobVersionedHashes:   []libcommon.Hash{{}},
+	}
+	blobGasUsed := uint64(params.BlobTxBlobGasPerBlob)
+	excessBlobGas := uint64(0)
+	withdrawalsHash := libcommon.Hash{}
+	header := &types.Header{
+		ParentHash:      libcommon.HexToHash("0x85a8f2a2d4d2b3e73154d8ed1b5deb7c7c395dde7b934058bcc5d0efb69dff60"),
+		UncleHash:       types.EmptyUncleHash,
+		Coinbase:        libcommon.HexToAddress("0x76d76ee8823de52a1a431884c2ca930c5e72bff3 "),
+		Root:            types.EmptyRootHash,
+		TxHash:          libcommon.HexToHash("0xa84b1b157b86ed7e1352fa8e6518cd31e9be686bd27b1fe79d7ae6ebc02b29bb"),
+		ReceiptHash:     libcommon.HexToHash("https://testnet.bscscan.com/tx/0x5ebb92a3a3660c18655a29be937ac2704b807545996672836ea907e2685bc8fc"),
+		Bloom:           types.Bloom{},
+		Difficulty:      new(big.Int).SetUint64(2),
+		Number:          new(big.Int).SetUint64(1),
+		GasLimit:        69998932,
+		GasUsed:         998363,
+		Time:            1715485382,
+		Extra:           make([]byte, 64),
+		MixDigest:       libcommon.Hash{},
+		Nonce:           types.BlockNonce{},
+		BaseFee:         new(big.Int).SetUint64(0),
+		WithdrawalsHash: &withdrawalsHash,
+		BlobGasUsed:     &blobGasUsed,
+		ExcessBlobGas:   &excessBlobGas,
+	}
+
+	tests := []struct {
+		msg NewBlockPacket
+	}{
+		{msg: NewBlockPacket{
+			Block: types.NewBlockWithHeader(header),
+			TD:    new(big.Int).SetUint64(1),
+		}},
+		{msg: NewBlockPacket{
+			Block: types.NewBlock(header, []types.Transaction{dynamicTx}, nil, nil, types.Withdrawals{}),
+			TD:    new(big.Int).SetUint64(1),
+		}},
+		{msg: NewBlockPacket{
+			Block: types.NewBlock(header, []types.Transaction{dynamicTx, blobTx}, nil, nil, types.Withdrawals{}),
+			TD:    new(big.Int).SetUint64(1),
+			Sidecars: types.BlobSidecars{&types.BlobSidecar{
+				BlobTxSidecar: txSidecar,
+				BlockNumber:   new(big.Int).SetUint64(1),
+				BlockHash:     libcommon.Hash{},
+				TxIndex:       1,
+				TxHash:        libcommon.Hash{},
+			}},
+		}},
+	}
+
+	for _, item := range tests {
+		item.msg.Block.Size()
+		enc, err := rlp.EncodeToBytes(item.msg)
+		require.NoError(t, err)
+		var actual NewBlockPacket
+		err = rlp.DecodeBytes(enc, &actual)
+		require.NoError(t, err)
+		require.Equal(t, item.msg, actual)
 	}
 }

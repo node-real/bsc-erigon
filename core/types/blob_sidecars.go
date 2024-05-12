@@ -62,9 +62,21 @@ func (s *BlobSidecar) EncodeRLP(w io.Writer) error {
 	if err := EncodeStructSizePrefix(s.payloadSize(), w, b[:]); err != nil {
 		return err
 	}
-	if err := s.BlobTxSidecar.EncodeRLP(w); err != nil {
+	// blobs
+	if err := s.Blobs.encodePayload(w, b[:], s.Blobs.payloadSize()); err != nil {
 		return err
 	}
+
+	// commitments
+	if err := s.Commitments.encodePayload(w, b[:], s.Commitments.payloadSize()); err != nil {
+		return err
+	}
+
+	// proofs
+	if err := s.Proofs.encodePayload(w, b[:], s.Proofs.payloadSize()); err != nil {
+		return err
+	}
+
 	if err := rlp.Encode(w, s.BlockNumber); err != nil {
 		return err
 	}
@@ -86,27 +98,31 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 	if err != nil {
 		return err
 	}
-	if err := sc.BlobTxSidecar.DecodeRLP(s); err != nil {
-		return err
-	}
-	var b []byte
-	if b, err = s.Bytes(); err != nil {
-		return err
-	}
-	sc.BlockNumber = new(big.Int).SetBytes(b)
-	if b, err = s.Bytes(); err != nil {
-		return err
-	}
-	sc.BlockHash = libcommon.BytesToHash(b)
 
-	if sc.TxIndex, err = s.Uint(); err != nil {
-		return err
+	if err := sc.Blobs.DecodeRLP(s); err != nil {
+		return fmt.Errorf("decode Blobs: %w", err)
 	}
 
-	if b, err = s.Bytes(); err != nil {
+	if err := sc.Commitments.DecodeRLP(s); err != nil {
+		return fmt.Errorf("decode Commitments: %w", err)
+	}
+
+	if err := sc.Proofs.DecodeRLP(s); err != nil {
+		return fmt.Errorf("decode Proofs: %w", err)
+	}
+	sc.BlockNumber = new(big.Int)
+	if err := s.Decode(sc.BlockNumber); err != nil {
 		return err
 	}
-	sc.TxHash = libcommon.BytesToHash(b)
+	if err := s.Decode(&sc.BlockHash); err != nil {
+		return err
+	}
+	if err := s.Decode(&sc.TxIndex); err != nil {
+		return err
+	}
+	if err := s.Decode(&sc.TxHash); err != nil {
+		return err
+	}
 
 	if err = s.ListEnd(); err != nil {
 		return fmt.Errorf("close BlobSidecar: %w", err)
@@ -116,10 +132,10 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 
 func (s *BlobSidecar) payloadSize() int {
 	size := s.BlobTxSidecar.payloadSize()
-	size += rlp.BigIntLenExcludingHead(s.BlockNumber)
-	size += 32
-	size += 8
-	size += 32
+	size += 1 + rlp.BigIntLenExcludingHead(s.BlockNumber)
+	size += 33
+	size += 1 + rlp.IntLenExcludingHead(s.TxIndex)
+	size += 33
 	return size
 }
 

@@ -19,14 +19,13 @@ package eth
 import (
 	"errors"
 	"fmt"
+	rlp2 "github.com/ledgerwatch/erigon-lib/rlp"
 	"io"
 	"math/big"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/direct"
 	proto_sentry "github.com/ledgerwatch/erigon-lib/gointerfaces/sentry"
-	rlp2 "github.com/ledgerwatch/erigon-lib/rlp"
-
 	"github.com/ledgerwatch/erigon/core/forkid"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/rlp"
@@ -266,7 +265,7 @@ type BlockHeadersPacket66 struct {
 type NewBlockPacket struct {
 	Block    *types.Block
 	TD       *big.Int
-	Sidecars types.BlobSidecars
+	Sidecars types.BlobSidecars `rlp:"optional"`
 }
 
 func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
@@ -284,6 +283,14 @@ func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
 		}
 	}
 	encodingSize += tdLen
+	if len(nbp.Sidecars) > 0 {
+		sidecarsLen := 0
+		for _, item := range nbp.Sidecars {
+			size := item.EncodingSize()
+			sidecarsLen += rlp2.ListPrefixLen(size) + size
+		}
+		encodingSize += rlp2.ListPrefixLen(sidecarsLen) + sidecarsLen
+	}
 	var b [33]byte
 	// prefix
 	if err := types.EncodeStructSizePrefix(encodingSize, w, b[:]); err != nil {
