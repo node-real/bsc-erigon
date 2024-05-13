@@ -103,7 +103,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			var err error
 			var db kv.RwDB
 
-			if consensusCfg.DBPath == "" {
+			if consensusCfg.DBPath != "" {
 				if filepath.Base(consensusCfg.DBPath) == "parlia" {
 					nodeConfig.Dirs.DataDir = filepath.Dir(consensusCfg.DBPath)
 				} else {
