@@ -266,7 +266,7 @@ type BlockHeadersPacket66 struct {
 type NewBlockPacket struct {
 	Block    *types.Block
 	TD       *big.Int
-	Sidecars types.BlobSidecars `rlp:"optional"`
+	Sidecars types.BlobSidecars
 }
 
 func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
