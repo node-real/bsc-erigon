@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	rlp2 "github.com/ledgerwatch/erigon-lib/rlp"
 	"github.com/ledgerwatch/erigon/rlp"
 )
 
@@ -65,18 +66,31 @@ func (s *BlobSidecar) EncodeRLP(w io.Writer) error {
 	if err := s.BlobTxSidecar.EncodeRLP(w); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.BlockNumber); err != nil {
+
+	if err := rlp.EncodeBigInt(s.BlockNumber, w, b[:]); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.BlockHash); err != nil {
+
+	b[0] = 128 + 32
+	if _, err := w.Write(b[:1]); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.TxIndex); err != nil {
+	if _, err := w.Write(s.BlockHash.Bytes()); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.TxHash); err != nil {
+
+	if err := rlp.EncodeInt(s.TxIndex, w, b[:]); err != nil {
 		return err
 	}
+
+	b[0] = 128 + 32
+	if _, err := w.Write(b[:1]); err != nil {
+		return err
+	}
+	if _, err := w.Write(s.TxHash.Bytes()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -89,13 +103,19 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 	if err := sc.BlobTxSidecar.DecodeRLP(s); err != nil {
 		return err
 	}
+
 	var b []byte
-	if b, err = s.Bytes(); err != nil {
+
+	if b, err = s.Uint256Bytes(); err != nil {
 		return err
 	}
 	sc.BlockNumber = new(big.Int).SetBytes(b)
+
 	if b, err = s.Bytes(); err != nil {
 		return err
+	}
+	if len(b) != 32 {
+		return fmt.Errorf("invalid block hash length: %d", len(b))
 	}
 	sc.BlockHash = libcommon.BytesToHash(b)
 
@@ -105,6 +125,9 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 
 	if b, err = s.Bytes(); err != nil {
 		return err
+	}
+	if len(b) != 32 {
+		return fmt.Errorf("invalid tx hash length: %d", len(b))
 	}
 	sc.TxHash = libcommon.BytesToHash(b)
 
@@ -116,10 +139,17 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 
 func (s *BlobSidecar) payloadSize() int {
 	size := s.BlobTxSidecar.payloadSize()
+	size += rlp2.ListPrefixLen(size) // size of payload size encoding
+
+	size++
 	size += rlp.BigIntLenExcludingHead(s.BlockNumber)
-	size += 32
-	size += 8
-	size += 32
+
+	size += rlp2.StringLen(s.BlockHash.Bytes())
+
+	size++
+	size += rlp.IntLenExcludingHead(s.TxIndex)
+
+	size += rlp2.StringLen(s.TxHash.Bytes())
 	return size
 }
 

@@ -15,7 +15,7 @@ var (
 	blockNumber = big.NewInt(123456)
 	blockHash   = libcommon.HexToHash("0x1")
 	txHash      = libcommon.HexToHash("0x2")
-	txIndex     = uint64(0)
+	txIndex     = uint64(100)
 )
 
 // generate newRandBlobTxSidecar
