@@ -19,9 +19,10 @@ package eth
 import (
 	"errors"
 	"fmt"
-	rlp2 "github.com/ledgerwatch/erigon-lib/rlp"
 	"io"
 	"math/big"
+
+	rlp2 "github.com/ledgerwatch/erigon-lib/rlp"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/direct"

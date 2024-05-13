@@ -18,12 +18,13 @@ package eth
 
 import (
 	"bytes"
+	"math/big"
+	"testing"
+
 	"github.com/holiman/uint256"
 	types2 "github.com/ledgerwatch/erigon-lib/types"
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
 
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 
