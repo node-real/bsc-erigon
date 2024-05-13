@@ -65,16 +65,24 @@ func (s *BlobSidecar) EncodeRLP(w io.Writer) error {
 	if err := s.BlobTxSidecar.EncodeRLP(w); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.BlockNumber); err != nil {
+	if err := rlp.EncodeBigInt(s.BlockNumber, w, b[:]); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.BlockHash); err != nil {
+	b[0] = 128 + 32
+	if _, err := w.Write(b[:1]); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.TxIndex); err != nil {
+	if _, err := w.Write(s.BlockHash.Bytes()); err != nil {
 		return err
 	}
-	if err := rlp.Encode(w, s.TxHash); err != nil {
+	if err := rlp.EncodeInt(s.TxIndex, w, b[:]); err != nil {
+		return err
+	}
+	b[0] = 128 + 32
+	if _, err := w.Write(b[:1]); err != nil {
+		return err
+	}
+	if _, err := w.Write(s.TxHash.Bytes()); err != nil {
 		return err
 	}
 	return nil
@@ -90,23 +98,27 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 		return err
 	}
 	var b []byte
-	if b, err = s.Bytes(); err != nil {
-		return err
+	if b, err = s.Uint256Bytes(); err != nil {
+		return fmt.Errorf("read blockNumber: %w", err)
 	}
 	sc.BlockNumber = new(big.Int).SetBytes(b)
 	if b, err = s.Bytes(); err != nil {
 		return err
 	}
-	sc.BlockHash = libcommon.BytesToHash(b)
-
+	if len(b) != 32 {
+		return fmt.Errorf("wrong size for BlockHash: %d", len(b))
+	}
+	copy(sc.BlockHash[:], b)
 	if sc.TxIndex, err = s.Uint(); err != nil {
 		return err
 	}
-
 	if b, err = s.Bytes(); err != nil {
 		return err
 	}
-	sc.TxHash = libcommon.BytesToHash(b)
+	if len(b) != 32 {
+		return fmt.Errorf("wrong size for TxHash: %d", len(b))
+	}
+	copy(sc.TxHash[:], b)
 
 	if err = s.ListEnd(); err != nil {
 		return fmt.Errorf("close BlobSidecar: %w", err)
@@ -116,10 +128,12 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 
 func (s *BlobSidecar) payloadSize() int {
 	size := s.BlobTxSidecar.payloadSize()
+	size++
 	size += rlp.BigIntLenExcludingHead(s.BlockNumber)
-	size += 32
-	size += 8
-	size += 32
+	size += 33
+	size++
+	size += rlp.IntLenExcludingHead(s.TxIndex)
+	size += 33
 	return size
 }
 
