@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/ledgerwatch/erigon/params"
 	"math/big"
 
 	"github.com/holiman/uint256"
@@ -154,7 +155,8 @@ func (bd *BodyDownload) RequestMoreBodies(tx kv.RwTx, blockReader services.FullB
 			} else {
 				// Perhaps we already have this block
 				block, _, _ := bd.br.BlockWithSenders(context.Background(), tx, hash, blockNum)
-				if block != nil {
+				withoutSidecar := header.BlobGasUsed == nil || *header.BlobGasUsed == 0
+				if block != nil && withoutSidecar {
 					bd.addBodyToCache(blockNum, block.RawBody())
 					dataflow.BlockBodyDownloadStates.AddChange(blockNum, dataflow.BlockBodyInDb)
 					request = false
@@ -190,6 +192,14 @@ func (bd *BodyDownload) checkPrefetchedBlock(hash libcommon.Hash, tx kv.RwTx, bl
 
 	if body == nil {
 		return false
+	}
+
+	if header.BlobGasUsed != nil {
+		want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob
+		if want != uint64(len(body.Sidecars)) {
+			bd.logger.Debug("Prefetched Block Error", "Number", header.Number.Uint64(), "Hash", header.Hash(), "want", want, "actual", len(body.Sidecars))
+			return false
+		}
 	}
 
 	// Block is prefetched, no need to request

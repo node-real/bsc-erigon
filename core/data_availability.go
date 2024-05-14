@@ -53,7 +53,7 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 	}
 
 	if len(blobTxs) != len(sidecars) {
-		return fmt.Errorf("blob info mismatch: sidecars %d, versionedHashes:%d", len(sidecars), len(blobTxs))
+		return fmt.Errorf("number %d, hash %v, blob info mismatch: have %d, want:%d", header.Number.Uint64(), header.Hash(), len(sidecars), len(blobTxs))
 	}
 
 	// check blob amount
