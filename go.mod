@@ -312,6 +312,6 @@ require (
 
 replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
-	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240408110004-01e5ba7115cb
+	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240521025755-e1faf8fbdbbf
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
 )
