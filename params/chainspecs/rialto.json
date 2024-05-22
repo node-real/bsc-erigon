@@ -32,6 +32,7 @@
   "feynmanTime": 0,
   "feynmanFixTime":0,
   "cancunTime": 0,
+  "haberTime": 0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,

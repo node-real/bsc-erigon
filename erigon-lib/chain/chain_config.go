@@ -69,6 +69,7 @@ type Config struct {
 	FeynmanTime    *big.Int `json:"feynmanTime,omitempty"`
 	FeynmanFixTime *big.Int `json:"feynmanFixTime,omitempty"`
 	CancunTime     *big.Int `json:"cancunTime,omitempty"`
+	HaberTime      *big.Int `json:"haberTime,omitempty"`
 	PragueTime     *big.Int `json:"pragueTime,omitempty"`
 	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
 
@@ -123,7 +124,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, Engine: %v}",
 			c.ChainID,
 			c.RamanujanBlock,
 			c.NielsBlock,
@@ -143,6 +144,7 @@ func (c *Config) String() string {
 			c.FeynmanTime,
 			c.FeynmanFixTime,
 			c.CancunTime,
+			c.HaberTime,
 			engine,
 		)
 	}
@@ -278,6 +280,11 @@ func (c *Config) IsNapoli(num uint64) bool {
 // IsCancun returns whether time is either equal to the Cancun fork time or greater.
 func (c *Config) IsCancun(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.CancunTime, time)
+}
+
+// IsHaber returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsHaber(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.HaberTime, time)
 }
 
 // IsPrague returns whether time is either equal to the Prague fork time or greater.
@@ -724,6 +731,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsNapoli                                bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
+	IsHaber                                                       bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -758,6 +766,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsFeynman:          c.IsFeynman(num, time),
 		IsFeynmanFix:       c.IsFeynmanFix(num, time),
 		IsCancun:           c.IsCancun(num, time),
+		IsHaber:            c.IsHaber(num, time),
 		IsAura:             c.Aura != nil,
 		IsParlia:           true,
 	}

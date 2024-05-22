@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/ledgerwatch/erigon/core/types"
+	"github.com/ledgerwatch/erigon/crypto/secp256r1"
 	"github.com/ledgerwatch/erigon/rlp"
 	"github.com/ledgerwatch/secp256k1"
 	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
@@ -169,6 +170,36 @@ var PrecompiledContractsCancun = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{105}): &secp256k1SignatureRecover{},
 }
 
+// PrecompiledContractsHaber contains the default set of pre-compiled Ethereum
+// contracts used in the Haber release.
+var PrecompiledContractsHaber = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{1}):    &ecrecover{},
+	libcommon.BytesToAddress([]byte{2}):    &sha256hash{},
+	libcommon.BytesToAddress([]byte{3}):    &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{4}):    &dataCopy{},
+	libcommon.BytesToAddress([]byte{5}):    &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{6}):    &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{7}):    &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{8}):    &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{9}):    &blake2F{},
+	libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
+
+	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
+	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlato{},
+	libcommon.BytesToAddress([]byte{102}): &blsSignatureVerify{},
+	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidateHertz{},
+	libcommon.BytesToAddress([]byte{104}): &verifyDoubleSignEvidence{},
+	libcommon.BytesToAddress([]byte{105}): &secp256k1SignatureRecover{},
+
+	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+}
+
+// PrecompiledContractsP256Verify contains the precompiled Ethereum
+// contract specified in EIP-7212. This is exported for testing purposes.
+var PrecompiledContractsP256Verify = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+}
+
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
 // contracts specified in EIP-2537. These are exported for testing purposes.
 var PrecompiledContractsBLS = map[libcommon.Address]PrecompiledContract{
@@ -275,6 +306,7 @@ var PrecompiledContractsFeynman = map[libcommon.Address]PrecompiledContract{
 }
 
 var (
+	PrecompiledAddressesHaber          []libcommon.Address
 	PrecompiledAddressesFeynman        []libcommon.Address
 	PrecompiledAddressesHertz          []libcommon.Address
 	PrecompiledAddressesPlato          []libcommon.Address
@@ -306,9 +338,6 @@ func init() {
 	for k := range PrecompiledContractsBerlin {
 		PrecompiledAddressesBerlin = append(PrecompiledAddressesBerlin, k)
 	}
-	for k := range PrecompiledContractsCancun {
-		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
-	}
 	for k := range PrecompiledContractsNano {
 		PrecompiledAddressesNano = append(PrecompiledAddressesNano, k)
 	}
@@ -318,27 +347,31 @@ func init() {
 	for k := range PrecompiledContractsPlanck {
 		PrecompiledAddressesPlanck = append(PrecompiledAddressesPlanck, k)
 	}
-
 	for k := range PrecompiledContractsLuban {
 		PrecompiledAddressesLuban = append(PrecompiledAddressesLuban, k)
 	}
-
 	for k := range PrecompiledContractsPlato {
 		PrecompiledAddressesPlato = append(PrecompiledAddressesPlato, k)
 	}
-
 	for k := range PrecompiledContractsHertz {
 		PrecompiledAddressesHertz = append(PrecompiledAddressesHertz, k)
 	}
-
 	for k := range PrecompiledContractsFeynman {
 		PrecompiledAddressesFeynman = append(PrecompiledAddressesFeynman, k)
+	}
+	for k := range PrecompiledContractsCancun {
+		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
+	}
+	for k := range PrecompiledContractsHaber {
+		PrecompiledAddressesHaber = append(PrecompiledAddressesHaber, k)
 	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules *chain.Rules) []libcommon.Address {
 	switch {
+	case rules.IsHaber:
+		return PrecompiledAddressesHaber
 	case rules.IsCancun:
 		return PrecompiledAddressesCancun
 	case rules.IsFeynman:
@@ -1460,4 +1493,38 @@ func (c *verifyDoubleSignEvidence) Run(input []byte) ([]byte, error) {
 	copy(returnBz[52-len(evidenceHeightBz):], evidenceHeightBz)
 
 	return returnBz, nil
+}
+
+// P256VERIFY (secp256r1 signature verification)
+// implemented as a native contract
+type p256Verify struct{}
+
+// RequiredGas returns the gas required to execute the precompiled contract
+func (c *p256Verify) RequiredGas(input []byte) uint64 {
+	return params.P256VerifyGas
+}
+
+// Run executes the precompiled contract with given 160 bytes of param, returning the output and the used gas
+func (c *p256Verify) Run(input []byte) ([]byte, error) {
+	// Required input length is 160 bytes
+	const p256VerifyInputLength = 160
+	// Check the input length
+	if len(input) != p256VerifyInputLength {
+		// Input length is invalid
+		return nil, nil
+	}
+
+	// Extract the hash, r, s, x, y from the input
+	hash := input[0:32]
+	r, s := new(big.Int).SetBytes(input[32:64]), new(big.Int).SetBytes(input[64:96])
+	x, y := new(big.Int).SetBytes(input[96:128]), new(big.Int).SetBytes(input[128:160])
+
+	// Verify the secp256r1 signature
+	if secp256r1.Verify(hash, r, s, x, y) {
+		// Signature is valid
+		return common.LeftPadBytes(big1.Bytes(), 32), nil
+	} else {
+		// Signature is invalid
+		return nil, nil
+	}
 }
