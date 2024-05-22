@@ -194,12 +194,6 @@ var PrecompiledContractsHaber = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
 }
 
-// PrecompiledContractsP256Verify contains the precompiled Ethereum
-// contract specified in EIP-7212. This is exported for testing purposes.
-var PrecompiledContractsP256Verify = map[libcommon.Address]PrecompiledContract{
-	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
-}
-
 // PrecompiledContractsBLS contains the set of pre-compiled Ethereum
 // contracts specified in EIP-2537. These are exported for testing purposes.
 var PrecompiledContractsBLS = map[libcommon.Address]PrecompiledContract{
