@@ -37,15 +37,17 @@ const (
 	maxRetries         = 5
 )
 
-//go:generate mockgen -destination=./client_mock.go -package=heimdall . HeimdallClient
+//go:generate mockgen -typed=true -destination=./client_mock.go -package=heimdall . HeimdallClient
 type HeimdallClient interface {
 	FetchStateSyncEvents(ctx context.Context, fromId uint64, to time.Time, limit int) ([]*EventRecordWithTime, error)
+	FetchStateSyncEvent(ctx context.Context, id uint64) (*EventRecordWithTime, error)
 
 	FetchLatestSpan(ctx context.Context) (*Span, error)
 	FetchSpan(ctx context.Context, spanID uint64) (*Span, error)
 
 	FetchCheckpoint(ctx context.Context, number int64) (*Checkpoint, error)
 	FetchCheckpointCount(ctx context.Context) (int64, error)
+	FetchCheckpoints(ctx context.Context, page uint64, limit uint64) (Checkpoints, error)
 	FetchMilestone(ctx context.Context, number int64) (*Milestone, error)
 	FetchMilestoneCount(ctx context.Context) (int64, error)
 
@@ -78,7 +80,7 @@ type Request struct {
 	start  time.Time
 }
 
-//go:generate mockgen -destination=./http_client_mock.go -package=heimdall . HttpClient
+//go:generate mockgen -typed=true -destination=./http_client_mock.go -package=heimdall . HttpClient
 type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 	CloseIdleConnections()
@@ -105,9 +107,12 @@ func newHeimdallClient(urlString string, httpClient HttpClient, retryBackOff tim
 const (
 	fetchStateSyncEventsFormat = "from-id=%d&to-time=%d&limit=%d"
 	fetchStateSyncEventsPath   = "clerk/event-record/list"
+	fetchStateSyncEvent        = "clerk/event-record/%s"
 
-	fetchCheckpoint      = "/checkpoints/%s"
-	fetchCheckpointCount = "/checkpoints/count"
+	fetchCheckpoint                = "/checkpoints/%s"
+	fetchCheckpointCount           = "/checkpoints/count"
+	fetchCheckpointList            = "/checkpoints/list"
+	fetchCheckpointListQueryFormat = "page=%d&limit=%d"
 
 	fetchMilestoneAt     = "/milestone/%d"
 	fetchMilestoneLatest = "/milestone/latest"
@@ -127,21 +132,21 @@ func (c *Client) FetchStateSyncEvents(ctx context.Context, fromID uint64, to tim
 	eventRecords := make([]*EventRecordWithTime, 0)
 
 	for {
-		url, err := stateSyncURL(c.urlString, fromID, to.Unix())
+		url, err := stateSyncListURL(c.urlString, fromID, to.Unix())
 		if err != nil {
 			return nil, err
 		}
 
-		c.logger.Debug("[bor.heimdall] Fetching state sync events", "queryParams", url.RawQuery)
+		c.logger.Trace(heimdallLogPrefix("Fetching state sync events"), "queryParams", url.RawQuery)
 
 		ctx = withRequestType(ctx, stateSyncRequest)
 
-		response, err := FetchWithRetry[StateSyncEventsResponse](ctx, c, url)
+		response, err := FetchWithRetry[StateSyncEventsResponse](ctx, c, url, c.logger)
 		if err != nil {
 			if errors.Is(err, ErrNoResponse) {
 				// for more info check https://github.com/maticnetwork/heimdall/pull/993
 				c.logger.Warn(
-					"[bor.heimdall] check heimdall logs to see if it is in sync - no response when querying state sync events",
+					heimdallLogPrefix("check heimdall logs to see if it is in sync - no response when querying state sync events"),
 					"path", url.Path,
 					"queryParams", url.RawQuery,
 				)
@@ -170,6 +175,32 @@ func (c *Client) FetchStateSyncEvents(ctx context.Context, fromID uint64, to tim
 	return eventRecords, nil
 }
 
+func (c *Client) FetchStateSyncEvent(ctx context.Context, id uint64) (*EventRecordWithTime, error) {
+	url, err := stateSyncURL(c.urlString, id)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = withRequestType(ctx, stateSyncRequest)
+
+	isRecoverableError := func(err error) bool {
+		return !strings.Contains(err.Error(), "could not get state record; No record found")
+	}
+
+	response, err := FetchWithRetryEx[StateSyncEventResponse](ctx, c, url, isRecoverableError, c.logger)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "could not get state record; No record found") {
+			return nil, ErrEventRecordNotFound
+		}
+
+		return nil, err
+	}
+
+	return &response.Result, nil
+}
+
 func (c *Client) FetchLatestSpan(ctx context.Context) (*Span, error) {
 	url, err := latestSpanURL(c.urlString)
 	if err != nil {
@@ -178,7 +209,7 @@ func (c *Client) FetchLatestSpan(ctx context.Context) (*Span, error) {
 
 	ctx = withRequestType(ctx, spanRequest)
 
-	response, err := FetchWithRetry[SpanResponse](ctx, c, url)
+	response, err := FetchWithRetry[SpanResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +225,7 @@ func (c *Client) FetchSpan(ctx context.Context, spanID uint64) (*Span, error) {
 
 	ctx = withRequestType(ctx, spanRequest)
 
-	response, err := FetchWithRetry[SpanResponse](ctx, c, url)
+	response, err := FetchWithRetry[SpanResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -211,12 +242,28 @@ func (c *Client) FetchCheckpoint(ctx context.Context, number int64) (*Checkpoint
 
 	ctx = withRequestType(ctx, checkpointRequest)
 
-	response, err := FetchWithRetry[CheckpointResponse](ctx, c, url)
+	response, err := FetchWithRetry[CheckpointResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return nil, err
 	}
 
 	return &response.Result, nil
+}
+
+func (c *Client) FetchCheckpoints(ctx context.Context, page uint64, limit uint64) (Checkpoints, error) {
+	url, err := checkpointListURL(c.urlString, page, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = withRequestType(ctx, checkpointListRequest)
+
+	response, err := FetchWithRetry[CheckpointListResponse](ctx, c, url, c.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return response.Result, nil
 }
 
 func isInvalidMilestoneIndexError(err error) bool {
@@ -237,13 +284,15 @@ func (c *Client) FetchMilestone(ctx context.Context, number int64) (*Milestone, 
 		return !isInvalidMilestoneIndexError(err)
 	}
 
-	response, err := FetchWithRetryEx[MilestoneResponse](ctx, c, url, isRecoverableError)
+	response, err := FetchWithRetryEx[MilestoneResponse](ctx, c, url, isRecoverableError, c.logger)
 	if err != nil {
 		if isInvalidMilestoneIndexError(err) {
 			return nil, fmt.Errorf("%w: number %d", ErrNotInMilestoneList, number)
 		}
 		return nil, err
 	}
+
+	response.Result.Id = MilestoneId(number)
 
 	return &response.Result, nil
 }
@@ -257,7 +306,7 @@ func (c *Client) FetchCheckpointCount(ctx context.Context) (int64, error) {
 
 	ctx = withRequestType(ctx, checkpointCountRequest)
 
-	response, err := FetchWithRetry[CheckpointCountResponse](ctx, c, url)
+	response, err := FetchWithRetry[CheckpointCountResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return 0, err
 	}
@@ -274,7 +323,7 @@ func (c *Client) FetchMilestoneCount(ctx context.Context) (int64, error) {
 
 	ctx = withRequestType(ctx, milestoneCountRequest)
 
-	response, err := FetchWithRetry[MilestoneCountResponse](ctx, c, url)
+	response, err := FetchWithRetry[MilestoneCountResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return 0, err
 	}
@@ -291,7 +340,7 @@ func (c *Client) FetchLastNoAckMilestone(ctx context.Context) (string, error) {
 
 	ctx = withRequestType(ctx, milestoneLastNoAckRequest)
 
-	response, err := FetchWithRetry[MilestoneLastNoAckResponse](ctx, c, url)
+	response, err := FetchWithRetry[MilestoneLastNoAckResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return "", err
 	}
@@ -308,7 +357,7 @@ func (c *Client) FetchNoAckMilestone(ctx context.Context, milestoneID string) er
 
 	ctx = withRequestType(ctx, milestoneNoAckRequest)
 
-	response, err := FetchWithRetry[MilestoneNoAckResponse](ctx, c, url)
+	response, err := FetchWithRetry[MilestoneNoAckResponse](ctx, c, url, c.logger)
 	if err != nil {
 		return err
 	}
@@ -330,7 +379,7 @@ func (c *Client) FetchMilestoneID(ctx context.Context, milestoneID string) error
 
 	ctx = withRequestType(ctx, milestoneIDRequest)
 
-	response, err := FetchWithRetry[MilestoneIDResponse](ctx, c, url)
+	response, err := FetchWithRetry[MilestoneIDResponse](ctx, c, url, c.logger)
 
 	if err != nil {
 		return err
@@ -344,12 +393,18 @@ func (c *Client) FetchMilestoneID(ctx context.Context, milestoneID string) error
 }
 
 // FetchWithRetry returns data from heimdall with retry
-func FetchWithRetry[T any](ctx context.Context, client *Client, url *url.URL) (*T, error) {
-	return FetchWithRetryEx[T](ctx, client, url, nil)
+func FetchWithRetry[T any](ctx context.Context, client *Client, url *url.URL, logger log.Logger) (*T, error) {
+	return FetchWithRetryEx[T](ctx, client, url, nil, logger)
 }
 
 // FetchWithRetryEx returns data from heimdall with retry
-func FetchWithRetryEx[T any](ctx context.Context, client *Client, url *url.URL, isRecoverableError func(error) bool) (result *T, err error) {
+func FetchWithRetryEx[T any](
+	ctx context.Context,
+	client *Client,
+	url *url.URL,
+	isRecoverableError func(error) bool,
+	logger log.Logger,
+) (result *T, err error) {
 	attempt := 0
 	// create a new ticker for retrying the request
 	ticker := time.NewTicker(client.retryBackOff)
@@ -359,7 +414,7 @@ func FetchWithRetryEx[T any](ctx context.Context, client *Client, url *url.URL, 
 		attempt++
 
 		request := &Request{client: client.client, url: url, start: time.Now()}
-		result, err = Fetch[T](ctx, request)
+		result, err = Fetch[T](ctx, request, logger)
 		if err == nil {
 			return result, nil
 		}
@@ -368,7 +423,7 @@ func FetchWithRetryEx[T any](ctx context.Context, client *Client, url *url.URL, 
 		// yet in heimdall. E.g. when the hard fork hasn't hit yet but heimdall
 		// is upgraded.
 		if errors.Is(err, ErrServiceUnavailable) {
-			client.logger.Debug("[bor.heimdall] service unavailable at the moment", "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt, "err", err)
+			client.logger.Debug(heimdallLogPrefix("service unavailable at the moment"), "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt, "err", err)
 			return nil, err
 		}
 
@@ -376,14 +431,14 @@ func FetchWithRetryEx[T any](ctx context.Context, client *Client, url *url.URL, 
 			return nil, err
 		}
 
-		client.logger.Warn("[bor.heimdall] an error while fetching", "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt, "err", err)
+		client.logger.Warn(heimdallLogPrefix("an error while fetching"), "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt, "err", err)
 
 		select {
 		case <-ctx.Done():
-			client.logger.Debug("[bor.heimdall] request canceled", "reason", ctx.Err(), "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt)
+			client.logger.Debug(heimdallLogPrefix("request canceled"), "reason", ctx.Err(), "path", url.Path, "queryParams", url.RawQuery, "attempt", attempt)
 			return nil, ctx.Err()
 		case <-client.closeCh:
-			client.logger.Debug("[bor.heimdall] shutdown detected, terminating request", "path", url.Path, "queryParams", url.RawQuery)
+			client.logger.Debug(heimdallLogPrefix("shutdown detected, terminating request"), "path", url.Path, "queryParams", url.RawQuery)
 			return nil, ErrShutdownDetected
 		case <-ticker.C:
 			// retry
@@ -394,7 +449,7 @@ func FetchWithRetryEx[T any](ctx context.Context, client *Client, url *url.URL, 
 }
 
 // Fetch fetches response from heimdall
-func Fetch[T any](ctx context.Context, request *Request) (*T, error) {
+func Fetch[T any](ctx context.Context, request *Request, logger log.Logger) (*T, error) {
 	isSuccessful := false
 
 	defer func() {
@@ -405,7 +460,7 @@ func Fetch[T any](ctx context.Context, request *Request) (*T, error) {
 
 	result := new(T)
 
-	body, err := internalFetchWithTimeout(ctx, request.client, request.url)
+	body, err := internalFetchWithTimeout(ctx, request.client, request.url, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -432,10 +487,13 @@ func latestSpanURL(urlString string) (*url.URL, error) {
 	return makeURL(urlString, fetchSpanLatest, "")
 }
 
-func stateSyncURL(urlString string, fromID uint64, to int64) (*url.URL, error) {
+func stateSyncListURL(urlString string, fromID uint64, to int64) (*url.URL, error) {
 	queryParams := fmt.Sprintf(fetchStateSyncEventsFormat, fromID, to, stateFetchLimit)
-
 	return makeURL(urlString, fetchStateSyncEventsPath, queryParams)
+}
+
+func stateSyncURL(urlString string, id uint64) (*url.URL, error) {
+	return makeURL(urlString, fmt.Sprintf(fetchStateSyncEvent, fmt.Sprint(id)), "")
 }
 
 func checkpointURL(urlString string, number int64) (*url.URL, error) {
@@ -451,6 +509,10 @@ func checkpointURL(urlString string, number int64) (*url.URL, error) {
 
 func checkpointCountURL(urlString string) (*url.URL, error) {
 	return makeURL(urlString, fetchCheckpointCount, "")
+}
+
+func checkpointListURL(urlString string, page uint64, limit uint64) (*url.URL, error) {
+	return makeURL(urlString, fetchCheckpointList, fmt.Sprintf(fetchCheckpointListQueryFormat, page, limit))
 }
 
 func milestoneURL(urlString string, number int64) (*url.URL, error) {
@@ -489,11 +551,13 @@ func makeURL(urlString, rawPath, rawQuery string) (*url.URL, error) {
 }
 
 // internal fetch method
-func internalFetch(ctx context.Context, client HttpClient, u *url.URL) ([]byte, error) {
+func internalFetch(ctx context.Context, client HttpClient, u *url.URL, logger log.Logger) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Trace(heimdallLogPrefix("http client get request"), "uri", u.RequestURI())
 
 	res, err := client.Do(req)
 	if err != nil {
@@ -527,12 +591,12 @@ func internalFetch(ctx context.Context, client HttpClient, u *url.URL) ([]byte, 
 	return body, nil
 }
 
-func internalFetchWithTimeout(ctx context.Context, client HttpClient, url *url.URL) ([]byte, error) {
+func internalFetchWithTimeout(ctx context.Context, client HttpClient, url *url.URL, logger log.Logger) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, apiHeimdallTimeout)
 	defer cancel()
 
 	// request data once
-	return internalFetch(ctx, client, url)
+	return internalFetch(ctx, client, url, logger)
 }
 
 // Close sends a signal to stop the running process

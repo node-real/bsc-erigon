@@ -12,6 +12,10 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
+	"github.com/ledgerwatch/log/v3"
+	"github.com/urfave/cli/v2"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/downloader"
@@ -19,14 +23,12 @@ import (
 	"github.com/ledgerwatch/erigon/cmd/snapshots/flags"
 	"github.com/ledgerwatch/erigon/cmd/snapshots/sync"
 	"github.com/ledgerwatch/erigon/cmd/utils"
+	coresnaptype "github.com/ledgerwatch/erigon/core/snaptype"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/params"
 	"github.com/ledgerwatch/erigon/turbo/logging"
 	"github.com/ledgerwatch/erigon/turbo/snapshotsync/freezeblocks"
-	"github.com/ledgerwatch/log/v3"
-	"github.com/urfave/cli/v2"
-	"golang.org/x/sync/errgroup"
 )
 
 var Command = cli.Command{
@@ -140,7 +142,8 @@ func cmp(cliCtx *cli.Context) error {
 	}
 
 	if loc1.LType == sync.TorrentFs || loc2.LType == sync.TorrentFs {
-		torrentCli, err = sync.NewTorrentClient(cliCtx, chain)
+		config := sync.NewTorrentClientConfigFromCobra(cliCtx, chain)
+		torrentCli, err = sync.NewTorrentClient(config)
 		if err != nil {
 			return fmt.Errorf("can't create torrent: %w", err)
 		}
@@ -174,7 +177,7 @@ func cmp(cliCtx *cli.Context) error {
 
 	if rcCli != nil {
 		if loc1.LType == sync.RemoteFs {
-			session1, err = rcCli.NewSession(cliCtx.Context, filepath.Join(tempDir, "l1"), loc1.Src+":"+loc1.Root)
+			session1, err = rcCli.NewSession(cliCtx.Context, filepath.Join(tempDir, "l1"), loc1.Src+":"+loc1.Root, nil)
 
 			if err != nil {
 				return err
@@ -182,7 +185,7 @@ func cmp(cliCtx *cli.Context) error {
 		}
 
 		if loc2.LType == sync.RemoteFs {
-			session2, err = rcCli.NewSession(cliCtx.Context, filepath.Join(tempDir, "l2"), loc2.Src+":"+loc2.Root)
+			session2, err = rcCli.NewSession(cliCtx.Context, filepath.Join(tempDir, "l2"), loc2.Src+":"+loc2.Root, nil)
 
 			if err != nil {
 				return err
@@ -257,13 +260,13 @@ func cmp(cliCtx *cli.Context) error {
 		})
 	} else {
 		for _, snapType := range snapTypes {
-			if snapType.Enum() == snaptype.Enums.Headers {
+			if snapType.Enum() == coresnaptype.Enums.Headers {
 				funcs = append(funcs, func(ctx context.Context) (time.Duration, time.Duration, time.Duration, error) {
 					return c.compareHeaders(ctx, h1ents, h2ents, headerWorkers, logger)
 				})
 			}
 
-			if snapType.Enum() == snaptype.Enums.Bodies {
+			if snapType.Enum() == coresnaptype.Enums.Bodies {
 				funcs = append(funcs, func(ctx context.Context) (time.Duration, time.Duration, time.Duration, error) {
 					return c.compareBodies(ctx, b1ents, b2ents, bodyWorkers, logger)
 				})
@@ -322,11 +325,11 @@ func splitEntries(files []fs.DirEntry, version snaptype.Version, firstBlock, las
 					(firstBlock == 0 || snapInfo.From() >= firstBlock) &&
 					(lastBlock == 0 || snapInfo.From() < lastBlock) {
 
-					if snapInfo.Type().Enum() == snaptype.Enums.Headers {
+					if snapInfo.Type().Enum() == coresnaptype.Enums.Headers {
 						hents = append(hents, ent)
 					}
 
-					if snapInfo.Type().Enum() == snaptype.Enums.Bodies {
+					if snapInfo.Type().Enum() == coresnaptype.Enums.Bodies {
 						found := false
 
 						for _, bent := range bents {
@@ -342,7 +345,7 @@ func splitEntries(files []fs.DirEntry, version snaptype.Version, firstBlock, las
 						}
 					}
 
-					if snapInfo.Type().Enum() == snaptype.Enums.Transactions {
+					if snapInfo.Type().Enum() == coresnaptype.Enums.Transactions {
 						found := false
 
 						for _, bent := range bents {
@@ -613,7 +616,7 @@ func (c comparitor) compareBodies(ctx context.Context, f1ents []*BodyEntry, f2en
 
 					logger.Info(fmt.Sprintf("Indexing %s", ent1.Body.Name()))
 
-					return freezeblocks.BodiesIdx(ctx, info, c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
+					return coresnaptype.Bodies.BuildIndexes(ctx, info, c.chainConfig(), c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
 				})
 
 				g.Go(func() error {
@@ -651,7 +654,7 @@ func (c comparitor) compareBodies(ctx context.Context, f1ents []*BodyEntry, f2en
 					}()
 
 					logger.Info(fmt.Sprintf("Indexing %s", ent1.Transactions.Name()))
-					return freezeblocks.TransactionsIdx(ctx, c.chainConfig(), info, c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
+					return coresnaptype.Transactions.BuildIndexes(ctx, info, c.chainConfig(), c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
 				})
 
 				b2err := make(chan error, 1)
@@ -687,7 +690,7 @@ func (c comparitor) compareBodies(ctx context.Context, f1ents []*BodyEntry, f2en
 					}()
 
 					logger.Info(fmt.Sprintf("Indexing %s", ent2.Body.Name()))
-					return freezeblocks.BodiesIdx(ctx, info, c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
+					return coresnaptype.Bodies.BuildIndexes(ctx, info, c.chainConfig(), c.session1.LocalFsRoot(), nil, log.LvlDebug, logger)
 				})
 
 				g.Go(func() error {
@@ -728,7 +731,7 @@ func (c comparitor) compareBodies(ctx context.Context, f1ents []*BodyEntry, f2en
 					}()
 
 					logger.Info(fmt.Sprintf("Indexing %s", ent2.Transactions.Name()))
-					return freezeblocks.TransactionsIdx(ctx, c.chainConfig(), info, c.session2.LocalFsRoot(), nil, log.LvlDebug, logger)
+					return coresnaptype.Transactions.BuildIndexes(ctx, info, c.chainConfig(), c.session2.LocalFsRoot(), nil, log.LvlDebug, logger)
 				})
 
 				if err := g.Wait(); err != nil {

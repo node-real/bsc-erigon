@@ -7,15 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ledgerwatch/log/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ledgerwatch/erigon-lib/gointerfaces/sentry"
+	"github.com/ledgerwatch/erigon/turbo/testlog"
 )
 
 func TestPeerTracker(t *testing.T) {
 	t.Parallel()
 
-	peerTracker := newPeerTracker()
+	peerTracker := newPeerTracker(PreservingPeerShuffle)
 	peerIds := peerTracker.ListPeersMayHaveBlockNum(100)
 	require.Len(t, peerIds, 0)
 
@@ -48,8 +50,9 @@ func TestPeerTracker(t *testing.T) {
 func TestPeerTrackerPeerEventObserver(t *testing.T) {
 	t.Parallel()
 
-	peerTracker := newPeerTracker()
-	peerTrackerPeerEventObserver := NewPeerEventObserver(peerTracker)
+	logger := testlog.Logger(t, log.LvlInfo)
+	peerTracker := newPeerTracker(PreservingPeerShuffle)
+	peerTrackerPeerEventObserver := NewPeerEventObserver(logger, peerTracker)
 	messageListenerTest := newMessageListenerTest(t)
 	messageListenerTest.mockSentryStreams()
 	messageListenerTest.run(func(ctx context.Context, t *testing.T) {

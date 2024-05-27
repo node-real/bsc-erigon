@@ -43,7 +43,7 @@ func TestPenalizingFetcherFetchHeadersShouldPenalizePeerWhenErrTooManyHeaders(t 
 		require.ErrorAs(t, err, &errTooManyHeaders)
 		require.Equal(t, 2, errTooManyHeaders.requested)
 		require.Equal(t, 5, errTooManyHeaders.received)
-		require.Nil(t, headers)
+		require.Nil(t, headers.Data)
 	})
 }
 
@@ -82,7 +82,7 @@ func TestPenalizingFetcherFetchHeadersShouldPenalizePeerWhenErrNonSequentialHead
 		require.ErrorAs(t, err, &errNonSequentialHeaderNumbers)
 		require.Equal(t, uint64(3), errNonSequentialHeaderNumbers.current)
 		require.Equal(t, uint64(2), errNonSequentialHeaderNumbers.expected)
-		require.Nil(t, headers)
+		require.Nil(t, headers.Data)
 	})
 }
 
@@ -119,39 +119,7 @@ func TestPenalizingFetcherFetchHeadersShouldPenalizePeerWhenIncorrectOrigin(t *t
 		require.ErrorAs(t, err, &errNonSequentialHeaderNumbers)
 		require.Equal(t, uint64(2), errNonSequentialHeaderNumbers.current)
 		require.Equal(t, uint64(1), errNonSequentialHeaderNumbers.expected)
-		require.Nil(t, headers)
-	})
-}
-
-func TestPenalizingFetcherFetchBodiesShouldPenalizePeerWhenErrEmptyBody(t *testing.T) {
-	t.Parallel()
-
-	peerId := PeerIdFromUint64(1)
-	requestId := uint64(1234)
-	headers := []*types.Header{{Number: big.NewInt(1)}}
-	hashes := []common.Hash{headers[0].Hash()}
-	mockInboundMessages := []*sentry.InboundMessage{
-		{
-			Id:     sentry.MessageId_BLOCK_BODIES_66,
-			PeerId: peerId.H512(),
-			Data:   newMockBlockBodiesPacketBytes(t, requestId, &types.Body{}),
-		},
-	}
-	mockRequestResponse := requestResponseMock{
-		requestId:                   requestId,
-		mockResponseInboundMessages: mockInboundMessages,
-		wantRequestPeerId:           peerId,
-		wantRequestHashes:           hashes,
-	}
-
-	test := newPenalizingFetcherTest(t, newMockRequestGenerator(requestId))
-	test.mockSentryStreams(mockRequestResponse)
-	// setup expectation that peer should be penalized
-	mockExpectPenalizePeer(t, test.sentryClient, peerId)
-	test.run(func(ctx context.Context, t *testing.T) {
-		bodies, err := test.penalizingFetcher.FetchBodies(ctx, headers, peerId)
-		require.ErrorIs(t, err, ErrEmptyBody)
-		require.Nil(t, bodies)
+		require.Nil(t, headers.Data)
 	})
 }
 
@@ -186,7 +154,7 @@ func TestPenalizingFetcherFetchBodiesShouldPenalizePeerWhenErrTooManyBodies(t *t
 		require.ErrorAs(t, err, &errTooManyBodies)
 		require.Equal(t, 1, errTooManyBodies.requested)
 		require.Equal(t, 2, errTooManyBodies.received)
-		require.Nil(t, bodies)
+		require.Nil(t, bodies.Data)
 	})
 }
 

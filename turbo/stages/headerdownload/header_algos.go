@@ -12,11 +12,10 @@ import (
 	"github.com/ledgerwatch/log/v3"
 	"io"
 	"math/big"
+	"slices"
 	"sort"
 	"strings"
 	"time"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/ledgerwatch/erigon-lib/common/metrics"
 	"github.com/ledgerwatch/erigon-lib/kv/dbutils"
@@ -1293,8 +1292,14 @@ func (hd *HeaderDownload) AddMinedHeader(header *types.Header) error {
 	peerID := [64]byte{'m', 'i', 'n', 'e', 'r'} // "miner"
 
 	_ = hd.ProcessHeaders(segments, false /* newBlock */, peerID)
-	hd.latestMinedBlockNumber = header.Number.Uint64()
+	hd.setLatestMinedBlockNumber(header.Number.Uint64())
 	return nil
+}
+
+func (hd *HeaderDownload) setLatestMinedBlockNumber(num uint64) {
+	hd.lock.Lock()
+	hd.latestMinedBlockNumber = num
+	hd.lock.Unlock()
 }
 
 func (hd *HeaderDownload) AddHeadersFromSnapshot(tx kv.Tx, r services.FullBlockReader) error {

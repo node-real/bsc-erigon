@@ -79,7 +79,7 @@ func (s *Sync) onMilestoneEvent(
 	}
 
 	s.logger.Debug(
-		"sync.Sync.onMilestoneEvent: local chain tip does not match the milestone, unwinding to the previous verified milestone",
+		syncLogPrefix("onMilestoneEvent: local chain tip does not match the milestone, unwinding to the previous verified milestone"),
 		"err", err,
 	)
 
@@ -125,17 +125,30 @@ func (s *Sync) onNewBlockEvent(
 	if ccBuilder.ContainsHash(newBlockHeader.ParentHash) {
 		newBlocks = []*types.Block{event.NewBlock}
 	} else {
-		newBlocks, err = s.p2pService.FetchBlocks(ctx, rootNum, newBlockHeaderNum+1, event.PeerId)
+		blocks, err := s.p2pService.FetchBlocks(ctx, rootNum, newBlockHeaderNum+1, event.PeerId)
 		if err != nil {
+			if (p2p.ErrIncompleteHeaders{}).Is(err) || (p2p.ErrMissingBodies{}).Is(err) {
+				s.logger.Debug(
+					syncLogPrefix("onNewBlockEvent: failed to fetch complete blocks, ignoring event"),
+					"err", err,
+					"peerId", event.PeerId,
+					"lastBlockNum", newBlockHeaderNum,
+				)
+
+				return nil
+			}
+
 			return err
 		}
+
+		newBlocks = blocks.Data
 	}
 
 	if err := s.blocksVerifier(newBlocks); err != nil {
-		s.logger.Debug("sync.Sync.onNewBlockEvent: invalid new block event from peer, penalizing and ignoring", "err", err)
+		s.logger.Debug(syncLogPrefix("onNewBlockEvent: invalid new block event from peer, penalizing and ignoring"), "err", err)
 
 		if err = s.p2pService.Penalize(ctx, event.PeerId); err != nil {
-			s.logger.Debug("sync.Sync.onNewBlockEvent: issue with penalizing peer", "err", err)
+			s.logger.Debug(syncLogPrefix("onNewBlockEvent: issue with penalizing peer"), "err", err)
 		}
 
 		return nil
@@ -148,11 +161,11 @@ func (s *Sync) onNewBlockEvent(
 
 	oldTip := ccBuilder.Tip()
 	if err = ccBuilder.Connect(newHeaders); err != nil {
-		s.logger.Debug("sync.Sync.onNewBlockEvent: couldn't connect a header to the local chain tip, ignoring", "err", err)
+		s.logger.Debug(syncLogPrefix("onNewBlockEvent: couldn't connect a header to the local chain tip, ignoring"), "err", err)
 		return nil
 	}
-	newTip := ccBuilder.Tip()
 
+	newTip := ccBuilder.Tip()
 	if newTip != oldTip {
 		if err = s.execution.InsertBlocks(ctx, newBlocks); err != nil {
 			return err
@@ -178,11 +191,22 @@ func (s *Sync) onNewBlockHashesEvent(
 
 		newBlocks, err := s.p2pService.FetchBlocks(ctx, headerHashNum.Number, headerHashNum.Number+1, event.PeerId)
 		if err != nil {
+			if (p2p.ErrIncompleteHeaders{}).Is(err) || (p2p.ErrMissingBodies{}).Is(err) {
+				s.logger.Debug(
+					syncLogPrefix("onNewBlockHashesEvent: failed to fetch complete blocks, ignoring event"),
+					"err", err,
+					"peerId", event.PeerId,
+					"lastBlockNum", headerHashNum.Number,
+				)
+
+				continue
+			}
+
 			return err
 		}
 
 		newBlockEvent := EventNewBlock{
-			NewBlock: newBlocks[0],
+			NewBlock: newBlocks.Data[0],
 			PeerId:   event.PeerId,
 		}
 
@@ -199,25 +223,37 @@ func (s *Sync) onNewBlockHashesEvent(
 //
 
 func (s *Sync) Run(ctx context.Context) error {
+	s.logger.Debug(syncLogPrefix("running sync component"))
+
 	tip, err := s.execution.CurrentHeader(ctx)
 	if err != nil {
 		return err
 	}
 
-	if newTip, err := s.blockDownloader.DownloadBlocksUsingCheckpoints(ctx, tip.Number.Uint64()); err != nil {
-		return err
-	} else if newTip != nil {
-		tip = newTip
-	}
+	// loop until we converge at the latest checkpoint & milestone
+	var prevTip *types.Header
+	for tip != prevTip {
+		prevTip = tip
 
-	if newTip, err := s.blockDownloader.DownloadBlocksUsingMilestones(ctx, tip.Number.Uint64()); err != nil {
-		return err
-	} else if newTip != nil {
-		tip = newTip
-	}
+		newTip, err := s.blockDownloader.DownloadBlocksUsingCheckpoints(ctx, tip.Number.Uint64()+1)
+		if err != nil {
+			return err
+		}
+		if newTip != nil {
+			tip = newTip
+		}
 
-	if err = s.commitExecution(ctx, tip, tip); err != nil {
-		return err
+		newTip, err = s.blockDownloader.DownloadBlocksUsingMilestones(ctx, tip.Number.Uint64()+1)
+		if err != nil {
+			return err
+		}
+		if newTip != nil {
+			tip = newTip
+		}
+
+		if err = s.commitExecution(ctx, tip, tip); err != nil {
+			return err
+		}
 	}
 
 	latestSpan, err := s.fetchLatestSpan(ctx)

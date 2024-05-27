@@ -45,9 +45,8 @@ import (
 	"github.com/ledgerwatch/erigon/rpc"
 )
 
-// AggregationStep number of transactions in smallest static file
-const HistoryV3AggregationStep = 3_125_000 // 100M / 32
-//const HistoryV3AggregationStep = 3_125_000 / 100 // use this to reduce step size for dev/debug
+// BorDefaultMinerGasPrice defines the minimum gas price for bor validators to mine a transaction.
+var BorDefaultMinerGasPrice = big.NewInt(30 * params.GWei)
 
 // FullNodeGPO contains default gasprice oracle settings for full node.
 var FullNodeGPO = gaspricecfg.Config{
@@ -128,7 +127,7 @@ func init() {
 		if xdgDataDir := os.Getenv("XDG_DATA_HOME"); xdgDataDir != "" {
 			Defaults.Ethash.DatasetDir = filepath.Join(xdgDataDir, "erigon-ethash")
 		}
-		Defaults.Ethash.DatasetDir = filepath.Join(home, ".local/share/erigon-ethash")
+		Defaults.Ethash.DatasetDir = filepath.Join(home, ".local/share/erigon-ethash") //nolint:gocritic
 	}
 }
 
@@ -233,11 +232,15 @@ type Config struct {
 
 	// URL to connect to Heimdall node
 	HeimdallURL string
-
 	// No heimdall service
 	WithoutHeimdall bool
 	// Heimdall services active
 	WithHeimdallMilestones bool
+	// Heimdall waypoint recording active
+	WithHeimdallWaypointRecording bool
+	// Use polygon checkpoint sync in preference to POW downloader
+	PolygonSync bool
+
 	// Ethstats service
 	Ethstats string
 	// Consensus layer
@@ -248,14 +251,23 @@ type Config struct {
 	SentinelAddr                string
 	SentinelPort                uint64
 
-	OverrideCancunTime *big.Int `toml:",omitempty"`
+	OverridePragueTime *big.Int `toml:",omitempty"`
 
 	ForcePartialCommit bool
 
 	// Embedded Silkworm support
-	SilkwormExecution bool
-	SilkwormRpcDaemon bool
-	SilkwormSentry    bool
+	SilkwormExecution            bool
+	SilkwormRpcDaemon            bool
+	SilkwormSentry               bool
+	SilkwormVerbosity            string
+	SilkwormNumContexts          uint32
+	SilkwormRpcLogEnabled        bool
+	SilkwormRpcLogDirPath        string
+	SilkwormRpcLogMaxFileSize    uint16
+	SilkwormRpcLogMaxFiles       uint16
+	SilkwormRpcLogDumpResponse   bool
+	SilkwormRpcNumWorkers        uint32
+	SilkwormRpcJsonCompatibility bool
 
 	DisableTxPoolGossip bool
 

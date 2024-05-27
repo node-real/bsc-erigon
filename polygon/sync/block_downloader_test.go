@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -41,6 +42,7 @@ func newBlockDownloaderTestWithOpts(t *testing.T, opts blockDownloaderTestOpts) 
 		blocksVerifier,
 		storage,
 		time.Millisecond,
+		opts.getOrCreateDefaultMaxWorkers(),
 	)
 	return &blockDownloaderTest{
 		heimdall:        heimdallService,
@@ -53,6 +55,7 @@ func newBlockDownloaderTestWithOpts(t *testing.T, opts blockDownloaderTestOpts) 
 type blockDownloaderTestOpts struct {
 	headersVerifier AccumulatedHeadersVerifier
 	blocksVerifier  BlocksVerifier
+	maxWorkers      int
 }
 
 func (opts blockDownloaderTestOpts) getOrCreateDefaultHeadersVerifier() AccumulatedHeadersVerifier {
@@ -73,6 +76,14 @@ func (opts blockDownloaderTestOpts) getOrCreateDefaultBlocksVerifier() BlocksVer
 	}
 
 	return opts.blocksVerifier
+}
+
+func (opts blockDownloaderTestOpts) getOrCreateDefaultMaxWorkers() int {
+	if opts.maxWorkers == 0 {
+		return math.MaxInt
+	}
+
+	return opts.maxWorkers
 }
 
 type blockDownloaderTest struct {
@@ -123,33 +134,38 @@ func (hdt blockDownloaderTest) fakeMilestones(count int) heimdall.Waypoints {
 	return milestones
 }
 
-type fetchHeadersMock func(ctx context.Context, start uint64, end uint64, peerId *p2p.PeerId) ([]*types.Header, error)
+type fetchHeadersMock func(ctx context.Context, start uint64, end uint64, peerId *p2p.PeerId) (p2p.FetcherResponse[[]*types.Header], error)
 
 func (hdt blockDownloaderTest) defaultFetchHeadersMock() fetchHeadersMock {
 	// p2p.Service.FetchHeaders interface is using [start, end) so we stick to that
-	return func(ctx context.Context, start uint64, end uint64, _ *p2p.PeerId) ([]*types.Header, error) {
+	return func(ctx context.Context, start uint64, end uint64, _ *p2p.PeerId) (p2p.FetcherResponse[[]*types.Header], error) {
 		if start >= end {
-			return nil, fmt.Errorf("unexpected start >= end in test: start=%d, end=%d", start, end)
+			return p2p.FetcherResponse[[]*types.Header]{Data: nil, TotalSize: 0}, fmt.Errorf("unexpected start >= end in test: start=%d, end=%d", start, end)
 		}
 
 		res := make([]*types.Header, end-start)
+		size := 0
 		for num := start; num < end; num++ {
-			res[num-start] = &types.Header{
+			header := &types.Header{
 				Number: new(big.Int).SetUint64(num),
 			}
+			res[num-start] = header
+			size += header.EncodingSize()
 		}
 
-		return res, nil
+		return p2p.FetcherResponse[[]*types.Header]{Data: res, TotalSize: size}, nil
 	}
 }
 
-type fetchBodiesMock func(context.Context, []*types.Header, *p2p.PeerId) ([]*types.Body, error)
+type fetchBodiesMock func(context.Context, []*types.Header, *p2p.PeerId) (p2p.FetcherResponse[[]*types.Body], error)
 
 func (hdt blockDownloaderTest) defaultFetchBodiesMock() fetchBodiesMock {
-	return func(ctx context.Context, headers []*types.Header, _ *p2p.PeerId) ([]*types.Body, error) {
+	return func(ctx context.Context, headers []*types.Header, _ *p2p.PeerId) (p2p.FetcherResponse[[]*types.Body], error) {
 		bodies := make([]*types.Body, len(headers))
+		size := 0
+
 		for i := range headers {
-			bodies[i] = &types.Body{
+			body := &types.Body{
 				Transactions: []types.Transaction{
 					types.NewEIP1559Transaction(
 						*uint256.NewInt(1),
@@ -164,9 +180,11 @@ func (hdt blockDownloaderTest) defaultFetchBodiesMock() fetchBodiesMock {
 					),
 				},
 			}
+			bodies[i] = body
+			size += body.EncodingSize()
 		}
 
-		return bodies, nil
+		return p2p.FetcherResponse[[]*types.Body]{Data: bodies, TotalSize: size}, nil
 	}
 }
 
@@ -199,10 +217,6 @@ func TestBlockDownloaderDownloadBlocksUsingMilestones(t *testing.T) {
 	test.storage.EXPECT().
 		InsertBlocks(gomock.Any(), gomock.Any()).
 		DoAndReturn(test.defaultInsertBlocksMock(&blocks)).
-		Times(1)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
 		Times(1)
 
 	tip, err := test.blockDownloader.DownloadBlocksUsingMilestones(context.Background(), 1)
@@ -238,10 +252,6 @@ func TestBlockDownloaderDownloadBlocksUsingCheckpoints(t *testing.T) {
 	test.storage.EXPECT().
 		InsertBlocks(gomock.Any(), gomock.Any()).
 		DoAndReturn(test.defaultInsertBlocksMock(&blocks)).
-		Times(4)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
 		Times(4)
 
 	tip, err := test.blockDownloader.DownloadBlocksUsingCheckpoints(context.Background(), 1)
@@ -317,10 +327,6 @@ func TestBlockDownloaderDownloadBlocksWhenInvalidHeadersThenPenalizePeerAndReDow
 			DoAndReturn(test.defaultInsertBlocksMock(&blocksBatch2)).
 			Times(3),
 	)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
-		Times(4)
 
 	_, err := test.blockDownloader.DownloadBlocksUsingCheckpoints(context.Background(), 1)
 	require.NoError(t, err)
@@ -346,10 +352,6 @@ func TestBlockDownloaderDownloadBlocksWhenZeroPeersTriesAgain(t *testing.T) {
 	test.storage.EXPECT().
 		InsertBlocks(gomock.Any(), gomock.Any()).
 		DoAndReturn(test.defaultInsertBlocksMock(&blocks)).
-		Times(4)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
 		Times(4)
 	gomock.InOrder(
 		// first time, no peers at all
@@ -428,10 +430,6 @@ func TestBlockDownloaderDownloadBlocksWhenInvalidBodiesThenPenalizePeerAndReDown
 			DoAndReturn(test.defaultInsertBlocksMock(&blocksBatch2)).
 			Times(3),
 	)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
-		Times(4)
 
 	_, err := test.blockDownloader.DownloadBlocksUsingCheckpoints(context.Background(), 1)
 	require.NoError(t, err)
@@ -447,9 +445,9 @@ func TestBlockDownloaderDownloadBlocksWhenMissingBodiesThenPenalizePeerAndReDown
 		Times(1)
 	test.p2pService.EXPECT().
 		FetchBodies(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, headers []*types.Header, peerId *p2p.PeerId) ([]*types.Body, error) {
+		DoAndReturn(func(ctx context.Context, headers []*types.Header, peerId *p2p.PeerId) (p2p.FetcherResponse[[]*types.Body], error) {
 			if peerId.Equal(p2p.PeerIdFromUint64(2)) {
-				return nil, p2p.NewErrMissingBodies(headers)
+				return p2p.FetcherResponse[[]*types.Body]{Data: nil, TotalSize: 0}, p2p.NewErrMissingBodies(headers)
 			}
 
 			return test.defaultFetchBodiesMock()(ctx, headers, peerId)
@@ -493,13 +491,51 @@ func TestBlockDownloaderDownloadBlocksWhenMissingBodiesThenPenalizePeerAndReDown
 			DoAndReturn(test.defaultInsertBlocksMock(&blocksBatch2)).
 			Times(3),
 	)
-	test.storage.EXPECT().
-		Flush(gomock.Any()).
-		Return(nil).
-		Times(4)
 
 	_, err := test.blockDownloader.DownloadBlocksUsingCheckpoints(context.Background(), 1)
 	require.NoError(t, err)
 	require.Len(t, blocksBatch1, 1)
 	require.Len(t, blocksBatch2, 5)
+}
+
+func TestBlockDownloaderDownloadBlocksRespectsMaxWorkers(t *testing.T) {
+	test := newBlockDownloaderTestWithOpts(t, blockDownloaderTestOpts{
+		maxWorkers: 1,
+	})
+	test.heimdall.EXPECT().
+		FetchCheckpointsFromBlock(gomock.Any(), gomock.Any()).
+		Return(test.fakeCheckpoints(2), nil).
+		Times(1)
+	test.p2pService.EXPECT().
+		ListPeersMayHaveBlockNum(gomock.Any()).
+		Return(test.fakePeers(100)).
+		Times(2)
+	test.p2pService.EXPECT().
+		FetchHeaders(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(test.defaultFetchHeadersMock()).
+		Times(2)
+	test.p2pService.EXPECT().
+		FetchBodies(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(test.defaultFetchBodiesMock()).
+		Times(2)
+	var blocksBatch1, blocksBatch2 []*types.Block
+	gomock.InOrder(
+		test.storage.EXPECT().
+			InsertBlocks(gomock.Any(), gomock.Any()).
+			DoAndReturn(test.defaultInsertBlocksMock(&blocksBatch1)).
+			Times(1),
+		test.storage.EXPECT().
+			InsertBlocks(gomock.Any(), gomock.Any()).
+			DoAndReturn(test.defaultInsertBlocksMock(&blocksBatch2)).
+			Times(1),
+	)
+
+	// max 1 worker
+	// 100 peers
+	// 2 waypoints
+	// the downloader should fetch the 2 waypoints in 2 separate batches
+	_, err := test.blockDownloader.DownloadBlocksUsingCheckpoints(context.Background(), 1)
+	require.NoError(t, err)
+	require.Len(t, blocksBatch1, 1)
+	require.Len(t, blocksBatch2, 1)
 }

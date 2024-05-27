@@ -19,14 +19,18 @@ package txpoolcfg
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"time"
 
 	"github.com/c2h5oh/datasize"
+
+	"github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/fixedgas"
 	emath "github.com/ledgerwatch/erigon-lib/common/math"
 	"github.com/ledgerwatch/erigon-lib/types"
 )
+
+// BorDefaultTxPoolPriceLimit defines the minimum gas price limit for bor to enforce txs acceptance into the pool.
+const BorDefaultTxPoolPriceLimit = 30 * common.GWei
 
 type Config struct {
 	DBDir               string
@@ -40,7 +44,6 @@ type Config struct {
 	TotalBlobPoolLimit  uint64 // Total number of blobs (not txs) allowed within the txpool
 	PriceBump           uint64 // Price bump percentage to replace an already existing transaction
 	BlobPriceBump       uint64 //Price bump percentage to replace an existing 4844 blob tx (type-3)
-	OverrideCancunTime  *big.Int
 
 	// regular batch tasks processing
 	SyncToNewPeersEvery   time.Duration

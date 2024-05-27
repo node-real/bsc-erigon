@@ -3,8 +3,9 @@ package jsonrpc
 import (
 	"context"
 	"fmt"
-	"github.com/ledgerwatch/erigon/consensus"
 	"time"
+
+	"github.com/ledgerwatch/erigon/consensus"
 
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
@@ -20,6 +21,7 @@ import (
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
 	"github.com/ledgerwatch/erigon/eth/tracers"
+	bortypes "github.com/ledgerwatch/erigon/polygon/bor/types"
 	polygontracer "github.com/ledgerwatch/erigon/polygon/tracer"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
@@ -50,7 +52,7 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 		stream.WriteNil()
 		return err
 	}
-	block, err := api.blockWithSenders(tx, hash, blockNumber)
+	block, err := api.blockWithSenders(ctx, tx, hash, blockNumber)
 	if err != nil {
 		stream.WriteNil()
 		return err
@@ -77,7 +79,7 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 		config.BorTraceEnabled = &disabled
 	}
 
-	chainConfig, err := api.chainConfig(tx)
+	chainConfig, err := api.chainConfig(ctx, tx)
 	if err != nil {
 		stream.WriteNil()
 		return err
@@ -97,14 +99,14 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 	txns := block.Transactions()
 	var borStateSyncTxn types.Transaction
 	if *config.BorTraceEnabled {
-		borStateSyncTxHash := types.ComputeBorTxHash(block.NumberU64(), block.Hash())
+		borStateSyncTxHash := bortypes.ComputeBorTxHash(block.NumberU64(), block.Hash())
 		_, ok, err := api._blockReader.EventLookup(ctx, tx, borStateSyncTxHash)
 		if err != nil {
 			stream.WriteArrayEnd()
 			return err
 		}
 		if ok {
-			borStateSyncTxn = types.NewBorTransaction()
+			borStateSyncTxn = bortypes.NewBorTransaction()
 			txns = append(txns, borStateSyncTxn)
 		}
 	}
@@ -113,7 +115,7 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 		isBorStateSyncTxn := borStateSyncTxn == txn
 		var txnHash common.Hash
 		if isBorStateSyncTxn {
-			txnHash = types.ComputeBorTxHash(block.NumberU64(), block.Hash())
+			txnHash = bortypes.ComputeBorTxHash(block.NumberU64(), block.Hash())
 		} else {
 			txnHash = txn.Hash()
 		}
@@ -207,14 +209,14 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		return err
 	}
 	defer tx.Rollback()
-	chainConfig, err := api.chainConfig(tx)
+	chainConfig, err := api.chainConfig(ctx, tx)
 	if err != nil {
 		stream.WriteNil()
 		return err
 	}
 	// Retrieve the transaction and assemble its EVM context
 	var isBorStateSyncTxn bool
-	blockNum, ok, err := api.txnLookup(tx, hash)
+	blockNum, ok, err := api.txnLookup(ctx, tx, hash)
 	if err != nil {
 		stream.WriteNil()
 		return err
@@ -250,7 +252,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 		return err
 	}
 
-	block, err := api.blockByNumberWithSenders(tx, blockNum)
+	block, err := api.blockByNumberWithSenders(ctx, tx, blockNum)
 	if err != nil {
 		stream.WriteNil()
 		return err
@@ -311,6 +313,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout, intrinsicGas)
 }
 
+// TraceCall implements debug_traceCall. Returns Geth style call traces.
 func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallArgs, blockNrOrHash rpc.BlockNumberOrHash, config *tracers.TraceConfig, stream *jsoniter.Stream) error {
 	dbtx, err := api.db.BeginRo(ctx)
 	if err != nil {
@@ -318,7 +321,7 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 	}
 	defer dbtx.Rollback()
 
-	chainConfig, err := api.chainConfig(dbtx)
+	chainConfig, err := api.chainConfig(ctx, dbtx)
 	if err != nil {
 		return fmt.Errorf("read chain config: %v", err)
 	}
@@ -334,7 +337,7 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 		return err
 	}
 
-	header, err := api._blockReader.Header(context.Background(), dbtx, hash, blockNumber)
+	header, err := api._blockReader.Header(ctx, dbtx, hash, blockNumber)
 	if err != nil {
 		return fmt.Errorf("could not fetch header %d(%x): %v", blockNumber, hash, err)
 	}
@@ -400,7 +403,7 @@ func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bun
 		return err
 	}
 	defer tx.Rollback()
-	chainConfig, err := api.chainConfig(tx)
+	chainConfig, err := api.chainConfig(ctx, tx)
 	if err != nil {
 		stream.WriteNil()
 		return err
@@ -434,7 +437,7 @@ func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bun
 		return err
 	}
 
-	block, err := api.blockByNumberWithSenders(tx, blockNum)
+	block, err := api.blockByNumberWithSenders(ctx, tx, blockNum)
 	if err != nil {
 		stream.WriteNil()
 		return err

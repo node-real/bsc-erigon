@@ -7,18 +7,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ledgerwatch/erigon-lib/kv/dbutils"
-
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/etl"
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/kv/memdb"
 	"github.com/ledgerwatch/erigon/cl/antiquary"
 	"github.com/ledgerwatch/erigon/cl/persistence/beacon_indicies"
 	"github.com/ledgerwatch/erigon/cl/persistence/blob_storage"
 	"github.com/ledgerwatch/erigon/cl/phase1/execution_client"
+	"github.com/ledgerwatch/erigon/cl/phase1/execution_client/block_collector"
 	"github.com/ledgerwatch/erigon/cl/phase1/network"
-	"github.com/ledgerwatch/erigon/cl/utils"
 	"github.com/ledgerwatch/erigon/turbo/snapshotsync/freezeblocks"
 
 	"github.com/ledgerwatch/log/v3"
@@ -28,7 +25,6 @@ import (
 )
 
 type StageHistoryReconstructionCfg struct {
-	genesisCfg               *clparams.GenesisConfig
 	beaconCfg                *clparams.BeaconChainConfig
 	downloader               *network.BackwardBeaconDownloader
 	sn                       *freezeblocks.CaplinSnapshots
@@ -42,7 +38,7 @@ type StageHistoryReconstructionCfg struct {
 	engine                   execution_client.ExecutionEngine
 	antiquary                *antiquary.Antiquary
 	logger                   log.Logger
-	executionBlocksCollector *etl.Collector
+	executionBlocksCollector block_collector.BlockCollector
 	backfillingThrottling    time.Duration
 	blockReader              freezeblocks.BeaconSnapshotReader
 	blobStorage              blob_storage.BlobStorage
@@ -50,9 +46,8 @@ type StageHistoryReconstructionCfg struct {
 
 const logIntervalTime = 30 * time.Second
 
-func StageHistoryReconstruction(downloader *network.BackwardBeaconDownloader, antiquary *antiquary.Antiquary, sn *freezeblocks.CaplinSnapshots, indiciesDB kv.RwDB, engine execution_client.ExecutionEngine, genesisCfg *clparams.GenesisConfig, beaconCfg *clparams.BeaconChainConfig, backfilling, blobsBackfilling, waitForAllRoutines bool, startingRoot libcommon.Hash, startinSlot uint64, tmpdir string, backfillingThrottling time.Duration, executionBlocksCollector *etl.Collector, blockReader freezeblocks.BeaconSnapshotReader, blobStorage blob_storage.BlobStorage, logger log.Logger) StageHistoryReconstructionCfg {
+func StageHistoryReconstruction(downloader *network.BackwardBeaconDownloader, antiquary *antiquary.Antiquary, sn *freezeblocks.CaplinSnapshots, indiciesDB kv.RwDB, engine execution_client.ExecutionEngine, beaconCfg *clparams.BeaconChainConfig, backfilling, blobsBackfilling, waitForAllRoutines bool, startingRoot libcommon.Hash, startinSlot uint64, tmpdir string, backfillingThrottling time.Duration, executionBlocksCollector block_collector.BlockCollector, blockReader freezeblocks.BeaconSnapshotReader, blobStorage blob_storage.BlobStorage, logger log.Logger) StageHistoryReconstructionCfg {
 	return StageHistoryReconstructionCfg{
-		genesisCfg:               genesisCfg,
 		beaconCfg:                beaconCfg,
 		downloader:               downloader,
 		startingRoot:             startingRoot,
@@ -91,7 +86,6 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 
 	var currEth1Progress atomic.Int64
 
-	bytesReadInTotal := atomic.Uint64{}
 	destinationSlotForEL := uint64(math.MaxUint64)
 	if cfg.engine != nil && cfg.engine.SupportInsertion() && cfg.beaconCfg.DenebForkEpoch != math.MaxUint64 {
 		destinationSlotForEL = cfg.beaconCfg.BellatrixForkEpoch * cfg.beaconCfg.SlotsPerEpoch
@@ -109,8 +103,6 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 
 		destinationSlotForCL := cfg.sn.SegmentsMax()
 
-		bytesReadInTotal.Add(uint64(blk.EncodingSizeSSZ()))
-
 		slot := blk.Block.Slot
 		if destinationSlotForCL <= blk.Block.Slot {
 			if err := beacon_indicies.WriteBeaconBlockAndIndicies(ctx, tx, blk, true); err != nil {
@@ -125,18 +117,8 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 			}
 
 			if !hasELBlock {
-				payloadRoot, err := payload.HashSSZ()
-				if err != nil {
-					return false, fmt.Errorf("error hashing execution payload during download: %s", err)
-				}
-				encodedPayload, err := payload.EncodeSSZ(nil)
-				if err != nil {
-					return false, fmt.Errorf("error encoding execution payload during download: %s", err)
-				}
-				// Use snappy compression that the temporary files do not take too much disk.
-				encodedPayload = utils.CompressSnappy(append([]byte{byte(blk.Version())}, append(blk.Block.ParentRoot[:], encodedPayload...)...))
-				if err := cfg.executionBlocksCollector.Collect(dbutils.BlockBodyKey(payload.BlockNumber, payloadRoot), encodedPayload); err != nil {
-					return false, fmt.Errorf("error collecting execution payload during download: %s", err)
+				if err := cfg.executionBlocksCollector.AddBlock(blk.Block); err != nil {
+					return false, fmt.Errorf("error adding block to execution blocks collector: %s", err)
 				}
 				if currEth1Progress.Load()%100 == 0 {
 					return false, tx.Commit()
@@ -156,6 +138,8 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 
 	finishCh := make(chan struct{})
 	// Start logging thread
+
+	isBackfilling := atomic.Bool{}
 
 	go func() {
 		logInterval := time.NewTicker(logIntervalTime)
@@ -180,11 +164,7 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 				ratio := float64(logTime / time.Second)
 				speed := blockProgress / ratio
 				prevProgress = currProgress
-				peerCount, err := cfg.downloader.Peers()
-				if err != nil {
-					log.Debug("could not get peer count", "err", err)
-					continue
-				}
+
 				if speed == 0 {
 					continue
 				}
@@ -192,12 +172,13 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 					"slot", currProgress,
 					"blockNumber", currEth1Progress.Load(),
 					"blk/sec", fmt.Sprintf("%.1f", speed),
-					"mbps/sec", fmt.Sprintf("%.1f", float64(bytesReadInTotal.Load())/(1000*1000*ratio)),
-					"peers", peerCount,
 					"snapshots", cfg.sn.SegmentsMax(),
 				)
-				bytesReadInTotal.Store(0)
-				logger.Info("Backfilling History", logArgs...)
+				logMsg := "Node is still syncing... downloading past blocks"
+				if isBackfilling.Load() {
+					logMsg = "Node has finished syncing... full history is being downloaded for archiving purposes"
+				}
+				logger.Info(logMsg, logArgs...)
 			case <-finishCh:
 				return
 			case <-ctx.Done():
@@ -214,13 +195,30 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 			}
 		}
 		cfg.antiquary.NotifyBackfilled()
-		log.Info("Backfilling finished")
+		if cfg.backfilling {
+			cfg.logger.Info("Full backfilling finished")
+		} else {
+			cfg.logger.Info("Missing blocks download finished (note: this does not mean that the history is complete, only that the missing blocks need for sync have been downloaded)")
+		}
 
 		close(finishCh)
 		if cfg.blobsBackfilling {
 			go func() {
 				if err := downloadBlobHistoryWorker(cfg, ctx, logger); err != nil {
 					logger.Error("Error downloading blobs", "err", err)
+				}
+				// set a timer every 1 hour as a failsafe
+				ticker := time.NewTicker(time.Hour)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case <-ticker.C:
+						if err := downloadBlobHistoryWorker(cfg, ctx, logger); err != nil {
+							logger.Error("Error downloading blobs", "err", err)
+						}
+					}
 				}
 			}()
 		}
@@ -243,6 +241,7 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 		return err
 	}
 	defer tx2.Rollback()
+	isBackfilling.Store(true)
 
 	cfg.logger.Info("Ready to insert history, waiting for sync cycle to finish")
 
@@ -251,7 +250,7 @@ func SpawnStageHistoryDownload(cfg StageHistoryReconstructionCfg, ctx context.Co
 
 // downloadBlobHistoryWorker is a worker that downloads the blob history by using the already downloaded beacon blocks
 func downloadBlobHistoryWorker(cfg StageHistoryReconstructionCfg, ctx context.Context, logger log.Logger) error {
-	currentSlot := cfg.startingSlot
+	currentSlot := cfg.startingSlot + 1
 	blocksBatchSize := uint64(8) // requests 8 blocks worth of blobs at a time
 	tx, err := cfg.indiciesDB.BeginRo(ctx)
 	if err != nil {
@@ -264,6 +263,7 @@ func downloadBlobHistoryWorker(cfg StageHistoryReconstructionCfg, ctx context.Co
 	prevLogSlot := currentSlot
 	prevTime := time.Now()
 	targetSlot := cfg.beaconCfg.DenebForkEpoch * cfg.beaconCfg.SlotsPerEpoch
+	cfg.logger.Info("Downloading blobs backwards", "from", currentSlot, "to", targetSlot)
 	for currentSlot >= targetSlot {
 		if currentSlot <= cfg.sn.FrozenBlobs() {
 			break
@@ -271,7 +271,11 @@ func downloadBlobHistoryWorker(cfg StageHistoryReconstructionCfg, ctx context.Co
 
 		batch := make([]*cltypes.SignedBlindedBeaconBlock, 0, blocksBatchSize)
 		visited := uint64(0)
-		for ; len(batch) < int(blocksBatchSize); visited++ {
+		maxIterations := uint64(32)
+		for ; visited < blocksBatchSize; visited++ {
+			if visited >= maxIterations {
+				break
+			}
 			if currentSlot-visited < targetSlot {
 				break
 			}
@@ -330,7 +334,7 @@ func downloadBlobHistoryWorker(cfg StageHistoryReconstructionCfg, ctx context.Co
 			cfg.logger.Debug("Error requesting blobs", "err", err)
 			continue
 		}
-		lastProcessed, _, err := blob_storage.VerifyAgainstIdentifiersAndInsertIntoTheBlobStore(ctx, cfg.blobStorage, req, blobs.Responses, func(header *cltypes.SignedBeaconBlockHeader) error {
+		_, _, err = blob_storage.VerifyAgainstIdentifiersAndInsertIntoTheBlobStore(ctx, cfg.blobStorage, req, blobs.Responses, func(header *cltypes.SignedBeaconBlockHeader) error {
 			// The block is preverified so just check that the signature is correct against the block
 			for _, block := range batch {
 				if block.Block.Slot != header.Header.Slot {
@@ -348,8 +352,6 @@ func downloadBlobHistoryWorker(cfg StageHistoryReconstructionCfg, ctx context.Co
 			cfg.logger.Warn("Error verifying blobs", "err", err)
 			continue
 		}
-
-		currentSlot = lastProcessed
 	}
 	log.Info("Blob history download finished successfully")
 	cfg.antiquary.NotifyBlobBackfilled()

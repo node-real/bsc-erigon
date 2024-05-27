@@ -8,6 +8,10 @@ import (
 )
 
 func SetupStagesAccess(metricsMux *http.ServeMux, diag *diaglib.DiagnosticClient) {
+	if metricsMux == nil {
+		return
+	}
+
 	metricsMux.HandleFunc("/snapshot-sync", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Content-Type", "application/json")
@@ -25,6 +29,26 @@ func SetupStagesAccess(metricsMux *http.ServeMux, diag *diaglib.DiagnosticClient
 		w.Header().Set("Content-Type", "application/json")
 		writeHardwareInfo(w, diag)
 	})
+
+	metricsMux.HandleFunc("/resources-usage", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		writeResourcesUsage(w, diag)
+	})
+
+	metricsMux.HandleFunc("/network-speed", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Content-Type", "application/json")
+		writeNetworkSpeed(w, diag)
+	})
+}
+
+func writeNetworkSpeed(w http.ResponseWriter, diag *diaglib.DiagnosticClient) {
+	json.NewEncoder(w).Encode(diag.GetNetworkSpeed())
+}
+
+func writeResourcesUsage(w http.ResponseWriter, diag *diaglib.DiagnosticClient) {
+	json.NewEncoder(w).Encode(diag.GetResourcesUsage())
 }
 
 func writeStages(w http.ResponseWriter, diag *diaglib.DiagnosticClient) {

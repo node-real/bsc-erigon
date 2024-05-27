@@ -8,6 +8,7 @@ import (
 
 	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/common"
+	"github.com/ledgerwatch/erigon-lib/downloader/snaptype"
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
@@ -119,6 +120,8 @@ type FullBlockReader interface {
 
 	Snapshots() BlockSnapshots
 	BorSnapshots() BlockSnapshots
+
+	AllTypes() []snaptype.Type
 }
 
 type BlockSnapshots interface {
@@ -126,6 +129,7 @@ type BlockSnapshots interface {
 	ReopenFolder() error
 	SegmentsMax() uint64
 	SegmentsMin() uint64
+	Types() []snaptype.Type
 	Close()
 }
 

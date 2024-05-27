@@ -3,6 +3,8 @@ package p2p
 import (
 	"sync"
 
+	"github.com/ledgerwatch/log/v3"
+
 	"github.com/ledgerwatch/erigon-lib/gointerfaces/sentry"
 )
 
@@ -15,18 +17,20 @@ type PeerTracker interface {
 }
 
 func NewPeerTracker() PeerTracker {
-	return newPeerTracker()
+	return newPeerTracker(RandPeerShuffle)
 }
 
-func newPeerTracker() *peerTracker {
+func newPeerTracker(peerShuffle PeerShuffle) *peerTracker {
 	return &peerTracker{
 		peerSyncProgresses: map[PeerId]*peerSyncProgress{},
+		peerShuffle:        peerShuffle,
 	}
 }
 
 type peerTracker struct {
 	mu                 sync.Mutex
 	peerSyncProgresses map[PeerId]*peerSyncProgress
+	peerShuffle        PeerShuffle
 }
 
 func (pt *peerTracker) ListPeersMayHaveBlockNum(blockNum uint64) []*PeerId {
@@ -39,6 +43,8 @@ func (pt *peerTracker) ListPeersMayHaveBlockNum(blockNum uint64) []*PeerId {
 			peerIds = append(peerIds, peerSyncProgress.peerId)
 		}
 	}
+
+	pt.peerShuffle(peerIds)
 
 	return peerIds
 }
@@ -86,13 +92,17 @@ func (pt *peerTracker) updatePeerSyncProgress(peerId *PeerId, update func(psp *p
 	update(peerSyncProgress)
 }
 
-func NewPeerEventObserver(peerTracker PeerTracker) MessageObserver[*sentry.PeerEvent] {
+func NewPeerEventObserver(logger log.Logger, peerTracker PeerTracker) MessageObserver[*sentry.PeerEvent] {
 	return func(message *sentry.PeerEvent) {
+		peerId := PeerIdFromH512(message.PeerId)
+
+		logger.Debug("[p2p.peerEventObserver] received new peer event", "id", message.EventId, "peerId", peerId)
+
 		switch message.EventId {
 		case sentry.PeerEvent_Connect:
-			peerTracker.PeerConnected(PeerIdFromH512(message.PeerId))
+			peerTracker.PeerConnected(peerId)
 		case sentry.PeerEvent_Disconnect:
-			peerTracker.PeerDisconnected(PeerIdFromH512(message.PeerId))
+			peerTracker.PeerDisconnected(peerId)
 		}
 	}
 }
