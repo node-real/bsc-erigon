@@ -991,7 +991,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	curIndex := userTxs.Len()
 	// warn if not in majority fork
 	number := header.Number.Uint64()
-	if number == 66 {
+	if number == 808600 {
 		log.Info("bad ")
 	}
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)

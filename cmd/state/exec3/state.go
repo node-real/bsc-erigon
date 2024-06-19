@@ -239,13 +239,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 		}
 
 		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
-			if index != txTask.TxIndex {
-				return nil, false, nil
-			}
 
-			if index == 2 && header.Number.Uint64() == 66 {
-				log.Info("")
-			}
 			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.chainConfig.GetMaxBlobGasPerBlock())
 			rw.callTracer.Reset()
 			rw.vmCfg.SkipAnalysis = txTask.SkipAnalysis
