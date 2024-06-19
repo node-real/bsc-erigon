@@ -2,6 +2,7 @@ package exec3
 
 import (
 	"context"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
@@ -196,6 +197,14 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 		//fmt.Printf("txNum=%d, blockNum=%d, initialisation of the block\n", txTask.TxNum, txTask.BlockNum)
 		syscall := func(contract libcommon.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, constCall /* constCall */)
+		}
+		if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - 3
+			parent, _ := rw.blockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
+			if parent != nil {
+				lastBlockTime = parent.Time
+			}
+			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 		}
 		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger)
 		txTask.Error = ibs.FinalizeTx(rules, noop)
