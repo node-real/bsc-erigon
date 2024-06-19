@@ -133,10 +133,10 @@ func (s *Merge) CalculateRewards(config *chain.Config, header *types.Header, unc
 
 func (s *Merge) Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, requests types.Requests,
-	chain consensus.ChainReader, syscall consensus.SystemCall, logger log.Logger,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, logger log.Logger,
 ) (types.Transactions, types.Receipts, types.Requests, error) {
 	if !misc.IsPoSHeader(header) {
-		return s.eth1Engine.Finalize(config, header, state, txs, uncles, receipts, withdrawals, requests, chain, syscall, logger)
+		return s.eth1Engine.Finalize(config, header, state, txs, uncles, receipts, withdrawals, requests, chain, syscall, systemTxCall, 0, logger)
 	}
 
 	rewards, err := s.CalculateRewards(config, header, uncles, syscall)
@@ -198,7 +198,7 @@ func (s *Merge) FinalizeAndAssemble(config *chain.Config, header *types.Header, 
 		return s.eth1Engine.FinalizeAndAssemble(config, header, state, txs, uncles, receipts, withdrawals, requests, chain, syscall, call, logger)
 	}
 	header.RequestsRoot = nil
-	outTxs, outReceipts, rs, err := s.Finalize(config, header, state, txs, uncles, receipts, withdrawals, requests, chain, syscall, logger)
+	outTxs, outReceipts, rs, err := s.Finalize(config, header, state, txs, uncles, receipts, withdrawals, requests, chain, syscall, nil, 0, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}

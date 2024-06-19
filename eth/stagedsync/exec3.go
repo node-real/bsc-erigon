@@ -600,7 +600,7 @@ func ExecV3(ctx context.Context,
 		applyWorker.ResetTx(applyTx)
 		doms.SetTx(applyTx)
 	}
-	_, isPoSa := cfg.engine.(consensus.PoSA)
+	posa, isPoSa := cfg.engine.(consensus.PoSA)
 
 	slowDownLimit := time.NewTicker(time.Second)
 	defer slowDownLimit.Stop()
@@ -700,6 +700,7 @@ Loop:
 		// So we skip that check for the first block, if we find half-executed data.
 		skipPostEvaluation := false
 		var usedGas, blobGasUsed uint64
+		var systemTxIndex int
 
 		for txIndex := -1; txIndex <= len(txs); txIndex++ {
 			// Do not oversend, wait for the result heap to go under certain size
@@ -724,6 +725,15 @@ Loop:
 				HistoryExecution: offsetFromBlockBeginning > 0 && txIndex < int(offsetFromBlockBeginning),
 
 				BlockReceipts: receipts,
+			}
+
+			if txIndex >= 0 && !txTask.Final && isPoSa {
+				if isSystemTx, err := posa.IsSystemTransaction(txs[txIndex], header); err != nil {
+					return err
+				} else if isSystemTx {
+					systemTxIndex++
+					txTask.SystemTxIndex = systemTxIndex
+				}
 			}
 			if txTask.TxNum <= txNumInDB && txTask.TxNum > 0 {
 				inputTxNum++
@@ -768,6 +778,9 @@ Loop:
 				if txTask.Error != nil {
 					break Loop
 				}
+				if header.Number.Uint64() == 66 {
+					log.Info("bad")
+				}
 				applyWorker.RunTxTaskNoLock(txTask)
 				if err := func() error {
 					if errors.Is(txTask.Error, context.Canceled) {
@@ -780,7 +793,7 @@ Loop:
 					if txTask.Tx != nil {
 						blobGasUsed += txTask.Tx.GetBlobGas()
 					}
-					if txTask.Final && !isPoSa {
+					if txTask.Final {
 						checkReceipts := !cfg.vmConfig.StatelessExec && chainConfig.IsByzantium(txTask.BlockNum) && !cfg.vmConfig.NoReceipts
 						if txTask.BlockNum > 0 && !skipPostEvaluation { //Disable check for genesis. Maybe need somehow improve it in future - to satisfy TestExecutionSpec
 							if err := core.BlockPostValidation(usedGas, blobGasUsed, checkReceipts, types.DeriveSha(receipts), txTask.Header); err != nil {
@@ -851,6 +864,7 @@ Loop:
 			stageProgress = blockNum
 			inputTxNum++
 		}
+
 		if shouldGenerateChangesets {
 			aggTx := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 			aggTx.RestrictSubsetFileDeletions(true)

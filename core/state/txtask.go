@@ -33,6 +33,7 @@ type TxTask struct {
 	Sender          *libcommon.Address
 	SkipAnalysis    bool
 	TxIndex         int // -1 for block initialisation
+	SystemTxIndex   int
 	Final           bool
 	Failed          bool
 	Tx              types.Transaction

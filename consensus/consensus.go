@@ -86,6 +86,8 @@ type ChainReader interface {
 
 type SystemCall func(contract libcommon.Address, data []byte) ([]byte, error)
 
+type SystemTxCall func(ibs *state.IntraBlockState, index int) ([]byte, bool, error)
+
 // Use more options to call contract
 type SysCallCustom func(contract libcommon.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error)
 type Call func(contract libcommon.Address, data []byte) ([]byte, error)
@@ -163,7 +165,7 @@ type EngineWriter interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
-		txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, requests types.Requests, chain ChainReader, syscall SystemCall, logger log.Logger,
+		txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, requests types.Requests, chain ChainReader, syscall SystemCall, systemTxCall SystemTxCall, TxIndex int, logger log.Logger,
 	) (types.Transactions, types.Receipts, types.Requests, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block
