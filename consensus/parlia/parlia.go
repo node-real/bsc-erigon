@@ -991,9 +991,6 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	curIndex := userTxs.Len()
 	// warn if not in majority fork
 	number := header.Number.Uint64()
-	if number == 808600 {
-		log.Info("bad ")
-	}
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1009,12 +1006,14 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
-	if err := p.verifyValidators(header, parentHeader, ibs); err != nil {
-		return nil, nil, nil, err
-	}
+	if curIndex == txIndex {
+		if err := p.verifyValidators(header, parentHeader, ibs); err != nil {
+			return nil, nil, nil, err
+		}
 
-	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-		systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
+		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
+		}
 	}
 
 	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {

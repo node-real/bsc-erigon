@@ -288,8 +288,10 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			return ret, true, nil
 		}
 
-		rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
-
+		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
+		if err != nil {
+			txTask.Error = err
+		}
 	default:
 		txHash := txTask.Tx.Hash()
 		rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.chainConfig.GetMaxBlobGasPerBlock())
