@@ -951,7 +951,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 					curJustifiedNumber = justifiedNumberGot
 				}
 			}
-			log.Debug(fmt.Sprintf("justifiedNumber = %d, curJustifiedNumber = %d, header.number = %d, hd.highestInDb = %d", justifiedNumber, curJustifiedNumber, blockHeight, highest))
+			//log.Debug(fmt.Sprintf("justifiedNumber = %d, curJustifiedNumber = %d, header.number = %d, hd.highestInDb = %d", justifiedNumber, curJustifiedNumber, blockHeight, highest))
 			if justifiedNumber == curJustifiedNumber {
 				return td.Cmp(hi.localTd) > 0, nil
 			}
