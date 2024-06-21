@@ -72,7 +72,9 @@ func _GetBlockNumber(requireCanonical bool, blockNrOrHash rpc.BlockNumberOrHash,
 			if fs := parliafinality.GetFinalizationService(); fs != nil {
 				blockHash := fs.GetFinalizeBlockHash()
 				blockNum := rawdb.ReadHeaderNumber(tx, blockHash)
-				return *blockNum, blockHash, false, nil
+				if blockNum != nil {
+					return *blockNum, blockHash, false, nil
+				}
 			}
 			blockNumber, err = GetFinalizedBlockNumber(tx)
 			if err != nil {
@@ -82,7 +84,9 @@ func _GetBlockNumber(requireCanonical bool, blockNrOrHash rpc.BlockNumberOrHash,
 			if fs := parliafinality.GetFinalizationService(); fs != nil {
 				blockHash := fs.GetSafeBlockHash()
 				blockNum := rawdb.ReadHeaderNumber(tx, blockHash)
-				return *blockNum, blockHash, false, nil
+				if blockNum != nil {
+					return *blockNum, blockHash, false, nil
+				}
 			}
 			blockNumber, err = GetSafeBlockNumber(tx)
 			if err != nil {
