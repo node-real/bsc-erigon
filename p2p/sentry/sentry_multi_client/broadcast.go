@@ -52,10 +52,6 @@ func (cs *MultiClient) PropagateNewBlockHashes(ctx context.Context, announces []
 func (cs *MultiClient) BroadcastNewBlock(ctx context.Context, header *types.Header, body *types.RawBody, td *big.Int) {
 	block, err := types.RawBlock{Header: header, Body: body}.AsBlock()
 
-	if block.Withdrawals() == nil {
-		log.Error("broadcastNewBlock", "number", block.NumberU64(), "withdraws is nil")
-	}
-
 	if err != nil {
 		log.Error("broadcastNewBlock", "err", err)
 	}
@@ -70,20 +66,6 @@ func (cs *MultiClient) BroadcastNewBlock(ctx context.Context, header *types.Head
 
 	if err != nil {
 		log.Error("broadcastNewBlock", "err", err)
-		return
-	}
-
-	request := &eth.NewBlockPacket{}
-	if err := rlp.DecodeBytes(data, &request); err != nil {
-		log.Error("broadcastNewBlock decode 4 NewBlockMsg", "err", err)
-		return
-	}
-	if err := request.SanityCheck(); err != nil {
-		log.Error("broadcastNewBlock newBlock66: %w,  PeerID: %s", "err", err)
-		return
-	}
-	if err := request.Block.HashCheck(); err != nil {
-		log.Error("broadcastNewBlock newBlock66:", "err", err)
 		return
 	}
 
