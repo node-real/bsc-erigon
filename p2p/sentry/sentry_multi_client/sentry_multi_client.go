@@ -528,10 +528,10 @@ func (cs *MultiClient) newBlock66(ctx context.Context, inreq *proto_sentry.Inbou
 		return fmt.Errorf("decode 4 NewBlockMsg: %w", err)
 	}
 	if err := request.SanityCheck(); err != nil {
-		return fmt.Errorf("newBlock66: %w", err)
+		return fmt.Errorf("newBlock66: %w,  PeerID: %s", err, fmt.Sprintf("%x", sentry.ConvertH512ToPeerID(inreq.PeerId))[:8])
 	}
 	if err := request.Block.HashCheck(); err != nil {
-		return fmt.Errorf("newBlock66: %w", err, "PeerID", fmt.Sprintf("%x", sentry.ConvertH512ToPeerID(inreq.PeerId))[:8])
+		return fmt.Errorf("newBlock66: %w,  PeerID: %s", err, fmt.Sprintf("%x", sentry.ConvertH512ToPeerID(inreq.PeerId))[:8])
 	}
 
 	if request.Sidecars != nil && len(request.Sidecars) > 0 {
