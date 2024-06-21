@@ -73,6 +73,20 @@ func (cs *MultiClient) BroadcastNewBlock(ctx context.Context, header *types.Head
 		return
 	}
 
+	request := &eth.NewBlockPacket{}
+	if err := rlp.DecodeBytes(data, &request); err != nil {
+		log.Error("broadcastNewBlock decode 4 NewBlockMsg", "err", err)
+		return
+	}
+	if err := request.SanityCheck(); err != nil {
+		log.Error("broadcastNewBlock newBlock66: %w,  PeerID: %s", "err", err)
+		return
+	}
+	if err := request.Block.HashCheck(); err != nil {
+		log.Error("broadcastNewBlock newBlock66:", "err", err)
+		return
+	}
+
 	req66 := proto_sentry.SendMessageToRandomPeersRequest{
 		MaxPeers: uint64(cs.maxBlockBroadcastPeers(header)),
 		Data: &proto_sentry.OutboundMessageData{
