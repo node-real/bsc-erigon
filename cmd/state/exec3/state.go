@@ -146,7 +146,7 @@ func (rw *Worker) SetReader(reader state.ResettableStateReader) {
 }
 
 func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
-	if txTask.HistoryExecution && !rw.historyMode {
+	if txTask.HistoryExecution && !rw.historyMode || txTask.SystemTxIndex > 0 {
 		// in case if we cancelled execution and commitment happened in the middle of the block, we have to process block
 		// from the beginning until committed txNum and only then disable history mode.
 		// Needed to correctly evaluate spent gas and other things.

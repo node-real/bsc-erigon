@@ -111,6 +111,7 @@ type ResettableStateReader interface {
 	StateReader
 	SetTx(tx kv.Tx)
 	SetTxNum(txn uint64)
+	GetTxNum() uint64
 	DiscardReadList()
 	ReadSet() map[string]*state.KvList
 	ResetReadSet()

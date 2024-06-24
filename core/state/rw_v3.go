@@ -610,6 +610,7 @@ func NewStateReaderV3(sd *libstate.SharedDomains) *StateReaderV3 {
 
 func (r *StateReaderV3) DiscardReadList()                     { r.discardReadList = true }
 func (r *StateReaderV3) SetTxNum(txNum uint64)                { r.txNum = txNum }
+func (r *StateReaderV3) GetTxNum() uint64                     { return r.txNum }
 func (r *StateReaderV3) SetTx(tx kv.Tx)                       {}
 func (r *StateReaderV3) ReadSet() map[string]*libstate.KvList { return r.readLists }
 func (r *StateReaderV3) SetTrace(trace bool)                  { r.trace = trace }

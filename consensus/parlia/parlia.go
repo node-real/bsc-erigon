@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ledgerwatch/erigon/turbo/rpchelper"
 	"math/big"
 	"sort"
 	"strings"
@@ -713,7 +712,7 @@ func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHe
 	}
 	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64())
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, ibs)
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, ibs, 0)
 	if err != nil {
 		return err
 	}
@@ -900,12 +899,12 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	return nil
 }
 
-func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
+func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState, txIndex int) error {
 	if (header.Number.Uint64())%p.config.Epoch != 0 {
 		return nil
 	}
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state, txIndex)
 	if err != nil {
 		return nil
 	}
@@ -1008,7 +1007,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
 	if curIndex == txIndex {
-		if err := p.verifyValidators(header, parentHeader, ibs); err != nil {
+		if err := p.verifyValidators(header, parentHeader, ibs, curIndex); err != nil {
 			return nil, nil, nil, err
 		}
 
@@ -1429,7 +1428,11 @@ func (p *Parlia) Close() error {
 // ==========================  interaction with contract/account =========
 
 // getCurrentValidators get current validators
-func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
+func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState, txIndex int) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
+	reader := ibs.StateReader.(state.ResettableStateReader)
+	txNum := reader.GetTxNum()
+	defer reader.SetTxNum(txNum)
+	reader.SetTxNum(txNum - uint64(txIndex))
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
@@ -1444,19 +1447,8 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		p.logger.Error("Unable to pack tx for getMiningValidators", "err", err)
 		return nil, nil, err
 	}
-
 	msgData := hexutility.Bytes(data)
-	var tx kv.Tx
-	if tx, err = p.chainDb.BeginRo(context.Background()); err != nil {
-		panic(err)
-	}
-	var stateReader state.StateReader
-	stateReader, err = rpchelper.CreateHistoryStateReader(tx, header.Number.Uint64(), 0, "")
-	if err != nil {
-		return nil, nil, err
-	}
-	state := state.New(stateReader)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], state, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
