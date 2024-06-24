@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/erigon/turbo/rpchelper"
 	"math/big"
 	"sort"
 	"strings"
@@ -1445,8 +1446,17 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	}
 
 	msgData := hexutility.Bytes(data)
-	ibsWithoutCache := state.New(ibs.StateReader)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibsWithoutCache, header, u256.Num0)
+	var tx kv.Tx
+	if tx, err = p.chainDb.BeginRo(context.Background()); err != nil {
+		panic(err)
+	}
+	var stateReader state.StateReader
+	stateReader, err = rpchelper.CreateHistoryStateReader(tx, header.Number.Uint64(), 0, "")
+	if err != nil {
+		return nil, nil, err
+	}
+	state := state.New(stateReader)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], state, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
