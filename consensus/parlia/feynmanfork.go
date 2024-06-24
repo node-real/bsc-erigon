@@ -93,12 +93,17 @@ func (h *ValidatorHeap) Pop() interface{} {
 	return x
 }
 
-func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
+func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions, usedGas *uint64, mining bool,
 	systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int,
 ) (bool, error) {
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+
+	reader := ibs.StateReader.(state.ResettableStateReader)
+	txNum := reader.GetTxNum()
+	reader.SetTxNum(txNum - uint64(*txIndex))
+	state := state.New(reader)
 	validatorItems, err := p.getValidatorElectionInfo(parent, state)
 	if err != nil {
 		return true, err
@@ -112,6 +117,7 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *
 	eValidators, eVotingPowers, eVoteAddrs := getTopValidatorsByVotingPower(validatorItems, maxElectedValidators)
 
 	// 3. update validator set to system contract
+	reader.SetTxNum(txNum)
 	method := "updateValidatorSetV2"
 	data, err := p.validatorSetABI.Pack(method, eValidators, eVotingPowers, eVoteAddrs)
 	if err != nil {
@@ -122,7 +128,7 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, state *
 	// apply message
 
 	if *curIndex == *txIndex {
-		return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, state, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
+		return p.applyTransaction(header.Coinbase, systemcontracts.ValidatorContract, u256.Num0, data, ibs, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 	}
 	*curIndex++
 	return false, nil
@@ -139,8 +145,7 @@ func (p *Parlia) getValidatorElectionInfo(header *types.Header, ibs *state.Intra
 	}
 	msgData := (hexutility.Bytes)(data)
 
-	ibsWithoutCache := state.New(ibs.StateReader)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
@@ -179,8 +184,7 @@ func (p *Parlia) getMaxElectedValidators(header *types.Header, ibs *state.IntraB
 	}
 	msgData := (hexutility.Bytes)(data)
 
-	ibsWithoutCache := state.New(ibs.StateReader)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibsWithoutCache, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.StakeHubContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
