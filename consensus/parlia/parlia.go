@@ -1433,6 +1433,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	txNum := reader.GetTxNum()
 	defer reader.SetTxNum(txNum)
 	reader.SetTxNum(txNum - uint64(txIndex))
+	state := state.New(reader)
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
@@ -1448,7 +1449,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		return nil, nil, err
 	}
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], state, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
