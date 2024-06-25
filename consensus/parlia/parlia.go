@@ -1429,11 +1429,16 @@ func (p *Parlia) Close() error {
 
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState, txIndex int) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
-	reader := ibs.StateReader.(state.ResettableStateReader)
-	txNum := reader.GetTxNum()
-	defer reader.SetTxNum(txNum)
-	reader.SetTxNum(txNum - uint64(txIndex))
-	state := state.New(reader)
+	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
+	tx, err := p.chainDb.BeginRo(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+	defer tx.Rollback()
+	stateReader := state.NewHistoryReaderV3()
+	stateReader.SetTx(tx)
+	stateReader.SetTxNum(txNum - uint64(txIndex))
+	history := state.New(stateReader)
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
@@ -1449,7 +1454,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		return nil, nil, err
 	}
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], state, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], history, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
