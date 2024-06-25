@@ -1508,8 +1508,8 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 		*curIndex++
 	}
 	if *curIndex == *txIndex {
-		state.SetBalance(consensus.SystemAddress, u256.Num0)
-		state.AddBalance(coinbase, balance)
+		state.SetBalance(consensus.SystemAddress, u256.Num0, tracing.BalanceDecreaseGasBuy)
+		state.AddBalance(coinbase, balance, tracing.BalanceDecreaseGasBuy)
 		//log.Debug("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
 		return p.distributeToValidator(balance, val, state, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 	}
