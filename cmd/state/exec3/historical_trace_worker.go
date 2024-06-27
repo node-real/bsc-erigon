@@ -3,6 +3,7 @@ package exec3
 import (
 	"context"
 	"fmt"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"sync"
 	"sync/atomic"
 
@@ -145,10 +146,22 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		syscall := func(contract common.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, constCall /* constCall */)
 		}
+		if !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - 3
+			parent, _ := rw.execArgs.BlockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
+			if parent != nil {
+				lastBlockTime = parent.Time
+			}
+			systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+		}
 		rw.execArgs.Engine.Initialize(rw.execArgs.ChainConfig, rw.chain, header, ibs, syscall, rw.logger)
 		txTask.Error = ibs.FinalizeTx(rules, noop)
 	case txTask.Final:
 		if txTask.BlockNum == 0 {
+			break
+		}
+
+		if _, isPoSa := rw.execArgs.Engine.(consensus.PoSA); isPoSa {
 			break
 		}
 
@@ -157,7 +170,58 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, false /* constCall */)
 		}
 
-		_, _, _, err := rw.execArgs.Engine.Finalize(rw.execArgs.ChainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, nil, 0, rw.logger)
+		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+			return nil, false, nil
+		}
+
+		_, _, _, err := rw.execArgs.Engine.Finalize(rw.execArgs.ChainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, 0, rw.logger)
+		if err != nil {
+			txTask.Error = err
+		}
+	case txTask.SystemTxIndex > 0:
+		syscall := func(contract common.Address, data []byte) ([]byte, error) {
+			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, false /* constCall */)
+		}
+
+		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+
+			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.execArgs.ChainConfig.GetMaxBlobGasPerBlock())
+			if tracer := rw.consumer.NewTracer(); tracer != nil {
+				rw.vmConfig.Debug = true
+				rw.vmConfig.Tracer = tracer
+			}
+			rw.vmConfig.SkipAnalysis = txTask.SkipAnalysis
+			msg := txTask.TxAsMessage
+			ibs.SetTxContext(txTask.Tx.Hash(), txTask.BlockHash, txTask.TxIndex)
+			if rw.execArgs.ChainConfig.IsCancun(header.Number.Uint64(), header.Time) {
+				rules := rw.execArgs.ChainConfig.Rules(header.Number.Uint64(), header.Time)
+				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+			}
+			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, *rw.vmConfig, rules)
+			// Increment the nonce for the next transaction
+			ibs.SetNonce(msg.From(), ibs.GetNonce(msg.From())+1)
+			ret, leftOverGas, err := rw.evm.Call(
+				vm.AccountRef(msg.From()),
+				*msg.To(),
+				msg.Data(),
+				msg.Gas(),
+				msg.Value(),
+				false,
+			)
+			if err != nil {
+				txTask.Error = err
+			} else {
+				txTask.Failed = false
+				txTask.UsedGas = msg.Gas() - leftOverGas
+				// Update the state with pending changes
+				ibs.SoftFinalise()
+				//txTask.Error = ibs.FinalizeTx(rules, noop)
+				txTask.Logs = ibs.GetLogs(txTask.Tx.Hash())
+			}
+			return ret, true, nil
+		}
+
+		_, _, _, err := rw.execArgs.Engine.Finalize(rw.execArgs.ChainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
 		if err != nil {
 			txTask.Error = err
 		}

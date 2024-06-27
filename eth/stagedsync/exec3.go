@@ -778,9 +778,6 @@ Loop:
 				if txTask.Error != nil {
 					break Loop
 				}
-				if header.Number.Uint64() == 66 {
-					log.Info("bad")
-				}
 				applyWorker.RunTxTaskNoLock(txTask)
 				if err := func() error {
 					if errors.Is(txTask.Error, context.Canceled) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"sync"
 
 	"github.com/RoaringBitmap/roaring/roaring64"
@@ -330,6 +331,14 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 				return err
 			}
 		}
+		if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - 3
+			parent := rw.chain.GetHeaderByHash(header.ParentHash)
+			if parent != nil {
+				lastBlockTime = parent.Time
+			}
+			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+		}
 	} else {
 		if rw.isPoSA {
 			if isSystemTx, err := rw.posa.IsSystemTransaction(txTask.Tx, txTask.Header); err != nil {
@@ -337,7 +346,44 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 					return err
 				}
 			} else if isSystemTx {
-				return nil
+				syscall := func(contract libcommon.Address, data []byte) ([]byte, error) {
+					return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
+				}
+
+				systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+					vmConfig := vm.Config{NoReceipts: true, SkipAnalysis: txTask.SkipAnalysis}
+					msg := txTask.TxAsMessage
+					ibs.SetTxContext(txTask.Tx.Hash(), txTask.BlockHash, txTask.TxIndex)
+					if rw.chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
+						rules := rw.chainConfig.Rules(header.Number.Uint64(), header.Time)
+						ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+					}
+					rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, vmConfig, rules)
+					// Increment the nonce for the next transaction
+					ibs.SetNonce(msg.From(), ibs.GetNonce(msg.From())+1)
+					_, _, err := rw.evm.Call(
+						vm.AccountRef(msg.From()),
+						*msg.To(),
+						msg.Data(),
+						msg.Gas(),
+						msg.Value(),
+						false,
+					)
+					if err != nil {
+						txTask.Error = err
+					}
+
+					if err = ibs.FinalizeTx(rules, noop); err != nil {
+						if _, readError := rw.stateReader.ReadError(); !readError {
+							return nil, false, err
+						}
+					}
+					return nil, true, nil
+				}
+				_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
+				if err != nil {
+					txTask.Error = err
+				}
 			}
 		}
 		gp := new(core.GasPool).AddGas(txTask.Tx.GetGas()).AddBlobGas(txTask.Tx.GetBlobGas())
