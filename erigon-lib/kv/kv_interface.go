@@ -156,6 +156,7 @@ const (
 	DownloaderDB Label = 4
 	InMem        Label = 5
 	BlobDb       Label = 6
+	DiagnosticsDB Label = 7
 )
 
 func (l Label) String() string {
@@ -174,6 +175,8 @@ func (l Label) String() string {
 		return "inMem"
 	case BlobDb:
 		return "blob"
+	case DiagnosticsDB:
+		return "diagnostics"
 	default:
 		return "unknown"
 	}
@@ -194,6 +197,8 @@ func UnmarshalLabel(s string) Label {
 		return InMem
 	case "blob":
 		return BlobDb
+	case "diagnostics":
+		return DiagnosticsDB
 	default:
 		panic(fmt.Sprintf("unexpected label: %s", s))
 	}
