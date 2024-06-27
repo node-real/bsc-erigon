@@ -149,13 +149,13 @@ type DBVerbosityLvl int8
 type Label uint8
 
 const (
-	ChainDB      Label = 0
-	TxPoolDB     Label = 1
-	SentryDB     Label = 2
-	ConsensusDB  Label = 3
-	DownloaderDB Label = 4
-	InMem        Label = 5
-	BlobDb       Label = 6
+	ChainDB       Label = 0
+	TxPoolDB      Label = 1
+	SentryDB      Label = 2
+	ConsensusDB   Label = 3
+	DownloaderDB  Label = 4
+	InMem         Label = 5
+	BlobDb        Label = 6
 	DiagnosticsDB Label = 7
 )
 
