@@ -1870,6 +1870,8 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 		}
 		cfg.Genesis = genesis
 		SetDNSDiscoveryDefaults(cfg, *genesisHash)
+	case networkname.RialtoChainName:
+		return
 	case "":
 		if cfg.NetworkID == 1 {
 			SetDNSDiscoveryDefaults(cfg, params.MainnetGenesisHash)
