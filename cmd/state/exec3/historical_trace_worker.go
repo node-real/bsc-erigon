@@ -146,8 +146,9 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		syscall := func(contract common.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, constCall /* constCall */)
 		}
-		if !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			lastBlockTime := header.Time - 3
+		_, isPoSA := rw.execArgs.Engine.(consensus.PoSA)
+		if isPoSA && !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - rw.execArgs.ChainConfig.Parlia.Period
 			parent, _ := rw.execArgs.BlockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
 			if parent != nil {
 				lastBlockTime = parent.Time

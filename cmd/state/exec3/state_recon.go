@@ -331,8 +331,8 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 				return err
 			}
 		}
-		if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			lastBlockTime := header.Time - 3
+		if rw.isPoSA && !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
 			parent := rw.chain.GetHeaderByHash(header.ParentHash)
 			if parent != nil {
 				lastBlockTime = parent.Time
