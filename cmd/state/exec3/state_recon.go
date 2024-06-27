@@ -383,6 +383,7 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 				_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
 				if err != nil {
 					txTask.Error = err
+					return err
 				}
 			}
 		}

@@ -198,8 +198,8 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 		syscall := func(contract libcommon.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, constCall /* constCall */)
 		}
-		if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			lastBlockTime := header.Time - 3
+		if rw.isPoSA && !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
 			parent, _ := rw.blockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
 			if parent != nil {
 				lastBlockTime = parent.Time
