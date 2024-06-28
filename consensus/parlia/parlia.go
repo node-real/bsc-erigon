@@ -1186,10 +1186,7 @@ func (p *Parlia) FinalizeAndAssemble(chainConfig *chain.Config, header *types.He
 		return nil, nil, nil, consensus.ErrUnexpectedRequests
 	}
 
-	SystemTxCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
-		return nil, false, nil
-	}
-	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, SystemTxCall, 0, logger)
+	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, logger)
 	if err != nil {
 		return nil, nil, nil, err
 	}

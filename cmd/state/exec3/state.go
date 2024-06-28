@@ -223,11 +223,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
 		}
 
-		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
-			return nil, false, nil
-		}
-
-		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
+		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, nil, txTask.TxIndex, rw.logger)
 		if err != nil {
 			txTask.Error = err
 		} else {
