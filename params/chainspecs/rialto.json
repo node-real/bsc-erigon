@@ -33,6 +33,7 @@
   "feynmanFixTime":0,
   "cancunTime": 0,
   "haberTime": 0,
+  "haberFixTime": 0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
