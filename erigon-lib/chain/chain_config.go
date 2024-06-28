@@ -703,10 +703,11 @@ func (c *CliqueConfig) String() string {
 }
 
 type ParliaConfig struct {
-	DBPath   string
-	InMemory bool
-	Period   uint64 `json:"period"` // Number of seconds between blocks to enforce
-	Epoch    uint64 `json:"epoch"`  // Epoch length to update validatorSet
+	DBPath     string
+	InMemory   bool
+	Period     uint64                 `json:"period"`     // Number of seconds between blocks to enforce
+	Epoch      uint64                 `json:"epoch"`      // Epoch length to update validatorSet
+	BlockAlloc map[string]interface{} `json:"blockAlloc"` // For systemContract upgrade
 }
 
 // String implements the stringer interface, returning the consensus engine details.
