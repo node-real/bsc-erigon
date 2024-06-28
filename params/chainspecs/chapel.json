@@ -31,6 +31,7 @@
   "feynmanFixTime": 1711342800,
   "cancunTime": 1713330442,
   "haberTime": 1716962820,
+  "haberFixTime": 1719986788,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
