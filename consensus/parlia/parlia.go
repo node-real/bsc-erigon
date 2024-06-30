@@ -1471,7 +1471,7 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int) (bool, error) {
 	coinbase := header.Coinbase
 	balance := state.GetBalance(consensus.SystemAddress).Clone()
-	if balance.Cmp(u256.Num0) <= 0 {
+	if balance.Cmp(u256.Num0) <= 0 && *curIndex == *txIndex {
 		return false, nil
 	}
 	if *curIndex == *txIndex {
