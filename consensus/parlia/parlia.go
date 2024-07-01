@@ -95,8 +95,6 @@ var (
 		systemcontracts.TimelockContract:           {},
 		systemcontracts.TokenRecoverPortalContract: {},
 	}
-
-	doDistributeSysReward = false
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -1473,12 +1471,11 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int) (bool, error) {
 	coinbase := header.Coinbase
 	balance := state.GetBalance(consensus.SystemAddress).Clone()
-	if balance.Cmp(u256.Num0) <= 0 && *curIndex == *txIndex {
+	if balance.Cmp(u256.Num0) <= 0 {
 		return false, nil
 	}
-
 	if *curIndex == *txIndex {
-		doDistributeSysReward = !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
+		doDistributeSysReward := !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
 			state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
@@ -1495,7 +1492,7 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 			}
 		}
 	}
-	if *curIndex != *txIndex && doDistributeSysReward {
+	if *curIndex != *txIndex {
 		*curIndex++
 	}
 	if *curIndex == *txIndex {
