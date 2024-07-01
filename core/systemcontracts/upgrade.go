@@ -40,6 +40,10 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 		return
 	}
 
+	if config.Parlia == nil || config.Parlia.BlockAlloc == nil {
+		return
+	}
+
 	for blockNumberOrTime, genesisAlloc := range config.Parlia.BlockAlloc {
 		numOrTime, err := strconv.ParseUint(blockNumberOrTime, 10, 64)
 		if err != nil {
