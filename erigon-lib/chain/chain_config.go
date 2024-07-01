@@ -70,6 +70,8 @@ type Config struct {
 	FeynmanFixTime *big.Int `json:"feynmanFixTime,omitempty"`
 	CancunTime     *big.Int `json:"cancunTime,omitempty"`
 	HaberTime      *big.Int `json:"haberTime,omitempty"`
+	HaberFixTime   *big.Int `json:"haberFixTime,omitempty"`
+	BohrTime       *big.Int `json:"bohrTime,omitempty"`
 	PragueTime     *big.Int `json:"pragueTime,omitempty"`
 	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
 
@@ -123,7 +125,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, Engine: %v}",
 			c.ChainID,
 			c.RamanujanBlock,
 			c.NielsBlock,
@@ -144,6 +146,7 @@ func (c *Config) String() string {
 			c.FeynmanFixTime,
 			c.CancunTime,
 			c.HaberTime,
+			c.HaberFixTime,
 			engine,
 		)
 	}
@@ -278,11 +281,6 @@ func (c *Config) IsNapoli(num uint64) bool {
 // IsCancun returns whether time is either equal to the Cancun fork time or greater.
 func (c *Config) IsCancun(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.CancunTime, time)
-}
-
-// IsHaber returns whether time is either equal to the Haber fork time or greater.
-func (c *Config) IsHaber(num uint64, time uint64) bool {
-	return c.IsLondon(num) && isForked(c.HaberTime, time)
 }
 
 // IsPrague returns whether time is either equal to the Prague fork time or greater.
@@ -489,6 +487,25 @@ func (c *Config) IsOnFeynmanFix(currentBlockNumber *big.Int, lastBlockTime uint6
 		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
 	}
 	return !c.IsFeynmanFix(lastBlockNumber.Uint64(), lastBlockTime) && c.IsFeynmanFix(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
+// IsHaber returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsHaber(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.HaberTime, time)
+}
+
+// IsHaber returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsHaberFix(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.HaberFixTime, time)
+}
+
+// IsOnHaberFix returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+func (c *Config) IsOnHaberFix(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsHaberFix(lastBlockNumber.Uint64(), lastBlockTime) && c.IsHaberFix(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported

@@ -100,6 +100,12 @@ func init() {
 				addCodeRecords(systemcontracts.FeynmanFixUpgrade[chainName], 0, blockTime, byChain)
 			}
 		}
+		if chainConfig.HaberFixTime != nil {
+			blockTime := chainConfig.HaberFixTime.Uint64()
+			if blockTime != 0 {
+				addCodeRecords(systemcontracts.HaberFixUpgrade[chainName], 0, blockTime, byChain)
+			}
+		}
 	}
 
 	addGnosisSpecialCase()

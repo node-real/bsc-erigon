@@ -274,7 +274,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	}
 	if txn == nil {
 		if isBorStateSyncTxn {
-			// bor state sync tx is appended at the end of the block
+			// bor state sync txn is appended at the end of the block
 			txnIndex = block.Transactions().Len()
 		} else {
 			stream.WriteNil()
