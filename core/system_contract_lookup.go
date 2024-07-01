@@ -22,6 +22,9 @@ func init() {
 		// Process upgrades
 		chainConfig := params.ChainConfigByChainName(chainName)
 		parliaConfig := chainConfig.Parlia
+		if parliaConfig == nil || parliaConfig.BlockAlloc == nil {
+			return
+		}
 		for blockNumOrTime, genesisAlloc := range parliaConfig.BlockAlloc {
 			numOrTime, err := strconv.ParseUint(blockNumOrTime, 10, 64)
 			if err != nil {
