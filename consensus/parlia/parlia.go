@@ -1494,10 +1494,10 @@ func (p *Parlia) distributeIncoming(val libcommon.Address, state *state.IntraBlo
 			}
 		}
 	}
-	if *curIndex != *txIndex {
+	if *curIndex != *txIndex && doDistributeSysReward {
 		*curIndex++
 	}
-	if *curIndex == *txIndex && doDistributeSysReward {
+	if *curIndex == *txIndex {
 		state.SetBalance(consensus.SystemAddress, u256.Num0, tracing.BalanceDecreaseGasBuy)
 		state.AddBalance(coinbase, balance, tracing.BalanceDecreaseGasBuy)
 		//log.Debug("[parlia] distribute to validator contract", "block hash", header.Hash(), "amount", balance)
