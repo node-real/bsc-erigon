@@ -36,7 +36,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 
 			inTurnAddr := validators[(snap.Number+1)%uint64(len(validators))]
 			if _, ok := recentsMap[inTurnAddr]; ok {
-				log.Debug("in turn validator has recently signed, skip initialBackOffTime",
+				log.Trace("in turn validator has recently signed, skip initialBackOffTime",
 					"inTurnAddr", inTurnAddr)
 				delay = 0
 			}
