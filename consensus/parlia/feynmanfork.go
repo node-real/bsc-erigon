@@ -2,6 +2,7 @@ package parlia
 
 import (
 	"container/heap"
+	"context"
 	"fmt"
 	"math/big"
 
@@ -100,15 +101,22 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 
-	reader := ibs.StateReader.(state.ResettableStateReader)
-	txNum := reader.GetTxNum()
-	reader.SetTxNum(txNum - uint64(*txIndex))
-	state := state.New(reader)
-	validatorItems, err := p.getValidatorElectionInfo(parent, state)
+	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
+	tx, err := p.chainDb.BeginRo(context.Background())
 	if err != nil {
 		return true, err
 	}
-	maxElectedValidators, err := p.getMaxElectedValidators(parent, state)
+	defer tx.Rollback()
+	stateReader := state.NewHistoryReaderV3()
+	stateReader.SetTx(tx)
+	stateReader.SetTxNum(txNum - uint64(*txIndex))
+	history := state.New(stateReader)
+
+	validatorItems, err := p.getValidatorElectionInfo(parent, history)
+	if err != nil {
+		return true, err
+	}
+	maxElectedValidators, err := p.getMaxElectedValidators(parent, history)
 	if err != nil {
 		return true, err
 	}
@@ -117,7 +125,6 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 	eValidators, eVotingPowers, eVoteAddrs := getTopValidatorsByVotingPower(validatorItems, maxElectedValidators)
 
 	// 3. update validator set to system contract
-	reader.SetTxNum(txNum)
 	method := "updateValidatorSetV2"
 	data, err := p.validatorSetABI.Pack(method, eValidators, eVotingPowers, eVoteAddrs)
 	if err != nil {
