@@ -38,7 +38,7 @@ func init() {
 			if numOrTime >= chainConfig.ShanghaiTime.Uint64() {
 				blockTime = numOrTime
 			} else {
-				blockTime = numOrTime
+				blockNum = numOrTime
 			}
 			allocToCodeRecords(alloc, byChain, blockNum, blockTime)
 		}
