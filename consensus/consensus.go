@@ -19,6 +19,7 @@ package consensus
 
 import (
 	"context"
+	"github.com/ledgerwatch/erigon-lib/kv"
 	"math/big"
 
 	"github.com/holiman/uint256"
@@ -171,7 +172,7 @@ type EngineWriter interface {
 	// Note: The block header and state database might be updated to reflect any
 	// consensus rules that happen at finalization (e.g. block rewards).
 	Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
-		txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, requests types.Requests, chain ChainReader, syscall SystemCall, systemTxCall SystemTxCall, TxIndex int, logger log.Logger,
+		txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, requests types.Requests, chain ChainReader, syscall SystemCall, systemTxCall SystemTxCall, TxIndex int, tx kv.Tx, logger log.Logger,
 	) (types.Transactions, types.Receipts, types.Requests, error)
 
 	// FinalizeAndAssemble runs any post-transaction state modifications (e.g. block

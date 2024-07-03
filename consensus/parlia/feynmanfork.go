@@ -2,8 +2,8 @@ package parlia
 
 import (
 	"container/heap"
-	"context"
 	"fmt"
+	"github.com/ledgerwatch/erigon-lib/kv"
 	"math/big"
 
 	"github.com/ledgerwatch/erigon-lib/common"
@@ -96,17 +96,12 @@ func (h *ValidatorHeap) Pop() interface{} {
 
 func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions, usedGas *uint64, mining bool,
-	systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int,
+	systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int, tx kv.Tx,
 ) (bool, error) {
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 
 	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
-	tx, err := p.chainDb.BeginRo(context.Background())
-	if err != nil {
-		return true, err
-	}
-	defer tx.Rollback()
 	stateReader := state.NewHistoryReaderV3()
 	stateReader.SetTx(tx)
 	stateReader.SetTxNum(txNum - uint64(*txIndex))
