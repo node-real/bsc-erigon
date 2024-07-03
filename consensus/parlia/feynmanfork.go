@@ -104,7 +104,7 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
 	stateReader := state.NewHistoryReaderV3()
 	stateReader.SetTx(tx)
-	stateReader.SetTxNum(txNum - uint64(*txIndex))
+	stateReader.SetTxNum(txNum - uint64(*txIndex) - 1)
 	history := state.New(stateReader)
 
 	validatorItems, err := p.getValidatorElectionInfo(parent, history)

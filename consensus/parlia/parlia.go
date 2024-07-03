@@ -1424,7 +1424,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
 	stateReader := state.NewHistoryReaderV3()
 	stateReader.SetTx(tx)
-	stateReader.SetTxNum(txNum - uint64(txIndex))
+	stateReader.SetTxNum(txNum - uint64(txIndex) - 1)
 	history := state.New(stateReader)
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
