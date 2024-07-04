@@ -100,12 +100,12 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 ) (bool, error) {
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	//
-	//txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
-	//stateReader := state.NewHistoryReaderV3()
-	//stateReader.SetTx(tx)
-	//stateReader.SetTxNum(txNum - uint64(*txIndex))
-	history := state.New(ibs.StateReader)
+
+	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
+	stateReader := state.NewHistoryReaderV3()
+	stateReader.SetTx(tx)
+	stateReader.SetTxNum(txNum - uint64(*txIndex))
+	history := state.New(stateReader)
 
 	validatorItems, err := p.getValidatorElectionInfo(parent, history)
 	if err != nil {
