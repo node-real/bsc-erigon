@@ -1623,7 +1623,7 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 		}
 
 		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
-		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) && !(to.String() == systemcontracts.ValidatorContract.String() && actualTx.GetValue() == u256.Num0) {
+		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) && !(to.String() == systemcontracts.ValidatorContract.String() && actualTx.GetValue().Eq(u256.Num0)) {
 			return false, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
 				expectedHash.String(),
 				expectedTx.GetNonce(),
