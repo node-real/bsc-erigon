@@ -1423,11 +1423,11 @@ func (p *Parlia) Close() error {
 
 // getCurrentValidators get current validators
 func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState, txIndex int, tx kv.Tx) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
-	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
-	stateReader := state.NewHistoryReaderV3()
-	stateReader.SetTx(tx)
-	stateReader.SetTxNum(txNum - uint64(txIndex))
-	history := state.New(stateReader)
+	//txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
+	//stateReader := state.NewHistoryReaderV3()
+	//stateReader.SetTx(tx)
+	//stateReader.SetTxNum(txNum - uint64(txIndex))
+	history := state.New(ibs.StateReader)
 	history.Reset()
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
