@@ -938,7 +938,9 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 			copy(validatorsBytes[i*validatorBytesLength+length.Addr:], voteAddressMap[validator].Bytes())
 		}
 	}
-	if !bytes.Equal(getValidatorBytesFromHeader(header, p.chainConfig, p.config), validatorsBytes) {
+	headerValidator := getValidatorBytesFromHeader(header, p.chainConfig, p.config)
+	if !bytes.Equal(headerValidator, validatorsBytes) {
+		log.Info("Verify validator set", "header validatorbytes", hexutility.Encode(headerValidator), "getCurrentValidator", hexutility.Encode(validatorsBytes))
 		return errMismatchingEpochValidators
 	}
 	return nil
@@ -1426,6 +1428,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	stateReader.SetTx(tx)
 	stateReader.SetTxNum(txNum - uint64(txIndex))
 	history := state.New(stateReader)
+	history.Reset()
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
