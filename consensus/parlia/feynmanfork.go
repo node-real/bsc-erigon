@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"github.com/ledgerwatch/erigon-lib/kv"
+	"github.com/ledgerwatch/erigon-lib/kv/rawdbv3"
 	"math/big"
 
 	"github.com/ledgerwatch/erigon-lib/common"
@@ -101,10 +102,10 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 
-	txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
 	stateReader := state.NewHistoryReaderV3()
 	stateReader.SetTx(tx)
-	stateReader.SetTxNum(txNum - uint64(*txIndex) - 1)
+	maxTxNum, _ := rawdbv3.TxNums.Max(tx, header.Number.Uint64()-1)
+	stateReader.SetTxNum(maxTxNum)
 	history := state.New(stateReader)
 
 	validatorItems, err := p.getValidatorElectionInfo(parent, history)
