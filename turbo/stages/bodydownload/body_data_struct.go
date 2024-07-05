@@ -55,6 +55,7 @@ type BodyDownload struct {
 	bodyCacheLimit   int // Limit of body Cache size
 	blockBufferSize  int
 	br               services.FullBlockReader
+	LatestBlock      uint64
 	logger           log.Logger
 }
 
