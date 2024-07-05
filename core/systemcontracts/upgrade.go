@@ -56,6 +56,11 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 			}
 			for addr, account := range allocs {
 				logger.Debug("[parlia] upgrade System Contract code", "blockNumber", blockNumber, "blockTime", blockTime, "targetNumberOrTime", numOrTime, "address", addr)
+				prevContractCode := state.GetCode(addr)
+				if len(prevContractCode) == 0 && len(account.Code) > 0 {
+					// system contracts defined after genesis need to be explicitly created
+					state.CreateAccount(addr, true)
+				}
 				state.SetCode(addr, account.Code)
 			}
 		}
