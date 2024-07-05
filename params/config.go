@@ -96,9 +96,6 @@ var (
 	// SepoliaChainConfig contains the chain parameters to run a node on the Sepolia test network.
 	SepoliaChainConfig = readChainSpec("chainspecs/sepolia.json")
 
-	// GoerliChainConfig contains the chain parameters to run a node on the Görli test network.
-	GoerliChainConfig = readChainSpec("chainspecs/goerli.json")
-
 	BSCChainConfig = readChainSpec("chainspecs/bsc.json")
 
 	ChapelChainConfig = readChainSpec("chainspecs/chapel.json")
