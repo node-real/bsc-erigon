@@ -1,18 +1,21 @@
 // Copyright 2014 The go-ethereum Authors
-// This file is part of the go-ethereum library.
+// (original work)
+// Copyright 2024 The Erigon Authors
+// (modifications)
+// This file is part of Erigon.
 //
-// The go-ethereum library is free software: you can redistribute it and/or modify
+// Erigon is free software: you can redistribute it and/or modify
 // it under the terms of the GNU Lesser General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
-// The go-ethereum library is distributed in the hope that it will be useful,
+// Erigon is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+// along with Erigon. If not, see <http://www.gnu.org/licenses/>.
 
 // Package core implements the Ethereum consensus protocol.
 package core
@@ -40,6 +43,7 @@ import (
 	"github.com/ledgerwatch/erigon/consensus"
 
 	"github.com/ledgerwatch/erigon/core/state"
+	"github.com/ledgerwatch/erigon/core/tracing"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/core/vm"
 	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
@@ -107,7 +111,7 @@ func ExecuteBlockEphemerallyForBSC(
 	)
 
 	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger); err != nil {
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger, nil); err != nil {
 		return nil, err
 	}
 
@@ -244,8 +248,9 @@ func ExecuteBlockEphemerally(
 	gp := new(GasPool)
 	gp.AddGas(block.GasLimit()).AddBlobGas(chainConfig.GetMaxBlobGasPerBlock())
 
+	// TODO: send the new tracer once we switch to the tracing.Hook
 	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger); err != nil {
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger, nil); err != nil {
 		return nil, err
 	}
 
@@ -471,9 +476,9 @@ func FinalizeBlockExecution(
 	syscall := func(contract libcommon.Address, data []byte) ([]byte, error) {
 		return SysCallContract(contract, data, cc, ibs, header, engine, false /* constCall */)
 	}
+
 	if isMining {
 		newBlock, newTxs, newReceipt, err = engine.FinalizeAndAssemble(cc, header, ibs, txs, uncles, receipts, withdrawals, requests, chainReader, syscall, nil, logger)
-
 	} else {
 		var rss types.Requests
 		_, _, rss, err = engine.Finalize(cc, header, ibs, txs, uncles, receipts, withdrawals, requests, chainReader, syscall, nil, 0, nil, logger)
@@ -499,11 +504,11 @@ func FinalizeBlockExecution(
 }
 
 func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header, parent *types.Header,
-	cc *chain.Config, ibs *state.IntraBlockState, logger log.Logger,
+	cc *chain.Config, ibs *state.IntraBlockState, logger log.Logger, tracer *tracing.Hooks,
 ) error {
 	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
-	}, logger)
+	}, logger, tracer)
 	if !cc.IsFeynman(header.Number.Uint64(), header.Time) {
 		systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
 	}
