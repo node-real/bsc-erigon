@@ -1287,17 +1287,6 @@ func (hd *HeaderDownload) RequestId() int {
 	return hd.requestId
 }
 
-func (hd *HeaderDownload) SetStageSyncUpperBound(stageSyncUpperBound uint64) {
-	hd.lock.Lock()
-	defer hd.lock.Unlock()
-	hd.stageSyncUpperBound = stageSyncUpperBound
-}
-func (hd *HeaderDownload) SetStageSyncStep(stageSyncStep uint64) {
-	hd.lock.Lock()
-	defer hd.lock.Unlock()
-	hd.stageSyncStep = stageSyncStep
-}
-
 func (hd *HeaderDownload) SetRequestId(requestId int) {
 	hd.lock.Lock()
 	defer hd.lock.Unlock()

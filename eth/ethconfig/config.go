@@ -273,9 +273,6 @@ type Config struct {
 	SilkwormRpcJsonCompatibility bool
 
 	DisableTxPoolGossip bool
-
-	StageSyncUpperBound uint64
-	StageSyncStep       uint64
 }
 
 type Sync struct {
