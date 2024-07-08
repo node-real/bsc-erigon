@@ -275,7 +275,7 @@ func BodiesForward(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, c
 						if err != nil {
 							return false, fmt.Errorf("WriteBlobSidecars: %w", err)
 						}
-						logger.Debug("WriteBlobSidecars", "block number", header.Number, "len(sidecars)", len(rawBody.Sidecars))
+						logger.Trace("WriteBlobSidecars", "block number", header.Number, "len(sidecars)", len(rawBody.Sidecars))
 					}
 				}
 				if ok {
