@@ -10,7 +10,7 @@ import (
 )
 
 // IsDataAvailable it checks that the blobTx block has available blob data
-func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, body *types.RawBody) (err error) {
+func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, body *types.RawBody, latest uint64) (err error) {
 	if !chain.Config().IsCancun(header.Number.Uint64(), header.Time) {
 		if body.Sidecars != nil {
 			return errors.New("sidecars present in block body before cancun")
@@ -19,7 +19,7 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 	}
 
 	current := chain.CurrentHeader()
-	if header.Number.Uint64()+params.MinBlocksForBlobRequests < current.Number.Uint64() {
+	if header.Number.Uint64()+params.MinBlocksForBlobRequests < max(current.Number.Uint64(), latest) {
 		// if we needn't check DA of this block, just clean it
 		body.CleanSidecars()
 		return nil

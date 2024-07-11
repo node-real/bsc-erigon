@@ -244,7 +244,7 @@ func BodiesForward(
 				metrics.UpdateBlockConsumerBodyDownloadDelay(header.Time, header.Number.Uint64(), logger)
 
 				if cfg.chanConfig.Parlia != nil && cfg.chanConfig.IsCancun(headerNumber, header.Time) {
-					if err = core.IsDataAvailable(cr, header, rawBody); err != nil {
+					if err = core.IsDataAvailable(cr, header, rawBody, cfg.bd.LatestBlock); err != nil {
 						return false, err
 					}
 				}
