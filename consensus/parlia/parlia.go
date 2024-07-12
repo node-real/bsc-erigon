@@ -399,7 +399,7 @@ func (p *Parlia) getParent(chain consensus.ChainHeaderReader, header *types.Head
 	}
 
 	if parent == nil || parent.Number.Uint64() != number-1 || parent.Hash() != header.ParentHash {
-		return nil, consensus.ErrUnknownAncestor
+		return nil, fmt.Errorf("number = %v, hash = %v, err = %v", number-1, header.ParentHash, consensus.ErrUnknownAncestor)
 	}
 	return parent, nil
 }
@@ -776,7 +776,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 			// If we have explicit parents, pick from there (enforced)
 			header = parents[len(parents)-1]
 			if header.Hash() != hash || header.Number.Uint64() != number {
-				return nil, consensus.ErrUnknownAncestor
+				return nil, fmt.Errorf("header = %v, hash = %v, err = %v", header.Number.Uint64(), header.Hash(), consensus.ErrUnknownAncestor)
 			}
 			parents = parents[:len(parents)-1]
 		} else {
@@ -786,7 +786,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 			}
 			header = chain.GetHeader(hash, number)
 			if header == nil {
-				return nil, consensus.ErrUnknownAncestor
+				return nil, fmt.Errorf("header = %v, hash = %v, err = %v", number, hash, consensus.ErrUnknownAncestor)
 			}
 		}
 		headers = append(headers, header)
@@ -842,7 +842,7 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 
 	parent := chain.GetHeader(header.ParentHash, number-1)
 	if parent == nil {
-		return consensus.ErrUnknownAncestor
+		return fmt.Errorf("Number = %v, hash = %v, err = %v", number-1, header.ParentHash, consensus.ErrUnknownAncestor)
 	}
 
 	// Set the correct difficulty
