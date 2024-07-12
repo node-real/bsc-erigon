@@ -144,6 +144,6 @@ require (
 	zombiezen.com/go/sqlite v0.13.1 // indirect
 )
 
-replace github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240521025755-e1faf8fbdbbf
+replace github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240709051627-c65dc1113d0d
 
 replace github.com/anacrolix/torrent => github.com/erigontech/torrent v1.54.2-alpha-8
