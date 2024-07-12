@@ -440,6 +440,8 @@ var KnownWebseeds = map[string][]string{
 	networkname.BorMainnetChainName: webseedsParse(webseed.BorMainnet),
 	networkname.GnosisChainName:     webseedsParse(webseed.Gnosis),
 	networkname.ChiadoChainName:     webseedsParse(webseed.Chiado),
+	networkname.BSCChainName:        webseedsParse(webseed.Bsc),
+	networkname.ChapelChainName:     webseedsParse(webseed.Chapel),
 }
 
 func webseedsParse(in []byte) (res []string) {
