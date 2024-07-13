@@ -1671,7 +1671,7 @@ func (p *Parlia) systemCall(from, contract libcommon.Address, data []byte, ibs *
 	blockContext := core.NewEVMBlockContext(header, core.GetHashFn(header, nil), p, &from, chainConfig)
 	if chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
 		rules := chainConfig.Rules(header.Number.Uint64(), header.Time)
-		ibs.Prepare(rules, msg.From(), blockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+		ibs.Prepare(rules, msg.From(), blockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
 	}
 	evm := vm.NewEVM(blockContext, core.NewEVMTxContext(msg), ibs, chainConfig, vmConfig)
 

@@ -268,7 +268,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			ibs.SetTxContext(txTask.Tx.Hash(), txTask.BlockHash, txTask.TxIndex)
 			if rw.chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
 				rules := rw.chainConfig.Rules(header.Number.Uint64(), header.Time)
-				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList())
+				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
 			}
 			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, rw.vmCfg, rules)
 			// Increment the nonce for the next transaction

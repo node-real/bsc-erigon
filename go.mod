@@ -30,8 +30,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/cometbft/cometbft v0.0.0-00010101000000-000000000000
 	github.com/consensys/gnark-crypto v0.12.1
-	github.com/crate-crypto/go-ipa v0.0.0-20240223125850-b1e8a79f509c
-	github.com/crate-crypto/go-kzg-4844 v1.0.0
+	github.com/crate-crypto/go-ipa v0.0.0-20230601170251-1830d0757c80
+	github.com/crate-crypto/go-kzg-4844 v0.7.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/deckarep/golang-set v1.8.0
 	github.com/deckarep/golang-set/v2 v2.6.0
@@ -39,9 +39,9 @@ require (
 	github.com/dop251/goja v0.0.0-20230806174421-c933cf95e127
 	github.com/edsrzf/mmap-go v1.1.0
 	github.com/emicklei/dot v1.6.2
-	github.com/ethereum/go-ethereum v1.14.7
+	github.com/ethereum/go-ethereum v1.13.5
 	github.com/fjl/gencodec v0.0.0-20230517082657-f9840df7b83e
-	github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
+	github.com/gballet/go-verkle v0.0.0-20230607174250-df487255f46b
 	github.com/gfx-labs/sse v0.0.0-20231226060816-f747e26a9baa
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/cors v1.2.1
@@ -81,7 +81,7 @@ require (
 	github.com/protolambda/ztyp v0.2.2
 	github.com/prysmaticlabs/go-bitfield v0.0.0-20240328144219-a1caa50c3a1e
 	github.com/prysmaticlabs/gohashtree v0.0.4-beta
-	github.com/prysmaticlabs/prysm/v5 v5.0.4
+	github.com/prysmaticlabs/prysm/v5 v5.0.3
 	github.com/quasilyte/go-ruleguard/dsl v0.3.22
 	github.com/rs/cors v1.11.0
 	github.com/spf13/afero v1.10.0
@@ -120,8 +120,6 @@ require (
 
 require (
 	github.com/cosmos/gogoproto v1.4.1 // indirect
-	github.com/dgraph-io/ristretto v0.0.4-0.20210318174700-74754f61e018 // indirect
-	github.com/ferranbt/fastssz v0.1.2 // indirect
 	github.com/go-kit/kit v0.12.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
@@ -135,14 +133,14 @@ require (
 	github.com/mimoo/StrobeGo v0.0.0-20210601165009-122bf33a46e0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
-	github.com/prysmaticlabs/eth2-types v0.0.0-20210303084904-c9735a06829d // indirect
 	github.com/prysmaticlabs/fastssz v0.0.0-20240620202422-a981b8ef89d3 // indirect
-	github.com/prysmaticlabs/prysm v0.0.0-20220124113610-e26cde5e091b // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
+	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.8.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240515191416-fc5f0ca64291 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect
 )
@@ -294,9 +292,9 @@ require (
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
 	github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 // indirect
-	go.etcd.io/bbolt v1.3.6 // indirect
-	go.opentelemetry.io/otel v1.11.0 // indirect
-	go.opentelemetry.io/otel/trace v1.11.0 // indirect
+	go.etcd.io/bbolt v1.3.9 // indirect
+	go.opentelemetry.io/otel v1.21.0 // indirect
+	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
 	go.uber.org/fx v1.21.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -319,7 +317,7 @@ require (
 
 replace (
 	github.com/anacrolix/torrent => github.com/erigontech/torrent v1.54.2-alpha-28
-	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-tendermint v0.0.0-20230417032003-4cda1f296fb2
+	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
 	github.com/gballet/go-verkle => github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
 	github.com/holiman/bloomfilter/v2 => github.com/AskAlexSharov/bloomfilter/v2 v2.0.8
 	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240712034207-458dc96fbd8f

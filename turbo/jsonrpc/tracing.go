@@ -185,7 +185,7 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 			var intrinsicGas uint64
 			if posa, ok := api.engine().(consensus.PoSA); ok {
 				if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
-					intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false)
+					intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false, 0)
 				}
 			}
 			err = transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout, intrinsicGas)
@@ -323,7 +323,7 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 	var intrinsicGas uint64
 	if posa, ok := api.engine().(consensus.PoSA); ok {
 		if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
-			intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false)
+			intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false, 0)
 		}
 	}
 	// Trace the transaction and return
