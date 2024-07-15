@@ -320,6 +320,6 @@ replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
 	github.com/gballet/go-verkle => github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
 	github.com/holiman/bloomfilter/v2 => github.com/AskAlexSharov/bloomfilter/v2 v2.0.8
-	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240712034207-458dc96fbd8f
+	github.com/ledgerwatch/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240715020455-b11d98aaf1a3
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
 )
