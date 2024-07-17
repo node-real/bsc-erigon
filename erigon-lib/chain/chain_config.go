@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 
 	"github.com/ledgerwatch/erigon-lib/common"
@@ -708,6 +709,27 @@ type ParliaConfig struct {
 	Period     uint64                 `json:"period"`     // Number of seconds between blocks to enforce
 	Epoch      uint64                 `json:"epoch"`      // Epoch length to update validatorSet
 	BlockAlloc map[string]interface{} `json:"blockAlloc"` // For systemContract upgrade
+}
+
+type KeyValues struct {
+	NumOrTime  uint64
+	BlockAlloc interface{}
+}
+
+func (b *ParliaConfig) SortedBlockAlloc() ([]KeyValues, error) {
+	ret := make([]KeyValues, 0, len(b.BlockAlloc))
+	for blockNumberOrTime, genesisAlloc := range b.BlockAlloc {
+		numOrTime, err := strconv.ParseUint(blockNumberOrTime, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, KeyValues{NumOrTime: numOrTime, BlockAlloc: genesisAlloc})
+	}
+	// sort ret by keys in ascending order
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].NumOrTime < ret[j].NumOrTime
+	})
+	return ret, nil
 }
 
 // String implements the stringer interface, returning the consensus engine details.

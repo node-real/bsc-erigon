@@ -2,13 +2,14 @@ package systemcontracts
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/ledgerwatch/erigon-lib/chain"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon/core/state"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/log/v3"
-	"math/big"
-	"strconv"
 )
 
 type UpgradeConfig struct {

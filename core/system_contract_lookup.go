@@ -2,9 +2,9 @@ package core
 
 import (
 	"fmt"
+
 	"github.com/ledgerwatch/erigon-lib/chain/networkname"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"strconv"
 
 	"github.com/ledgerwatch/erigon/core/systemcontracts"
 	"github.com/ledgerwatch/erigon/core/types"
@@ -25,20 +25,21 @@ func init() {
 		if parliaConfig == nil || parliaConfig.BlockAlloc == nil {
 			return
 		}
-		for blockNumOrTime, genesisAlloc := range parliaConfig.BlockAlloc {
-			numOrTime, err := strconv.ParseUint(blockNumOrTime, 10, 64)
-			if err != nil {
-				panic(fmt.Errorf("failed to parse block number in BlockAlloc: %s", err.Error()))
-			}
-			alloc, err := types.DecodeGenesisAlloc(genesisAlloc)
+		blockAlloc, err := parliaConfig.SortedBlockAlloc()
+		if err != nil {
+			panic(fmt.Errorf("failed to sort block alloc: %v", err))
+		}
+
+		for _, pair := range blockAlloc {
+			alloc, err := types.DecodeGenesisAlloc(pair.BlockAlloc)
 			if err != nil {
 				panic(fmt.Errorf("failed to decode block alloc: %v", err))
 			}
 			var blockNum, blockTime uint64
-			if numOrTime >= chainConfig.ShanghaiTime.Uint64() {
-				blockTime = numOrTime
+			if pair.NumOrTime >= chainConfig.ShanghaiTime.Uint64() {
+				blockTime = pair.NumOrTime
 			} else {
-				blockNum = numOrTime
+				blockNum = pair.NumOrTime
 			}
 			allocToCodeRecords(alloc, byChain, blockNum, blockTime)
 		}
