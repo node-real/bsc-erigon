@@ -277,8 +277,8 @@ func ExecV3(ctx context.Context,
 		inputTxNum = _min
 		outputTxNum.Store(inputTxNum)
 
-		_max, _ := rawdbv3.TxNums.Max(applyTx, blockNum)
-		log.Info(fmt.Sprintf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, blockNum, _min, _max))
+		_max, _ := rawdbv3.TxNums.Max(applyTx, _blockNum)
+		log.Info(fmt.Sprintf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, _blockNum, _min, _max))
 		doms.SetBlockNum(_blockNum)
 		doms.SetTxNum(inputTxNum)
 		return nil
