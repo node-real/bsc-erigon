@@ -26,10 +26,10 @@ import (
 	"errors"
 	"math/big"
 
+	"github.com/erigontech/secp256k1"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/crypto/secp256r1"
 	"github.com/ledgerwatch/erigon/rlp"
-	"github.com/ledgerwatch/secp256k1"
 	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 
 	"github.com/consensys/gnark-crypto/ecc"
