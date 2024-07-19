@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	parliafinality "github.com/ledgerwatch/erigon/consensus/parlia/finality"
 	"github.com/ledgerwatch/erigon/turbo/services"
 
@@ -144,21 +143,21 @@ func CreateStateReaderFromBlockNumber(ctx context.Context, tx kv.Tx, blockNumber
 		return state.NewCachedReader2(cacheView, tx), nil
 	}
 	var time uint64
-	parent, err := headerReader.HeaderByNumber(ctx, tx, blockNumber+1)
+	header, err := headerReader.HeaderByNumber(ctx, tx, blockNumber+1)
 	if err != nil {
 		return nil, err
 	}
-	if parent != nil {
-		time = parent.Time
+	if header != nil {
+		time = header.Time
 	} else {
-		header, err := headerReader.HeaderByNumber(ctx, tx, blockNumber)
+		parent, err := headerReader.HeaderByNumber(ctx, tx, blockNumber)
 		if err != nil {
 			return nil, err
 		}
-		if header == nil {
+		if parent == nil {
 			return nil, fmt.Errorf("can't find block Time")
 		}
-		time = header.Time
+		time = parent.Time
 	}
 
 	return CreateHistoryStateReader(tx, blockNumber+1, txnIndex, historyV3, time, chainName)
