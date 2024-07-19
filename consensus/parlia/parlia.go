@@ -54,7 +54,7 @@ const (
 	inMemorySignatures = 4096 // Number of recent block signatures to keep in memory
 
 	CheckpointInterval = 1024        // Number of blocks after which to save the snapshot to the database
-	defaultEpochLength = uint64(200) // Default number of blocks of checkpoint to update validatorSet from contract
+	defaultEpochLength = uint64(100) // Default number of blocks of checkpoint to update validatorSet from contract
 
 	extraVanity      = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal        = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
@@ -750,39 +750,22 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 				}
 			}
 		}
-		// If we're at the genesis, snapshot the initial state. Alternatively if we have
-		// piled up more headers than allowed to be reorged (chain reinit from a freezer),
-		// consider the checkpoint trusted and snapshot it.
-		// even BEP-341 enabled, an offset `defaultEpochLength/2` can ensure getting the right validators.
-		if number == 0 || (number%p.config.Epoch == defaultEpochLength/2 && (len(headers) > int(params.FullImmutabilityThreshold))) {
-			var (
-				checkpoint *types.Header
-				blockHash  libcommon.Hash
-			)
-			if number == 0 {
-				checkpoint = chain.GetHeaderByNumber(0)
-				if checkpoint != nil {
-					blockHash = checkpoint.Hash()
-				}
-			} else {
-				checkpoint = chain.GetHeaderByNumber(number - defaultEpochLength/2)
-				blockHeader := chain.GetHeaderByNumber(number)
-				if blockHeader != nil {
-					blockHash = blockHeader.Hash()
-				}
-			}
-			if checkpoint != nil && blockHash != (libcommon.Hash{}) {
+		// If we're at the genesis, snapshot the initial state.
+		if number == 0 {
+			// Headers included into the snapshots have to be trusted as checkpoints
+			checkpoint := chain.GetHeader(hash, number)
+			if checkpoint != nil {
 				// get validators from headers
 				validators, voteAddrs, err := parseValidators(checkpoint, p.chainConfig, p.config)
 				if err != nil {
 					return nil, err
 				}
 				// new snapshot
-				snap = newSnapshot(p.config, p.signatures, number, blockHash, validators, voteAddrs)
+				snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
 				if err := snap.store(p.db); err != nil {
 					return nil, err
 				}
-				p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", blockHash)
+				p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
 				break
 			}
 		}
