@@ -78,6 +78,7 @@ func NewProgress(prevOutputBlockNum, commitThreshold uint64, workersCount int, l
 type Progress struct {
 	prevTime           time.Time
 	prevCount          uint64
+	prevMgas           uint64
 	prevOutputBlockNum uint64
 	prevRepeatCount    uint64
 	commitThreshold    uint64
@@ -95,7 +96,7 @@ func (p *Progress) Log(rs *state.StateV3, in *state.QueueWithRetry, rws *state.R
 	currentTime := time.Now()
 	interval := currentTime.Sub(p.prevTime)
 	speedTx := float64(doneCount-p.prevCount) / (float64(interval) / float64(time.Second))
-	speedMgas := float64(doneGasUsed) / 1_000_000 / (float64(interval) / float64(time.Second))
+	speedMgas := float64(doneGasUsed-p.prevMgas) / 1_000_000 / (float64(interval) / float64(time.Second))
 	//var repeatRatio float64
 	//if doneCount > p.prevCount {
 	//	repeatRatio = 100.0 * float64(repeatCount-p.prevRepeatCount) / float64(doneCount-p.prevCount)
@@ -116,6 +117,7 @@ func (p *Progress) Log(rs *state.StateV3, in *state.QueueWithRetry, rws *state.R
 
 	p.prevTime = currentTime
 	p.prevCount = doneCount
+	p.prevMgas = doneGasUsed
 	p.prevOutputBlockNum = outputBlockNum
 	p.prevRepeatCount = repeatCount
 }
