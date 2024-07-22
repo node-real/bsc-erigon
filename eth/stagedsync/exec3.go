@@ -747,7 +747,7 @@ Loop:
 				BlockReceipts: receipts,
 			}
 
-			if header.Number.Uint64() == 11500000 && txTask.Final {
+			if header.Number.Uint64() == 11500000 && txTask.TxIndex == 211 {
 				log.Info("bad block 11500000")
 			}
 
