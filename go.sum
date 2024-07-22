@@ -176,8 +176,6 @@ github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bits-and-blooms/bitset v1.12.0 h1:U/q1fAF7xXRhFCrhROzIfffYnu+dlS38vCZtmFVPHmA=
 github.com/bits-and-blooms/bitset v1.12.0/go.mod h1:7hO7Gc7Pp1vODcmWvKMRA9BNmbv6a/7QIWpPxHddWR8=
-github.com/blxdyx/bsc-erigon-snapshot v0.0.0-20240718070035-0f8e2a076601 h1:YqZNLzQ8qhJbIYiSPjaRpTC66tzIsqvk4SHxblDYwc4=
-github.com/blxdyx/bsc-erigon-snapshot v0.0.0-20240718070035-0f8e2a076601/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
 github.com/bnb-chain/greenfield-cometbft v1.3.1 h1:LhcBwhj/UhcfZXUnefwp+hiqpEYwloUO5KGJB3Xrqt4=
 github.com/bnb-chain/greenfield-cometbft v1.3.1/go.mod h1:4YtK3qVOhmL/evCCZ2qohjhuQLSjGcz2yYW62ALk/N0=
 github.com/bnb-chain/ics23 v0.1.0 h1:DvjGOts2FBfbxB48384CYD1LbcrfjThFz8kowY/7KxU=
@@ -729,6 +727,8 @@ github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdh
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/neelance/astrewrite v0.0.0-20160511093645-99348263ae86/go.mod h1:kHJEU3ofeGjhHklVoIGuVj85JJwZ6kWPaJwCIxgnFmo=
 github.com/neelance/sourcemap v0.0.0-20151028013722-8c68805598ab/go.mod h1:Qr6/a/Q4r9LP1IltGz7tA7iOK1WonHEYhu1HRBA7ZiM=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240722033454-d59e73c71e74 h1:dfdyxUfL0LppHRfc8UuueYbAtVSFcOSDQrcK4XRZCRE=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240722033454-d59e73c71e74/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
 github.com/nxadm/tail v1.4.11 h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=
 github.com/nxadm/tail v1.4.11/go.mod h1:OTaG3NK980DZzxbRq6lEuzgU+mug70nY11sMd4JXXHc=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
