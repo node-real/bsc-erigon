@@ -747,6 +747,10 @@ Loop:
 				BlockReceipts: receipts,
 			}
 
+			if header.Number.Uint64() == 11500000 && txTask.Final {
+				log.Info("bad block 11500000")
+			}
+
 			if txIndex >= 0 && !txTask.Final && isPoSa {
 				if isSystemTx, err := posa.IsSystemTransaction(txs[txIndex], header); err != nil {
 					return err
