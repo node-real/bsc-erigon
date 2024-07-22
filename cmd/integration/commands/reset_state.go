@@ -127,6 +127,7 @@ func printStages(tx kv.Tx, snapshots *freezeblocks.RoSnapshots, borSn *freezeblo
 		maxV, _ := rawdbv3.TxNums.Max(tx, i)
 		fmt.Fprintf(w, "blockNumber=%d: min=%d, max=%d\n\n", i, minV, maxV)
 	}
+	return nil
 	for _, stage := range stages.AllStages {
 		if progress, err = stages.GetStageProgress(tx, stage); err != nil {
 			return err
