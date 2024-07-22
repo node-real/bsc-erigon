@@ -184,6 +184,9 @@ func (rs *StateV3) ApplyState4(ctx context.Context, txTask *TxTask) error {
 	}
 	//defer rs.domains.BatchHistoryWriteStart().BatchHistoryWriteEnd()
 
+	if txTask.BlockNum == 11500000 {
+		log.Info("BlockNum = 11500000", "txTask.TxNum", txTask.TxNum, "txTask.TxIndex", txTask.TxIndex)
+	}
 	if err := rs.applyState(txTask, rs.domains); err != nil {
 		return fmt.Errorf("StateV3.ApplyState: %w", err)
 	}
