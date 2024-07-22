@@ -121,6 +121,12 @@ func printStages(tx kv.Tx, snapshots *freezeblocks.RoSnapshots, borSn *freezeblo
 	w.Init(os.Stdout, 8, 8, 0, '\t', 0)
 	fmt.Fprintf(w, "Note: prune_at doesn't mean 'all data before were deleted' - it just mean stage.Prune function were run to this block. Because 1 stage may prune multiple data types to different prune distance.\n")
 	fmt.Fprint(w, "\n \t\t stage_at \t prune_at\n")
+
+	for i := uint64(11499999); i <= uint64(15000002); i++ {
+		minV, _ := rawdbv3.TxNums.Min(tx, i)
+		maxV, _ := rawdbv3.TxNums.Max(tx, i)
+		fmt.Fprintf(w, "blockNumber=%d: min=%d, max=%d\n\n", i, minV, maxV)
+	}
 	for _, stage := range stages.AllStages {
 		if progress, err = stages.GetStageProgress(tx, stage); err != nil {
 			return err
@@ -139,12 +145,6 @@ func printStages(tx kv.Tx, snapshots *freezeblocks.RoSnapshots, borSn *freezeblo
 	fmt.Fprintf(w, "prune distance: %s\n\n", pm.String())
 	fmt.Fprintf(w, "blocks.v2: %t, segments=%d, indices=%d\n", snapshots.Cfg().Enabled, snapshots.SegmentsMax(), snapshots.IndicesMax())
 	fmt.Fprintf(w, "blocks.bor.v2: segments=%d, indices=%d\n\n", borSn.SegmentsMax(), borSn.IndicesMax())
-
-	for i := uint64(11499999); i < uint64(15000002); i++ {
-		minV, _ := rawdbv3.TxNums.Min(tx, i)
-		maxV, _ := rawdbv3.TxNums.Max(tx, i)
-		fmt.Fprintf(w, "blockNumber=%d: min=%d, max=%d\n\n", i, minV, maxV)
-	}
 
 	_, lastBlockInHistSnap, _ := rawdbv3.TxNums.FindBlockNum(tx, agg.EndTxNumMinimax())
 	_lb, _lt, _ := rawdbv3.TxNums.Last(tx)
