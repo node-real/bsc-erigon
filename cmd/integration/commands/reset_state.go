@@ -140,6 +140,12 @@ func printStages(tx kv.Tx, snapshots *freezeblocks.RoSnapshots, borSn *freezeblo
 	fmt.Fprintf(w, "blocks.v2: %t, segments=%d, indices=%d\n", snapshots.Cfg().Enabled, snapshots.SegmentsMax(), snapshots.IndicesMax())
 	fmt.Fprintf(w, "blocks.bor.v2: segments=%d, indices=%d\n\n", borSn.SegmentsMax(), borSn.IndicesMax())
 
+	for i := 11499999; i < 15000002; i++ {
+		minV, _ := rawdbv3.TxNums.Min(tx, uint64(i))
+		maxV, _ := rawdbv3.TxNums.Max(tx, uint64(i))
+		fmt.Fprintf(w, "blockNumber=%d: min=%d, max=%d\n\n", uint64(i), minV, maxV)
+	}
+
 	_, lastBlockInHistSnap, _ := rawdbv3.TxNums.FindBlockNum(tx, agg.EndTxNumMinimax())
 	_lb, _lt, _ := rawdbv3.TxNums.Last(tx)
 	fmt.Fprintf(w, "state.history: idx steps: %.02f, lastBlockInSnap=%d, TxNums_Index(%d,%d), filesAmount: %d\n\n", rawdbhelpers.IdxStepsCountV3(tx), lastBlockInHistSnap, _lb, _lt, agg.FilesAmount())
