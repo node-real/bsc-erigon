@@ -18,10 +18,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/urfave/cli/v2"
 	"net/http"
 	"os"
-
-	"github.com/urfave/cli/v2"
 
 	"github.com/ledgerwatch/erigon-lib/log/v3"
 
