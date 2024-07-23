@@ -3,8 +3,8 @@ package v1
 import (
 	"bytes"
 	"fmt"
-	"github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
-	iavl2 "github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
+	"github.com/erigontech/erigon/core/vm/lightclient/iavl"
+	iavl2 "github.com/erigontech/erigon/core/vm/lightclient/iavl"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )

@@ -28,7 +28,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ledgerwatch/erigon/consensus/parlia"
+	"github.com/erigontech/erigon/consensus/parlia"
 
 	"github.com/c2h5oh/datasize"
 	lru "github.com/hashicorp/golang-lru/arc/v2"

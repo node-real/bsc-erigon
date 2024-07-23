@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/ledgerwatch/erigon/params"
+	"github.com/erigontech/erigon/params"
 	"math/big"
 
 	"github.com/holiman/uint256"

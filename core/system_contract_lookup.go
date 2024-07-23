@@ -22,8 +22,8 @@ import (
 
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/common/hexutility"
-	"github.com/erigontech/erigon/polygon/bor/borcfg"
+	_ "github.com/erigontech/erigon-lib/common/hexutility"
+	_ "github.com/erigontech/erigon/polygon/bor/borcfg"
 
 	"github.com/erigontech/erigon/core/systemcontracts"
 	"github.com/erigontech/erigon/core/types"

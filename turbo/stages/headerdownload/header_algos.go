@@ -24,7 +24,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/ledgerwatch/erigon-lib/chain"
+	"github.com/erigontech/erigon-lib/chain"
 	"io"
 	"math/big"
 	"slices"

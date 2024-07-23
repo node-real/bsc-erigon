@@ -3,7 +3,7 @@ package finality
 import (
 	"sync"
 
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
+	libcommon "github.com/erigontech/erigon-lib/common"
 )
 
 type FinalizationService struct {

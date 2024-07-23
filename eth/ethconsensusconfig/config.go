@@ -18,7 +18,8 @@ package ethconsensusconfig
 
 import (
 	"context"
-	"github.com/ledgerwatch/erigon/core/blob_storage"
+	"github.com/erigontech/erigon/consensus/parlia"
+	"github.com/erigontech/erigon/core/blob_storage"
 	"github.com/spf13/afero"
 	"math"
 	"path/filepath"

@@ -19,6 +19,8 @@ package jsonrpc
 import (
 	"context"
 	"fmt"
+	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/eth/stagedsync"
 
 	jsoniter "github.com/json-iterator/go"
 

@@ -24,6 +24,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus/parlia"
+	parliafinality "github.com/erigontech/erigon/consensus/parlia/finality"
 	"io/fs"
 	"math"
 	"math/big"

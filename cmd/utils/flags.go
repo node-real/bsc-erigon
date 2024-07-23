@@ -23,7 +23,7 @@ package utils
 import (
 	"crypto/ecdsa"
 	"fmt"
-	"github.com/ledgerwatch/erigon-lib/chain"
+	"github.com/erigontech/erigon-lib/chain"
 	"math/big"
 	"path/filepath"
 	"runtime"

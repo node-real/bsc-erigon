@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
+	"github.com/erigontech/erigon/core/vm/lightclient/iavl"
 	cmn "github.com/tendermint/tendermint/libs/common"
 
-	v1 "github.com/ledgerwatch/erigon/core/vm/lightclient/v1"
-	v2 "github.com/ledgerwatch/erigon/core/vm/lightclient/v2"
-	"github.com/ledgerwatch/erigon/params"
+	v1 "github.com/erigontech/erigon/core/vm/lightclient/v1"
+	v2 "github.com/erigontech/erigon/core/vm/lightclient/v2"
+	"github.com/erigontech/erigon/params"
 	"github.com/tendermint/tendermint/crypto/merkle"
 )
 

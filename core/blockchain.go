@@ -24,7 +24,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"github.com/ledgerwatch/erigon/core/systemcontracts"
+	"github.com/erigontech/erigon/core/systemcontracts"
 	"reflect"
 	"slices"
 	"time"

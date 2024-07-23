@@ -363,7 +363,7 @@ Key features
 ============
 
 <code>🔬 See more
-detailed [overview of functionality and current limitations](https://ledgerwatch.github.io/turbo_geth_release.html). It
+detailed [overview of functionality and current limitations](https://erigontech.github.io/turbo_geth_release.html). It
 is being updated on recurring basis.</code>
 
 ### More Efficient State Storage

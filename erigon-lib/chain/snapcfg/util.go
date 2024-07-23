@@ -37,7 +37,6 @@ import (
 
 var (
 	Mainnet    = fromToml(snapshothashes.Mainnet)
-	Holesky    = fromToml(snapshothashes.Holesky)
 	Sepolia    = fromToml(snapshothashes.Sepolia)
 	Mumbai     = fromToml(snapshothashes.Mumbai)
 	Amoy       = fromToml(snapshothashes.Amoy)
@@ -360,7 +359,6 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 
 var knownPreverified = map[string]Preverified{
 	networkname.MainnetChainName:    Mainnet,
-	networkname.HoleskyChainName:    Holesky,
 	networkname.SepoliaChainName:    Sepolia,
 	networkname.MumbaiChainName:     Mumbai,
 	networkname.AmoyChainName:       Amoy,
@@ -443,7 +441,6 @@ var KnownWebseeds = map[string][]string{
 	networkname.ChiadoChainName:     webseedsParse(webseed.Chiado),
 	networkname.BSCChainName:        webseedsParse(webseed.Bsc),
 	networkname.ChapelChainName:     webseedsParse(webseed.Chapel),
-	networkname.HoleskyChainName:    webseedsParse(webseed.Holesky),
 }
 
 func webseedsParse(in []byte) (res []string) {

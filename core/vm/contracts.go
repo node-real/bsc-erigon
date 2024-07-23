@@ -24,11 +24,12 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"github.com/erigontech/erigon-lib/log/v3"
 	"math/big"
 
-	"github.com/erigontech/secp256k1"
 	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/crypto/secp256r1"
+	"github.com/erigontech/secp256k1"
+
 	"github.com/erigontech/erigon/rlp"
 	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 

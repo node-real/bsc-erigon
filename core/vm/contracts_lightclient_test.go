@@ -3,8 +3,8 @@ package vm
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/ledgerwatch/erigon/core/vm/lightclient/iavl"
-	"github.com/ledgerwatch/erigon/core/vm/lightclient/v1"
+	"github.com/erigontech/erigon/core/vm/lightclient/iavl"
+	"github.com/erigontech/erigon/core/vm/lightclient/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	cmn "github.com/tendermint/tendermint/libs/common"

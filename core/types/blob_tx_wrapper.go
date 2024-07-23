@@ -18,6 +18,8 @@ package types
 
 import (
 	"fmt"
+	rlp2 "github.com/erigontech/erigon-lib/rlp"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"math/big"
 	"math/bits"

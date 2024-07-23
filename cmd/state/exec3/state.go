@@ -18,7 +18,7 @@ package exec3
 
 import (
 	"context"
-	"github.com/ledgerwatch/erigon/core/systemcontracts"
+	"github.com/erigontech/erigon/core/systemcontracts"
 	"sync"
 
 	"golang.org/x/sync/errgroup"

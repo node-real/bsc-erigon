@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ledgerwatch/erigon/consensus"
+	"github.com/erigontech/erigon/consensus"
 
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"

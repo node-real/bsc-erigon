@@ -22,6 +22,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"github.com/erigontech/erigon/consensus"
 	"slices"
 
 	"github.com/holiman/uint256"

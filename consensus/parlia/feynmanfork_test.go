@@ -1,7 +1,7 @@
 package parlia
 
 import (
-	"github.com/ledgerwatch/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"math/big"
 	"testing"
 )
