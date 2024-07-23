@@ -786,7 +786,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli                       bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber                                                       bool
+	IsHaber, IsBohr                                               bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -821,6 +821,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsFeynman:          c.IsFeynman(num, time),
 		IsFeynmanFix:       c.IsFeynmanFix(num, time),
 		IsCancun:           c.IsCancun(num, time),
+		IsBohr:             c.IsBohr(num, time),
 		IsHaber:            c.IsHaber(num, time),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
