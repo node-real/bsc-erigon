@@ -130,7 +130,13 @@ var snapshotCommand = cli.Command{
 		{
 			Name: "retire",
 			Action: func(c *cli.Context) error {
-				return doBodiesDecrement(c)
+				dirs, l, err := datadir.New(c.String(utils.DataDirFlag.Name)).MustFlock()
+				if err != nil {
+					return err
+				}
+				defer l.Unlock()
+
+				return doRetireCommand(c, dirs)
 			},
 			Usage: "erigon snapshots uncompress a.seg | erigon snapshots compress b.seg",
 			Flags: joinFlags([]cli.Flag{
@@ -337,6 +343,13 @@ var snapshotCommand = cli.Command{
 				&cli.StringFlag{Name: "check", Usage: fmt.Sprintf("one of: %s", integrity.AllChecks)},
 				&cli.BoolFlag{Name: "failFast", Value: true, Usage: "to stop after 1st problem or print WARN log and continue check"},
 				&cli.Uint64Flag{Name: "fromStep", Value: 0, Usage: "skip files before given step"},
+			}),
+		},
+		{
+			Name:   "bodies_decrement_datafix",
+			Action: doBodiesDecrement,
+			Flags: joinFlags([]cli.Flag{
+				&utils.DataDirFlag,
 			}),
 		},
 	},
@@ -1111,7 +1124,7 @@ func doBodiesDecrement(cliCtx *cli.Context) error {
 		if f.Type.Enum() != coresnaptype.Enums.Bodies {
 			continue
 		}
-		if f.From < 11_400_000 {
+		if f.From < 11_500_000 {
 			continue
 		}
 		l = append(l, f)
@@ -1135,9 +1148,6 @@ func doBodiesDecrement(cliCtx *cli.Context) error {
 		dstBuf := bytes.NewBuffer(nil)
 		for srcG.HasNext() {
 			i++
-			if buf == nil {
-				panic(fmt.Sprintf("nil val at file: %s\n", srcG.FileName()))
-			}
 			buf, _ = srcG.Next(buf[:0])
 			if buf == nil {
 				panic(fmt.Sprintf("nil val at file: %s\n", srcG.FileName()))
