@@ -24,12 +24,12 @@ import (
 
 	"github.com/holiman/uint256"
 
-	"github.com/ledgerwatch/erigon-lib/chain"
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-	"github.com/ledgerwatch/erigon-lib/state"
-	"github.com/ledgerwatch/erigon/core/types"
-	"github.com/ledgerwatch/erigon/core/types/accounts"
-	"github.com/ledgerwatch/erigon/core/vm/evmtypes"
+	"github.com/erigontech/erigon-lib/chain"
+	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/state"
+	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon/core/types/accounts"
+	"github.com/erigontech/erigon/core/vm/evmtypes"
 )
 
 // ReadWriteSet contains ReadSet, WriteSet and BalanceIncrease of a transaction,
@@ -47,6 +47,7 @@ type TxTask struct {
 	BlockHash       libcommon.Hash
 	Sender          *libcommon.Address
 	SkipAnalysis    bool
+	PruneNonEssentials bool
 	TxIndex         int // -1 for block initialisation
 	SystemTxIndex   int
 	Final           bool
@@ -80,6 +81,7 @@ type TxTask struct {
 	BlockReceipts types.Receipts
 
 	Requests types.Requests
+	Config   *chain.Config
 }
 
 func (t *TxTask) CreateReceipt(cumulativeGasUsed uint64) *types.Receipt {

@@ -24,16 +24,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/holiman/uint256"
-	types2 "github.com/ledgerwatch/erigon-lib/types"
-	"github.com/ledgerwatch/erigon/params"
-	"github.com/stretchr/testify/require"
+	libcommon "github.com/erigontech/erigon-lib/common"
 
-	libcommon "github.com/ledgerwatch/erigon-lib/common"
-
-	"github.com/ledgerwatch/erigon/common"
-	"github.com/ledgerwatch/erigon/core/types"
-	"github.com/ledgerwatch/erigon/rlp"
+	"github.com/erigontech/erigon/common"
+	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon/rlp"
 )
 
 // Tests that the custom union field encoder and decoder works correctly.
