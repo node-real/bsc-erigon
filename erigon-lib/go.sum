@@ -307,8 +307,8 @@ github.com/mschoch/smat v0.2.0/go.mod h1:kc9mz7DoBKqDyiRL7VZN8KvXQMWeTaVnttLRXOl
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240722033454-d59e73c71e74 h1:dfdyxUfL0LppHRfc8UuueYbAtVSFcOSDQrcK4XRZCRE=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240722033454-d59e73c71e74/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240723023831-e67e46da4d26 h1:riUZvCyLXxllayXKNsCrnFr7UNgvavGZhBAmUzY5qzc=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240723023831-e67e46da4d26/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
