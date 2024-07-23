@@ -32,6 +32,7 @@
   "cancunTime": 1713330442,
   "haberTime": 1716962820,
   "haberFixTime": 1719986788,
+  "bohrTime": 0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,

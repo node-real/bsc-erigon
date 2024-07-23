@@ -127,7 +127,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, Bohr %v, Engine: %v}",
 			c.ChainID,
 			c.RamanujanBlock,
 			c.NielsBlock,
@@ -149,6 +149,7 @@ func (c *Config) String() string {
 			c.CancunTime,
 			c.HaberTime,
 			c.HaberFixTime,
+			c.BohrTime,
 			engine,
 		)
 	}
@@ -509,6 +510,20 @@ func (c *Config) IsOnHaberFix(currentBlockNumber *big.Int, lastBlockTime uint64,
 		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
 	}
 	return !c.IsHaberFix(lastBlockNumber.Uint64(), lastBlockTime) && c.IsHaberFix(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
+// IsBohr returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsBohr(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.BohrTime, time)
+}
+
+// IsOnBohr returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+func (c *Config) IsOnBohr(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsBohr(lastBlockNumber.Uint64(), lastBlockTime) && c.IsBohr(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
 // CheckCompatible checks whether scheduled fork transitions have been imported
