@@ -23,6 +23,7 @@ import (
 	"github.com/holiman/uint256"
 
 	"github.com/ledgerwatch/erigon-lib/chain"
+	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/fixedgas"
 
 	"github.com/ledgerwatch/erigon/core/types"
@@ -82,6 +83,23 @@ func VerifyPresenceOfCancunHeaderFields(header *types.Header) error {
 	}
 	if header.ParentBeaconBlockRoot != nil {
 		return fmt.Errorf("header has no nil ParentBeaconBlockRoot")
+	}
+	if header.WithdrawalsHash == nil || *header.WithdrawalsHash != types.EmptyRootHash {
+		return errors.New("header has wrong WithdrawalsHash")
+	}
+	return nil
+}
+
+// VerifyPresenceOfCancunHeaderFields checks that the fields introduced in Cancun (EIP-4844, EIP-4788) are present.
+func VerifyPresenceOfBohrHeaderFields(header *types.Header) error {
+	if header.BlobGasUsed == nil {
+		return fmt.Errorf("header is missing blobGasUsed")
+	}
+	if header.ExcessBlobGas == nil {
+		return fmt.Errorf("header is missing excessBlobGas")
+	}
+	if header.ParentBeaconBlockRoot != nil || *header.ParentBeaconBlockRoot != (libcommon.Hash{}) {
+		return fmt.Errorf("invalid parentBeaconRoot, have %#x, expected zero hash", header.ParentBeaconBlockRoot)
 	}
 	if header.WithdrawalsHash == nil || *header.WithdrawalsHash != types.EmptyRootHash {
 		return errors.New("header has wrong WithdrawalsHash")

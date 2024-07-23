@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"sort"
 	"strings"
@@ -565,8 +566,15 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 			return err
 		}
 	} else {
-		if err := misc.VerifyPresenceOfCancunHeaderFields(header); err != nil {
-			return err
+		bohr := chain.Config().IsBohr(header.Number.Uint64(), header.Time)
+		if bohr {
+			if err := misc.VerifyPresenceOfBohrHeaderFields(header); err != nil {
+				return err
+			}
+		} else {
+			if err := misc.VerifyPresenceOfCancunHeaderFields(header); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1244,12 +1252,36 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	return nil
 }
 
+func encodeSigHeaderWithoutVoteAttestation(w io.Writer, header *types.Header, chainId *big.Int) {
+	err := rlp.Encode(w, []interface{}{
+		chainId,
+		header.ParentHash,
+		header.UncleHash,
+		header.Coinbase,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Difficulty,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:extraVanity], // this will panic if extra is too short, should check before calling encodeSigHeaderWithoutVoteAttestation
+		header.MixDigest,
+		header.Nonce,
+	})
+	if err != nil {
+		panic("can't encode: " + err.Error())
+	}
+}
+
 // SealHash returns the hash of a block prior to it being sealed.
 func (p *Parlia) SealHash(header *types.Header) (hash libcommon.Hash) {
 	hasher := cryptopool.NewLegacyKeccak256()
 	defer cryptopool.ReturnToPoolKeccak256(hasher)
 
-	types.EncodeSigHeaderWithoutVoteAttestation(hasher, header, p.chainConfig.ChainID)
+	encodeSigHeaderWithoutVoteAttestation(hasher, header, p.chainConfig.ChainID)
 	hasher.Sum(hash[:0])
 	return hash
 }
