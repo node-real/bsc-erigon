@@ -39,6 +39,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/karrick/godirwalk"
+
 	"github.com/erigontech/mdbx-go/mdbx"
 	lru "github.com/hashicorp/golang-lru/arc/v2"
 	"github.com/holiman/uint256"
@@ -54,7 +56,6 @@ import (
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/common/dbg"
-	"github.com/erigontech/erigon-lib/common/dir"
 	"github.com/erigontech/erigon-lib/common/disk"
 	"github.com/erigontech/erigon-lib/common/mem"
 	"github.com/erigontech/erigon-lib/config3"
@@ -1716,25 +1717,30 @@ func (s *Ethereum) ExecutionModule() *eth1.EthereumExecutionModule {
 
 // RemoveContents is like os.RemoveAll, but preserve dir itself
 func RemoveContents(dirname string) error {
-	d, err := os.Open(dirname)
+	err := godirwalk.Walk(dirname, &godirwalk.Options{
+		ErrorCallback: func(s string, err error) godirwalk.ErrorAction {
+			if os.IsNotExist(err) {
+				return godirwalk.SkipNode
+			}
+			return godirwalk.Halt
+		},
+		FollowSymbolicLinks: true,
+		Unsorted:            true,
+		Callback: func(osPathname string, d *godirwalk.Dirent) error {
+			if osPathname == dirname {
+				return nil
+			}
+			if d.IsSymlink() {
+				return nil
+			}
+			return os.RemoveAll(filepath.Join(dirname, d.Name()))
+		},
+		PostChildrenCallback: nil,
+		ScratchBuffer:        nil,
+		AllowNonDirectory:    false,
+	})
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			// ignore due to windows
-			_ = os.MkdirAll(dirname, 0o755)
-			return nil
-		}
 		return err
-	}
-	defer d.Close()
-	files, err := dir.ReadDir(dirname)
-	if err != nil {
-		return err
-	}
-	for _, file := range files {
-		err = os.RemoveAll(filepath.Join(dirname, file.Name()))
-		if err != nil {
-			return err
-		}
 	}
 	return nil
 }
@@ -1775,18 +1781,16 @@ func (s *Ethereum) DataDir() string {
 }
 
 // setBorDefaultMinerGasPrice enforces Miner.GasPrice to be equal to BorDefaultMinerGasPrice (25gwei by default)
-// only for polygon amoy network.
 func setBorDefaultMinerGasPrice(chainConfig *chain.Config, config *ethconfig.Config, logger log.Logger) {
-	if chainConfig.Bor != nil && chainConfig.ChainID.Cmp(params.AmoyChainConfig.ChainID) == 0 && (config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(ethconfig.BorDefaultMinerGasPrice) != 0) {
+	if chainConfig.Bor != nil && (config.Miner.GasPrice == nil || config.Miner.GasPrice.Cmp(ethconfig.BorDefaultMinerGasPrice) != 0) {
 		logger.Warn("Sanitizing invalid bor miner gas price", "provided", config.Miner.GasPrice, "updated", ethconfig.BorDefaultMinerGasPrice)
 		config.Miner.GasPrice = ethconfig.BorDefaultMinerGasPrice
 	}
 }
 
 // setBorDefaultTxPoolPriceLimit enforces MinFeeCap to be equal to BorDefaultTxPoolPriceLimit (25gwei by default)
-// only for polygon amoy network.
 func setBorDefaultTxPoolPriceLimit(chainConfig *chain.Config, config txpoolcfg.Config, logger log.Logger) {
-	if chainConfig.Bor != nil && chainConfig.ChainID.Cmp(params.AmoyChainConfig.ChainID) == 0 && config.MinFeeCap != txpoolcfg.BorDefaultTxPoolPriceLimit {
+	if chainConfig.Bor != nil && config.MinFeeCap != txpoolcfg.BorDefaultTxPoolPriceLimit {
 		logger.Warn("Sanitizing invalid bor min fee cap", "provided", config.MinFeeCap, "updated", txpoolcfg.BorDefaultTxPoolPriceLimit)
 		config.MinFeeCap = txpoolcfg.BorDefaultTxPoolPriceLimit
 	}
