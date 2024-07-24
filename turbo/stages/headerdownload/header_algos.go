@@ -1086,6 +1086,9 @@ func (hd *HeaderDownload) ProcessHeader(sh ChainSegmentHeader, newBlock bool, pe
 	if sh.Number > hd.stats.RespMaxBlock {
 		hd.stats.RespMaxBlock = sh.Number
 	}
+	if sh.Number == 42100000 {
+		log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
+	}
 	if hd.stats.RespMinBlock == 0 || sh.Number < hd.stats.RespMinBlock {
 		hd.stats.RespMinBlock = sh.Number
 	}
