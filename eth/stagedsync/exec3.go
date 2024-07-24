@@ -279,8 +279,8 @@ func ExecV3(ctx context.Context,
 		inputTxNum = _min
 		outputTxNum.Store(inputTxNum)
 
-		_max, _ := rawdbv3.TxNums.Max(applyTx, _blockNum)
-		log.Info(fmt.Sprintf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, _blockNum, _min, _max))
+		//_max, _ := rawdbv3.TxNums.Max(applyTx, _blockNum)
+		//log.Info(fmt.Sprintf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, _blockNum, _min, _max))
 		doms.SetBlockNum(_blockNum)
 		doms.SetTxNum(inputTxNum)
 		return nil
@@ -745,10 +745,6 @@ Loop:
 
 				BlockReceipts: receipts,
 				Config:        cfg.genesis.Config,
-			}
-
-			if header.Number.Uint64() == 11500000 && txTask.TxIndex == 211 {
-				log.Info("bad block 11500000")
 			}
 
 			if txIndex >= 0 && !txTask.Final && isPoSa {

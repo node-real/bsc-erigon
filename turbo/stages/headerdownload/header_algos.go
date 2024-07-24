@@ -347,9 +347,6 @@ func (hd *HeaderDownload) RecoverFromDb(db kv.RoDB) error {
 			if err = rlp.DecodeBytes(v, &header); err != nil {
 				return err
 			}
-			if header.Number.Uint64() == 42099999 || header.Number.Uint64() == 42099998 {
-				log.Info("recover header", "number", header.Number.Uint64(), "hash", header.Hash(), hd.highestHashInDb)
-			}
 			if header.Number.Uint64() <= hd.highestInDb {
 				h := ChainSegmentHeader{
 					HeaderRaw: v,
@@ -1088,9 +1085,6 @@ func (hd *HeaderDownload) ProcessHeader(sh ChainSegmentHeader, newBlock bool, pe
 	//log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
 	if sh.Number > hd.stats.RespMaxBlock {
 		hd.stats.RespMaxBlock = sh.Number
-	}
-	if sh.Number == 42100000 {
-		log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
 	}
 	if hd.stats.RespMinBlock == 0 || sh.Number < hd.stats.RespMinBlock {
 		hd.stats.RespMinBlock = sh.Number

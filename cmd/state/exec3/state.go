@@ -283,7 +283,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			)
 			if err != nil {
 				txTask.Error = err
-				log.Error("Apply system tx error", err)
 			} else {
 				txTask.Failed = false
 				txTask.UsedGas = msg.Gas() - leftOverGas
@@ -313,7 +312,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.chainTx, rw.logger)
 		if err != nil {
 			txTask.Error = err
-			log.Error("Apply system tx error", err)
 		}
 	default:
 		txHash := txTask.Tx.Hash()

@@ -122,12 +122,6 @@ func printStages(tx kv.Tx, snapshots *freezeblocks.RoSnapshots, borSn *freezeblo
 	fmt.Fprintf(w, "Note: prune_at doesn't mean 'all data before were deleted' - it just mean stage.Prune function were run to this block. Because 1 stage may prune multiple data types to different prune distance.\n")
 	fmt.Fprint(w, "\n \t\t stage_at \t prune_at\n")
 
-	for i := uint64(11499999); i <= uint64(11500002); i++ {
-		minV, _ := rawdbv3.TxNums.Min(tx, i)
-		maxV, _ := rawdbv3.TxNums.Max(tx, i)
-		fmt.Fprintf(w, "blockNumber=%d: min=%d, max=%d\n\n", i, minV, maxV)
-	}
-	return nil
 	for _, stage := range stages.AllStages {
 		if progress, err = stages.GetStageProgress(tx, stage); err != nil {
 			return err
