@@ -347,12 +347,16 @@ func (hd *HeaderDownload) RecoverFromDb(db kv.RoDB) error {
 			if err = rlp.DecodeBytes(v, &header); err != nil {
 				return err
 			}
+
 			if header.Number.Uint64() <= hd.highestInDb {
 				h := ChainSegmentHeader{
 					HeaderRaw: v,
 					Header:    &header,
 					Hash:      types.RawRlpHash(v),
 					Number:    header.Number.Uint64(),
+				}
+				if header.Number.Uint64() == 42099999 || header.Number.Uint64() == 42099998 {
+					log.Info("recover header", "number", h.Number, "hash", h.Hash, hd.highestHashInDb)
 				}
 				hd.addHeaderAsLink(h, true /* persisted */)
 			}
