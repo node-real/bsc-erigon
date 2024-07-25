@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"sort"
 	"strings"
@@ -55,10 +56,12 @@ const (
 
 	CheckpointInterval = 1024        // Number of blocks after which to save the snapshot to the database
 	defaultEpochLength = uint64(100) // Default number of blocks of checkpoint to update validatorSet from contract
+	defaultTurnLength  = uint8(1)    // Default consecutive number of blocks a validator receives priority for block production
 
 	extraVanity      = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
 	extraSeal        = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 	nextForkHashSize = 4  // Fixed number of extra-data suffix bytes reserved for nextForkHash.
+	turnLengthSize   = 1  // Fixed number of extra-data suffix bytes reserved for turnLength
 
 	validatorBytesLengthBeforeLuban = length.Addr
 	validatorBytesLength            = length.Addr + types.BLSPublicKeyLength
@@ -123,6 +126,10 @@ var (
 	// invalid list of validators (i.e. non divisible by 20 bytes).
 	errInvalidSpanValidators = errors.New("invalid validator list on sprint end block")
 
+	// errInvalidTurnLength is returned if a block contains an
+	// invalid length of turn (i.e. no data left after parsing validators).
+	errInvalidTurnLength = errors.New("invalid turnLength")
+
 	// errInvalidMixDigest is returned if a block's mix digest is non-zero.
 	errInvalidMixDigest = errors.New("non-zero mix digest")
 
@@ -132,6 +139,10 @@ var (
 	// errMismatchingEpochValidators is returned if a sprint block contains a
 	// list of validators different than the one the local node calculated.
 	errMismatchingEpochValidators = errors.New("mismatching validator list on epoch block")
+
+	// errMismatchingEpochTurnLength is returned if a sprint block contains a
+	// turn length different than the one the local node calculated.
+	errMismatchingEpochTurnLength = errors.New("mismatching turn length on epoch block")
 
 	// errInvalidDifficulty is returned if the difficulty of a block is missing.
 	errInvalidDifficulty = errors.New("invalid difficulty")
@@ -334,6 +345,7 @@ func (p *Parlia) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*typ
 // On Luban fork, we introduce vote attestation into the header's extra field, so extra format is different from before.
 // Before Luban fork: |---Extra Vanity---|---Validators Bytes (or Empty)---|---Extra Seal---|
 // After Luban fork:  |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
+// After bohr fork:   |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Turn Length (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
 func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) []byte {
 	if len(header.Extra) <= extraVanity+extraSeal {
 		return nil
@@ -350,11 +362,15 @@ func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config
 		return nil
 	}
 	num := int(header.Extra[extraVanity])
-	if num == 0 || len(header.Extra) <= extraVanity+extraSeal+num*validatorBytesLength {
-		return nil
-	}
 	start := extraVanity + validatorNumberSize
 	end := start + num*validatorBytesLength
+	extraMinLen := end + extraSeal
+	if chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+		extraMinLen += turnLengthSize
+	}
+	if num == 0 || len(header.Extra) < extraMinLen {
+		return nil
+	}
 	return header.Extra[start:end]
 }
 
@@ -373,11 +389,14 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 		attestationBytes = header.Extra[extraVanity : len(header.Extra)-extraSeal]
 	} else {
 		num := int(header.Extra[extraVanity])
-		if len(header.Extra) <= extraVanity+extraSeal+validatorNumberSize+num*validatorBytesLength {
+		start := extraVanity + validatorNumberSize + num*validatorBytesLength
+		if chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+			start += turnLengthSize
+		}
+		end := len(header.Extra) - extraSeal
+		if end <= start {
 			return nil, nil
 		}
-		start := extraVanity + validatorNumberSize + num*validatorBytesLength
-		end := len(header.Extra) - extraSeal
 		attestationBytes = header.Extra[start:end]
 	}
 
@@ -565,8 +584,15 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 			return err
 		}
 	} else {
-		if err := misc.VerifyPresenceOfCancunHeaderFields(header); err != nil {
-			return err
+		bohr := chain.Config().IsBohr(header.Number.Uint64(), header.Time)
+		if bohr {
+			if err := misc.VerifyPresenceOfBohrHeaderFields(header); err != nil {
+				return err
+			}
+		} else {
+			if err := misc.VerifyPresenceOfCancunHeaderFields(header); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -664,7 +690,7 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 		return fmt.Errorf("parlia.verifySeal: headerNum=%d, validator=%x, %w", header.Number.Uint64(), signer.Bytes(), errUnauthorizedValidator)
 	}
 
-	if snap.signedRecently(signer) {
+	if snap.SignRecently(signer) {
 		return errRecentlySigned
 	}
 
@@ -712,6 +738,24 @@ func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHe
 			header.Extra = append(header.Extra, voteAddressMap[validator].Bytes()...)
 		}
 	}
+	return nil
+}
+
+func (p *Parlia) prepareTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
+	if header.Number.Uint64()%p.config.Epoch != 0 ||
+		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+		return nil
+	}
+
+	turnLength, err := p.getTurnLength(chain, header, ibs)
+	if err != nil {
+		return err
+	}
+
+	if turnLength != nil {
+		header.Extra = append(header.Extra, *turnLength)
+	}
+
 	return nil
 }
 
@@ -866,6 +910,10 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 		return err
 	}
 
+	if err := p.prepareTurnLength(chain, header, ibs); err != nil {
+		return err
+	}
+
 	// add extra seal space
 	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
 
@@ -917,6 +965,30 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 		return errMismatchingEpochValidators
 	}
 	return nil
+}
+
+func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
+	if header.Number.Uint64()%p.config.Epoch != 0 ||
+		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+		return nil
+	}
+
+	turnLengthFromHeader, err := parseTurnLength(header, p.chainConfig, p.config)
+	if err != nil {
+		return err
+	}
+	if turnLengthFromHeader != nil {
+		turnLength, err := p.getTurnLength(chain, header, ibs)
+		if err != nil {
+			return err
+		}
+		if turnLength != nil && *turnLength == *turnLengthFromHeader {
+			log.Debug("verifyTurnLength", "turnLength", *turnLength)
+			return nil
+		}
+	}
+
+	return errMismatchingEpochTurnLength
 }
 
 // Initialize runs any pre-transaction state modifications (e.g. epoch start)
@@ -983,6 +1055,10 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		return nil, nil, err
 	}
 
+	if err := p.verifyTurnLength(chain, header, state); err != nil {
+		return nil, nil, err
+	}
+
 	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
 		systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, state, logger)
 	}
@@ -1001,10 +1077,10 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 		}
 	}
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
-		spoiledVal := snap.supposeValidator()
+		spoiledVal := snap.inturnValidator()
 		signedRecently := false
 		if p.chainConfig.IsPlato(header.Number.Uint64()) {
-			if snap.signedRecently(spoiledVal) {
+			if snap.SignRecently(spoiledVal) {
 				signedRecently = true
 			}
 		} else {
@@ -1244,12 +1320,36 @@ func (p *Parlia) Seal(chain consensus.ChainHeaderReader, block *types.Block, res
 	return nil
 }
 
+func encodeSigHeaderWithoutVoteAttestation(w io.Writer, header *types.Header, chainId *big.Int) {
+	err := rlp.Encode(w, []interface{}{
+		chainId,
+		header.ParentHash,
+		header.UncleHash,
+		header.Coinbase,
+		header.Root,
+		header.TxHash,
+		header.ReceiptHash,
+		header.Bloom,
+		header.Difficulty,
+		header.Number,
+		header.GasLimit,
+		header.GasUsed,
+		header.Time,
+		header.Extra[:extraVanity], // this will panic if extra is too short, should check before calling encodeSigHeaderWithoutVoteAttestation
+		header.MixDigest,
+		header.Nonce,
+	})
+	if err != nil {
+		panic("can't encode: " + err.Error())
+	}
+}
+
 // SealHash returns the hash of a block prior to it being sealed.
 func (p *Parlia) SealHash(header *types.Header) (hash libcommon.Hash) {
 	hasher := cryptopool.NewLegacyKeccak256()
 	defer cryptopool.ReturnToPoolKeccak256(hasher)
 
-	types.EncodeSigHeaderWithoutVoteAttestation(hasher, header, p.chainConfig.ChainID)
+	encodeSigHeaderWithoutVoteAttestation(hasher, header, p.chainConfig.ChainID)
 	hasher.Sum(hash[:0])
 	return hash
 }

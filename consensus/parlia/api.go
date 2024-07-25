@@ -87,3 +87,22 @@ func (api *API) GetValidatorsAtHash(hash libcommon.Hash) ([]libcommon.Address, e
 	}
 	return snap.validators(), nil
 }
+
+func (api *API) GetTurnLength(number *rpc.BlockNumber) (uint8, error) {
+	// Retrieve the requested block number (or current if none requested)
+	var header *types.Header
+	if number == nil || *number == rpc.LatestBlockNumber {
+		header = api.chain.CurrentHeader()
+	} else {
+		header = api.chain.GetHeaderByNumber(uint64(number.Int64()))
+	}
+	// Ensure we have an actually valid block and return the validators from its snapshot
+	if header == nil {
+		return 0, errUnknownBlock
+	}
+	snap, err := api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	if err != nil || snap.TurnLength == 0 {
+		return 0, err
+	}
+	return snap.TurnLength, nil
+}
