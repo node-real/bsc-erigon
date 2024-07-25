@@ -12,7 +12,7 @@ package sync
 import (
 	context "context"
 	reflect "reflect"
-	
+
 	gomock "go.uber.org/mock/gomock"
 
 	heimdall "github.com/erigontech/erigon/polygon/heimdall"

@@ -22,6 +22,7 @@ package misc
 import (
 	"errors"
 	"fmt"
+	libcommon "github.com/erigontech/erigon-lib/common"
 
 	"github.com/holiman/uint256"
 
@@ -105,6 +106,23 @@ func VerifyAbsenceOfCancunHeaderFields(header *types.Header) error {
 	}
 	if header.WithdrawalsHash != nil {
 		return fmt.Errorf("invalid WithdrawalsHash, have %#x, expected nil", header.WithdrawalsHash)
+	}
+	return nil
+}
+
+// VerifyPresenceOfCancunHeaderFields checks that the fields introduced in Cancun (EIP-4844, EIP-4788) are present.
+func VerifyPresenceOfBohrHeaderFields(header *types.Header) error {
+	if header.BlobGasUsed == nil {
+		return fmt.Errorf("header is missing blobGasUsed")
+	}
+	if header.ExcessBlobGas == nil {
+		return fmt.Errorf("header is missing excessBlobGas")
+	}
+	if header.ParentBeaconBlockRoot != nil || *header.ParentBeaconBlockRoot != (libcommon.Hash{}) {
+		return fmt.Errorf("invalid parentBeaconRoot, have %#x, expected zero hash", header.ParentBeaconBlockRoot)
+	}
+	if header.WithdrawalsHash == nil || *header.WithdrawalsHash != types.EmptyRootHash {
+		return errors.New("header has wrong WithdrawalsHash")
 	}
 	return nil
 }

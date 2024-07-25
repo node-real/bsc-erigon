@@ -565,7 +565,7 @@ func GenesisToBlock(g *types.Genesis, tmpDir string, logger log.Logger) (*types.
 		} else {
 			head.ExcessBlobGas = new(uint64)
 		}
-		if g.ParentBeaconBlockRoot != nil {
+		if g.ParentBeaconBlockRoot != nil && !g.Config.IsBohr(g.Number, g.Timestamp) {
 			head.ParentBeaconBlockRoot = g.ParentBeaconBlockRoot
 		} else {
 			head.ParentBeaconBlockRoot = &libcommon.Hash{}

@@ -198,6 +198,12 @@ const (
 	MinBlocksForBlobRequests           uint64 = 524288              // it keeps blob data available for ~18.2 days in local, ref: https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-336.md#51-parameters.
 	DefaultExtraReserveForBlobRequests uint64 = 1 * (24 * 3600) / 3 // it adds more time for expired blobs for some request cases, like expiry blob when remote peer is syncing, default 1 day.
 
+	// used for testing:
+	//     [1,9] except 2 --> used as turn length directly
+	//                  2 --> use random values to test switching turn length
+	// 0 and other values --> get turn length from contract
+	FixedTurnLength uint64 = 0
+
 	// EIP-2935: Historical block hashes in state
 	BlockHashHistoryServeWindow uint64 = 8192
 	BlockHashOldWindow          uint64 = 256

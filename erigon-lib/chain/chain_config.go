@@ -125,7 +125,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, Engine: %v}",
 			c.ChainID,
 			c.RamanujanBlock,
 			c.NielsBlock,
@@ -147,6 +147,7 @@ func (c *Config) String() string {
 			c.CancunTime,
 			c.HaberTime,
 			c.HaberFixTime,
+			c.BohrTime,
 			engine,
 		)
 	}
@@ -508,6 +509,20 @@ func (c *Config) IsOnHaberFix(currentBlockNumber *big.Int, lastBlockTime uint64,
 	return !c.IsHaberFix(lastBlockNumber.Uint64(), lastBlockTime) && c.IsHaberFix(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
+// IsBohr returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsBohr(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.BohrTime, time)
+}
+
+// IsOnBohr returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+func (c *Config) IsOnBohr(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsBohr(lastBlockNumber.Uint64(), lastBlockTime) && c.IsBohr(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *Config) CheckCompatible(newcfg *Config, height uint64) *ConfigCompatError {
@@ -747,7 +762,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli                       bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber                                                       bool
+	IsHaber, IsBohr                                               bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -783,6 +798,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsFeynmanFix:       c.IsFeynmanFix(num, time),
 		IsCancun:           c.IsCancun(num, time),
 		IsHaber:            c.IsHaber(num, time),
+		IsBohr:             c.IsBohr(num, time),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
 		IsParlia:           true,

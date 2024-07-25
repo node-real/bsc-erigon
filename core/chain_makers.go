@@ -616,7 +616,7 @@ func MakeEmptyHeader(parent *types.Header, chainConfig *chain.Config, timestamp 
 		if chainConfig.Parlia != nil {
 			header.WithdrawalsHash = &types.EmptyRootHash
 		}
-		if chainConfig.Parlia == nil {
+		if chainConfig.Parlia == nil || chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 			header.ParentBeaconBlockRoot = new(libcommon.Hash)
 		}
 	}
