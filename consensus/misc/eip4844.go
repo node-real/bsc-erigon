@@ -110,7 +110,7 @@ func VerifyAbsenceOfCancunHeaderFields(header *types.Header) error {
 	return nil
 }
 
-// VerifyPresenceOfCancunHeaderFields checks that the fields introduced in Cancun (EIP-4844, EIP-4788) are present.
+// VerifyPresenceOfBohrHeaderFields checks that the fields introduced in Cancun (EIP-4844, EIP-4788) are present.
 func VerifyPresenceOfBohrHeaderFields(header *types.Header) error {
 	if header.BlobGasUsed == nil {
 		return fmt.Errorf("header is missing blobGasUsed")
@@ -118,7 +118,7 @@ func VerifyPresenceOfBohrHeaderFields(header *types.Header) error {
 	if header.ExcessBlobGas == nil {
 		return fmt.Errorf("header is missing excessBlobGas")
 	}
-	if header.ParentBeaconBlockRoot != nil || *header.ParentBeaconBlockRoot != (libcommon.Hash{}) {
+	if header.ParentBeaconBlockRoot == nil || *header.ParentBeaconBlockRoot != (libcommon.Hash{}) {
 		return fmt.Errorf("invalid parentBeaconRoot, have %#x, expected zero hash", header.ParentBeaconBlockRoot)
 	}
 	if header.WithdrawalsHash == nil || *header.WithdrawalsHash != types.EmptyRootHash {
