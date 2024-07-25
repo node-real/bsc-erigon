@@ -765,13 +765,13 @@ func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHe
 	return nil
 }
 
-func (p *Parlia) prepareTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
+func (p *Parlia) prepareTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 ||
 		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 		return nil
 	}
 
-	turnLength, err := p.getTurnLength(chain, header, ibs)
+	turnLength, err := p.getTurnLength(chain, header, ibs, tx)
 	if err != nil {
 		return err
 	}
@@ -934,7 +934,7 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 		return err
 	}
 
-	if err := p.prepareTurnLength(chain, header, ibs); err != nil {
+	if err := p.prepareTurnLength(chain, header, ibs, nil); err != nil {
 		return err
 	}
 
@@ -991,7 +991,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 	return nil
 }
 
-func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
+func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 ||
 		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 		return nil
@@ -1002,7 +1002,7 @@ func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *typ
 		return err
 	}
 	if turnLengthFromHeader != nil {
-		turnLength, err := p.getTurnLength(chain, header, ibs)
+		turnLength, err := p.getTurnLength(chain, header, ibs, tx)
 		if err != nil {
 			return err
 		}
@@ -1082,7 +1082,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		if err := p.verifyValidators(header, parentHeader, ibs, curIndex, tx); err != nil {
 			return nil, nil, nil, err
 		}
-		if err := p.verifyTurnLength(chain, header, ibs); err != nil {
+		if err := p.verifyTurnLength(chain, header, ibs, tx); err != nil {
 			return nil, nil, nil, err
 		}
 		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {

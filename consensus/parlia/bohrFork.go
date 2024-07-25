@@ -2,6 +2,8 @@ package parlia
 
 import (
 	"errors"
+	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/common/u256"
 	"github.com/erigontech/erigon/consensus"
@@ -13,7 +15,7 @@ import (
 	mrand "math/rand"
 )
 
-func (p *Parlia) getTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) (*uint8, error) {
+func (p *Parlia) getTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) (*uint8, error) {
 	parent := chain.GetHeaderByHash(header.ParentHash)
 	if parent == nil {
 		return nil, errors.New("parent not found")
@@ -21,7 +23,7 @@ func (p *Parlia) getTurnLength(chain consensus.ChainHeaderReader, header *types.
 
 	var turnLength uint8
 	if p.chainConfig.IsBohr(parent.Number.Uint64(), parent.Time) {
-		turnLengthFromContract, err := p.getTurnLengthFromContract(parent, ibs)
+		turnLengthFromContract, err := p.getTurnLengthFromContract(parent, ibs, tx)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +39,7 @@ func (p *Parlia) getTurnLength(chain consensus.ChainHeaderReader, header *types.
 	return &turnLength, nil
 }
 
-func (p *Parlia) getTurnLengthFromContract(header *types.Header, ibs *state.IntraBlockState) (turnLength *big.Int, err error) {
+func (p *Parlia) getTurnLengthFromContract(header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) (turnLength *big.Int, err error) {
 	// mock to get turnLength from the contract
 	if params.FixedTurnLength >= 1 && params.FixedTurnLength <= 9 {
 		if params.FixedTurnLength == 2 {
@@ -46,6 +48,11 @@ func (p *Parlia) getTurnLengthFromContract(header *types.Header, ibs *state.Intr
 		return big.NewInt(int64(params.FixedTurnLength)), nil
 	}
 
+	stateReader := state.NewHistoryReaderV3()
+	stateReader.SetTx(tx)
+	maxTxNum, _ := rawdbv3.TxNums.Max(tx, header.Number.Uint64()-1)
+	stateReader.SetTxNum(maxTxNum)
+	history := state.New(stateReader)
 	method := "getTurnLength"
 	data, err := p.validatorSetABI.Pack(method)
 	if err != nil {
@@ -55,7 +62,7 @@ func (p *Parlia) getTurnLengthFromContract(header *types.Header, ibs *state.Intr
 
 	// do smart contract call
 	msgData := Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], history, header, u256.Num0)
 	if err != nil {
 		return nil, err
 	}
