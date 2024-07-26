@@ -734,24 +734,6 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 	return nil
 }
 
-func (p *Parlia) prepareTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) error {
-	if header.Number.Uint64()%p.config.Epoch != 0 ||
-		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
-		return nil
-	}
-
-	turnLength, err := p.getTurnLength(chain, header, ibs)
-	if err != nil {
-		return err
-	}
-
-	if turnLength != nil {
-		header.Extra = append(header.Extra, *turnLength)
-	}
-
-	return nil
-}
-
 // snapshot retrieves the authorization snapshot at a given point in time.
 // !!! be careful
 // the block with `number` and `hash` is just the last element of `parents`,
