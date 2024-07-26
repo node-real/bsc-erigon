@@ -1605,46 +1605,30 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 	actualTx := (*txs)[*curIndex]
 	expectedTx := types.Transaction(types.NewTransaction(actualTx.GetNonce(), to, value, math.MaxUint64/2, u256.Num0, data))
 	expectedHash := expectedTx.SigningHash(p.chainConfig.ChainID)
-	if from == p.val && mining {
-		signature, err := p.signFn(from, expectedTx.SigningHash(p.chainConfig.ChainID).Bytes(), p.chainConfig.ChainID)
-		if err != nil {
-			return false, err
-		}
-		signer := types.LatestSignerForChainID(p.chainConfig.ChainID)
-		expectedTx, err = expectedTx.WithSignature(*signer, signature)
-		if err != nil {
-			return false, err
-		}
-	} else {
-		if len(*systemTxs) == 0 {
-			return false, fmt.Errorf("supposed to get a actual transaction, but get none")
-		}
-
-		if actualTx == nil {
-			return false, fmt.Errorf("supposed to get a actual transaction, but get nil")
-		}
-
-		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
-		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
-			return false, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
-				expectedHash.String(),
-				expectedTx.GetNonce(),
-				expectedTx.GetTo().String(),
-				expectedTx.GetValue().String(),
-				expectedTx.GetGas(),
-				expectedTx.GetPrice().String(),
-				hex.EncodeToString(expectedTx.GetData()),
-				actualHash.String(),
-				actualTx.GetNonce(),
-				actualTx.GetTo().String(),
-				actualTx.GetValue().String(),
-				actualTx.GetGas(),
-				actualTx.GetPrice().String(),
-				hex.EncodeToString(actualTx.GetData()),
-			)
-		}
-		expectedTx = actualTx
-		// move to next
+	if len(*systemTxs) == 0 {
+		return false, fmt.Errorf("supposed to get a actual transaction, but get none")
+	}
+	if actualTx == nil {
+		return false, fmt.Errorf("supposed to get a actual transaction, but get nil")
+	}
+	actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
+	if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
+		return false, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
+			expectedHash.String(),
+			expectedTx.GetNonce(),
+			expectedTx.GetTo().String(),
+			expectedTx.GetValue().String(),
+			expectedTx.GetGas(),
+			expectedTx.GetPrice().String(),
+			hex.EncodeToString(expectedTx.GetData()),
+			actualHash.String(),
+			actualTx.GetNonce(),
+			actualTx.GetTo().String(),
+			actualTx.GetValue().String(),
+			actualTx.GetGas(),
+			actualTx.GetPrice().String(),
+			hex.EncodeToString(actualTx.GetData()),
+		)
 	}
 	_, shouldBreak, err := systemTxCall(ibs, *curIndex)
 	if err != nil {
