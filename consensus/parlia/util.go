@@ -11,7 +11,7 @@ import (
 
 func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, chainConfig *chain.Config) uint64 {
 	if snap.inturn(val) {
-		log.Debug("backOffTime", "blockNumber", header.Number, "in turn validator", val)
+		log.Trace("backOffTime", "blockNumber", header.Number, "in turn validator", val)
 		return 0
 	} else {
 		delay := initialBackOffTime

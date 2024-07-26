@@ -319,7 +319,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 			}
 			if turnLength != nil {
 				snap.TurnLength = *turnLength
-				log.Debug("validator set switch", "turnLength", *turnLength)
+				log.Trace("validator set switch", "turnLength", *turnLength)
 			}
 
 			// get validators from headers and use that for new validator set
@@ -342,7 +342,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 				// BEP-404: Clear Miner History when Switching Validators Set
 				snap.Recents = make(map[uint64]common.Address)
 				snap.Recents[epochKey] = common.Address{}
-				log.Debug("Recents are cleared up", "blockNumber", number)
+				log.Trace("Recents are cleared up", "blockNumber", number)
 			} else {
 				oldLimit := len(snap.Validators)/2 + 1
 				newLimit := len(newVals)/2 + 1

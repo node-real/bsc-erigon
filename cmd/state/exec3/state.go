@@ -193,6 +193,11 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 	rules := txTask.Rules
 	var err error
 	header := txTask.Header
+	lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
+	parent, _ := rw.blockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
+	if parent != nil {
+		lastBlockTime = parent.Time
+	}
 	//fmt.Printf("txNum=%d blockNum=%d history=%t\n", txTask.TxNum, txTask.BlockNum, txTask.HistoryExecution)
 
 	switch {
@@ -215,11 +220,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, constCall /* constCall */)
 		}
 		if rw.isPoSA && !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
-			parent, _ := rw.blockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
-			if parent != nil {
-				lastBlockTime = parent.Time
-			}
 			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 		}
 		if err := rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil); err != nil {
@@ -233,11 +233,13 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 		}
 
 		if _, isPoSa := rw.engine.(consensus.PoSA); isPoSa {
+			// Is an empty block
+			if rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
+				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			}
 			break
 		}
 
-		//fmt.Printf("txNum=%d, blockNum=%d, finalisation of the block\n", txTask.TxNum, txTask.BlockNum)
-		// End of block transaction in a block
 		syscall := func(contract libcommon.Address, data []byte) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
 		}
@@ -257,13 +259,11 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			}
 		}
 	case txTask.SystemTxIndex > 0:
-
 		syscall := func(contract libcommon.Address, data []byte) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
 		}
 
 		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
-
 			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.chainConfig.GetMaxBlobGasPerBlock())
 			rw.callTracer.Reset()
 			rw.vmCfg.SkipAnalysis = txTask.SkipAnalysis
