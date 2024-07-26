@@ -222,8 +222,11 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 			}
 			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 		}
-		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil)
-		txTask.Error = ibs.FinalizeTx(rules, noop)
+		if err := rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil); err != nil {
+			txTask.Error = err
+		} else {
+			txTask.Error = ibs.FinalizeTx(rules, noop)
+		}
 	case txTask.Final:
 		if txTask.BlockNum == 0 {
 			break

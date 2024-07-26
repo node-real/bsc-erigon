@@ -348,7 +348,7 @@ func (s *Merge) IsServiceTransaction(sender libcommon.Address, syscall consensus
 
 func (s *Merge) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, header *types.Header,
 	state *state.IntraBlockState, syscall consensus.SysCallCustom, logger log.Logger, tracer *tracing.Hooks,
-) {
+) error {
 	if !misc.IsPoSHeader(header) {
 		s.eth1Engine.Initialize(config, chain, header, state, syscall, logger, tracer)
 	}
@@ -360,6 +360,7 @@ func (s *Merge) Initialize(config *chain.Config, chain consensus.ChainHeaderRead
 	if chain.Config().IsPrague(header.Time) {
 		misc.StoreBlockHashesEip2935(header, state, config, chain)
 	}
+	return nil
 }
 
 func (s *Merge) APIs(chain consensus.ChainHeaderReader) []rpc.API {

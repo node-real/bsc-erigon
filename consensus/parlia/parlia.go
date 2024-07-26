@@ -98,7 +98,9 @@ var (
 		systemcontracts.TokenRecoverPortalContract: {},
 	}
 
-	doDistributeSysReward = false
+	validatorItemsCache       []ValidatorItem
+	maxElectedValidatorsCache = big.NewInt(0)
+	doDistributeSysReward     = false
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -732,46 +734,13 @@ func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Hea
 	return nil
 }
 
-func (p *Parlia) prepareValidators(header *types.Header, chain consensus.ChainHeaderReader, ibs *state.IntraBlockState) error {
-	if header.Number.Uint64()%p.config.Epoch != 0 {
-		return nil
-	}
-	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64())
-
-	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, ibs, 0, nil)
-	if err != nil {
-		return err
-	}
-	// sort validator by address
-	sort.Sort(validatorsAscending(newValidators))
-	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
-		for _, validator := range newValidators {
-			header.Extra = append(header.Extra, validator.Bytes()...)
-		}
-	} else {
-		header.Extra = append(header.Extra, byte(len(newValidators)))
-		if p.chainConfig.IsOnLuban(header.Number) {
-			voteAddressMap = make(map[libcommon.Address]*types.BLSPublicKey, len(newValidators))
-			var zeroBlsKey types.BLSPublicKey
-			for _, validator := range newValidators {
-				voteAddressMap[validator] = &zeroBlsKey
-			}
-		}
-		for _, validator := range newValidators {
-			header.Extra = append(header.Extra, validator.Bytes()...)
-			header.Extra = append(header.Extra, voteAddressMap[validator].Bytes()...)
-		}
-	}
-	return nil
-}
-
 func (p *Parlia) prepareTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 ||
 		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 		return nil
 	}
 
-	turnLength, err := p.getTurnLength(chain, header, ibs, tx)
+	turnLength, err := p.getTurnLength(chain, header, ibs)
 	if err != nil {
 		return err
 	}
@@ -899,60 +868,15 @@ func (p *Parlia) VerifyUncles(chain consensus.ChainReader, header *types.Header,
 // Prepare initializes the consensus fields of a block header according to the
 // rules of a particular engine. The changes are executed inline.
 func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
-	header.Coinbase = p.val
-	header.Nonce = types.BlockNonce{}
-
-	number := header.Number.Uint64()
-	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
-	if err != nil {
-		return err
-	}
-
-	parent := chain.GetHeader(header.ParentHash, number-1)
-	if parent == nil {
-		return consensus.ErrUnknownAncestor
-	}
-
-	// Set the correct difficulty
-	header.Difficulty = CalcDifficulty(snap, p.val)
-
-	// Ensure the timestamp has the correct delay
-	header.Time = p.blockTimeForRamanujanFork(snap, header, parent)
-	if header.Time < uint64(time.Now().Unix()) {
-		header.Time = uint64(time.Now().Unix())
-	}
-
-	// Ensure the extra data has all it's components
-	if len(header.Extra) < extraVanity-nextForkHashSize {
-		header.Extra = append(header.Extra, bytes.Repeat([]byte{0x00}, extraVanity-nextForkHashSize-len(header.Extra))...)
-	}
-	header.Extra = header.Extra[:extraVanity-nextForkHashSize]
-	nextForkHash := forkid.NextForkHashFromForks(p.heightForks, p.timeForks, p.genesisHash, number, header.Time)
-	header.Extra = append(header.Extra, nextForkHash[:]...)
-
-	if err := p.prepareValidators(header, chain, ibs); err != nil {
-		return err
-	}
-
-	if err := p.prepareTurnLength(chain, header, ibs, nil); err != nil {
-		return err
-	}
-
-	// add extra seal space
-	header.Extra = append(header.Extra, make([]byte, extraSeal)...)
-
-	// Mix digest is reserved for now, set to empty
-	header.MixDigest = libcommon.Hash{}
-
 	return nil
 }
 
-func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState, txIndex int, tx kv.Tx) error {
+func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
 	if (header.Number.Uint64())%p.config.Epoch != 0 {
 		return nil
 	}
 
-	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state, txIndex, tx)
+	newValidators, voteAddressMap, err := p.getCurrentValidators(parentHeader, state)
 	if err != nil {
 		return nil
 	}
@@ -991,7 +915,7 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 	return nil
 }
 
-func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState, tx kv.Tx) error {
+func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
 	if header.Number.Uint64()%p.config.Epoch != 0 ||
 		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 		return nil
@@ -1002,7 +926,7 @@ func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *typ
 		return err
 	}
 	if turnLengthFromHeader != nil {
-		turnLength, err := p.getTurnLength(chain, header, ibs, tx)
+		turnLength, err := p.getTurnLength(chain, header, ibs)
 		if err != nil {
 			return err
 		}
@@ -1017,7 +941,30 @@ func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *typ
 
 // Initialize runs any pre-transaction state modifications (e.g. epoch start)
 func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, header *types.Header,
-	state *state.IntraBlockState, syscall consensus.SysCallCustom, logger log.Logger, tracer *tracing.Hooks) {
+	state *state.IntraBlockState, syscall consensus.SysCallCustom, logger log.Logger, tracer *tracing.Hooks) error {
+	var err error
+	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if err = p.verifyValidators(header, parentHeader, state); err != nil {
+		return err
+	}
+	if err = p.verifyTurnLength(chain, header, state); err != nil {
+		return err
+	}
+	// update validators every day
+	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
+		// we should avoid update validators in the Feynman upgrade block
+		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
+			validatorItemsCache, err = p.getValidatorElectionInfo(parentHeader, state)
+			if err != nil {
+				return err
+			}
+			maxElectedValidatorsCache, err = p.getMaxElectedValidators(parentHeader, state)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Parlia) splitTxs(txs types.Transactions, header *types.Header) (userTxs types.Transactions, systemTxs types.Transactions, err error) {
@@ -1067,24 +1014,11 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	/*
-		nextForkHash := forkid.NextForkHashFromForks(p.forks, p.genesisHash, number)
-		nextForkHashStr := hex.EncodeToString(nextForkHash[:])
-		if !snap.isMajorityFork(nextForkHashStr) {
-			log.Debug("[parlia] there is a possible fork, and your client is not the majority. Please check...", "nextForkHash", nextForkHashStr)
-		}
-	*/
 	// If the block is an epoch end block, verify the validator list
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
 	if curIndex == txIndex {
-		if err := p.verifyValidators(header, parentHeader, ibs, curIndex, tx); err != nil {
-			return nil, nil, nil, err
-		}
-		if err := p.verifyTurnLength(chain, header, ibs, tx); err != nil {
-			return nil, nil, nil, err
-		}
 		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
 			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
 		}
@@ -1517,13 +1451,7 @@ func (p *Parlia) Close() error {
 // ==========================  interaction with contract/account =========
 
 // getCurrentValidators get current validators
-func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState, txIndex int, tx kv.Tx) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
-	//txNum := ibs.StateReader.(state.ResettableStateReader).GetTxNum()
-	//stateReader := state.NewHistoryReaderV3()
-	//stateReader.SetTx(tx)
-	//stateReader.SetTxNum(txNum - uint64(txIndex))
-	history := state.New(ibs.StateReader)
-	history.Reset()
+func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBlockState) ([]libcommon.Address, map[libcommon.Address]*types.BLSPublicKey, error) {
 	// This is actually the parentNumber
 	if !p.chainConfig.IsLuban(header.Number.Uint64()) {
 		validators, err := p.getCurrentValidatorsBeforeLuban(header, ibs)
@@ -1539,7 +1467,7 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		return nil, nil, err
 	}
 	msgData := hexutility.Bytes(data)
-	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], history, header, u256.Num0)
+	_, returnData, err := p.systemCall(header.Coinbase, systemcontracts.ValidatorContract, msgData[:], ibs, header, u256.Num0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1554,9 +1482,6 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 	for i := 0; i < len(valSet); i++ {
 		voteAddrmap[valSet[i]] = &(voteAddrSet)[i]
 	}
-	//for i, a := range *ret0 {
-	//	valz[i] = a
-	//}
 	return valSet, voteAddrmap, nil
 }
 
@@ -1718,7 +1643,7 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 		}
 
 		actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
-		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) && !(to.String() == systemcontracts.ValidatorContract.String() && actualTx.GetValue().Eq(u256.Num0)) {
+		if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {
 			return false, fmt.Errorf("expected system tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s), actual tx (hash %v, nonce %d, to %s, value %s, gas %d, gasPrice %s, data %s)",
 				expectedHash.String(),
 				expectedTx.GetNonce(),

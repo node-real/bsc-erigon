@@ -639,7 +639,7 @@ func (c *AuRa) Prepare(chain consensus.ChainHeaderReader, header *types.Header, 
 
 func (c *AuRa) Initialize(config *chain.Config, chain consensus.ChainHeaderReader, header *types.Header,
 	state *state.IntraBlockState, syscallCustom consensus.SysCallCustom, logger log.Logger, tracer *tracing.Hooks,
-) {
+) error {
 	blockNum := header.Number.Uint64()
 
 	//Check block gas limit from smart contract, if applicable
@@ -678,19 +678,19 @@ func (c *AuRa) Initialize(config *chain.Config, chain consensus.ChainHeaderReade
 	epoch, err := c.e.GetEpoch(header.ParentHash, blockNum-1)
 	if err != nil {
 		logger.Warn("[aura] initialize block: on epoch begin", "err", err)
-		return
+		return nil
 	}
 	isEpochBegin := epoch != nil
 	if !isEpochBegin {
-		return
+		return nil
 	}
 	err = c.cfg.Validators.onEpochBegin(isEpochBegin, header, syscall)
 	if err != nil {
 		logger.Warn("[aura] initialize block: on epoch begin", "err", err)
-		return
+		return nil
 	}
 	// check_and_lock_block -> check_epoch_end_signal END (before enact)
-
+	return nil
 }
 
 func (c *AuRa) applyRewards(header *types.Header, state *state.IntraBlockState, syscall consensus.SystemCall) error {

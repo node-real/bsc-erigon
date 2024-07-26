@@ -102,23 +102,25 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 	// 1. get all validators and its voting header.Nu power
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 
-	stateReader := state.NewHistoryReaderV3()
-	stateReader.SetTx(tx)
-	maxTxNum, _ := rawdbv3.TxNums.Max(tx, header.Number.Uint64()-1)
-	stateReader.SetTxNum(maxTxNum)
-	history := state.New(stateReader)
-
-	validatorItems, err := p.getValidatorElectionInfo(parent, history)
-	if err != nil {
-		return true, err
-	}
-	maxElectedValidators, err := p.getMaxElectedValidators(parent, history)
-	if err != nil {
-		return true, err
+	if validatorItemsCache == nil && maxElectedValidatorsCache == big.NewInt(0) {
+		stateReader := state.NewHistoryReaderV3()
+		stateReader.SetTx(tx)
+		maxTxNum, _ := rawdbv3.TxNums.Max(tx, header.Number.Uint64()-1)
+		stateReader.SetTxNum(maxTxNum)
+		history := state.New(stateReader)
+		var err error
+		validatorItemsCache, err = p.getValidatorElectionInfo(parent, history)
+		if err != nil {
+			return true, err
+		}
+		maxElectedValidatorsCache, err = p.getMaxElectedValidators(parent, history)
+		if err != nil {
+			return true, err
+		}
 	}
 
 	// 2. sort by voting power
-	eValidators, eVotingPowers, eVoteAddrs := getTopValidatorsByVotingPower(validatorItems, maxElectedValidators)
+	eValidators, eVotingPowers, eVoteAddrs := getTopValidatorsByVotingPower(validatorItemsCache, maxElectedValidatorsCache)
 
 	// 3. update validator set to system contract
 	method := "updateValidatorSetV2"
