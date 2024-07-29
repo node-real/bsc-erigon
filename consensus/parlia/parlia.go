@@ -750,7 +750,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%CheckpointInterval == 0 {
 			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
-				//log.Trace("Loaded snapshot from disk", "number", number, "hash", hash)
+				log.Info("Loaded snapshot from disk", "number", number, "hash", hash)
 				snap = s
 				if !verify || snap != nil {
 					break
@@ -1102,6 +1102,7 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 
 		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
 		if err != nil {
+			p.logger.Error("distributeFinalityReward get snapshot", "err", err)
 			return true, err
 		}
 		validators := snap.validators()

@@ -260,7 +260,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 
 	for _, header := range headers {
 		number := header.Number.Uint64()
-		if number%1_000_000 == 0 {
+		if number%100_000 == 0 {
 			log.Info("[parlia] snapshots build, recover from headers", "block", number)
 		}
 		// Delete the oldest validator from the recent list to allow it signing again
