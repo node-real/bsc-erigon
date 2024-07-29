@@ -678,23 +678,18 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	}
 
 	// All basic checks passed, verify the seal and return
-	return p.verifySeal(chain, header, parents)
+	return p.verifySeal(header, snap)
 }
 
 // verifySeal checks whether the signature contained in the header satisfies the
 // consensus protocol requirements. The method accepts an optional list of parent
 // headers that aren't yet part of the local blockchain to generate the snapshots
 // from.
-func (p *Parlia) verifySeal(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+func (p *Parlia) verifySeal(header *types.Header, snap *Snapshot) error {
 	// Verifying the genesis block is not supported
 	number := header.Number.Uint64()
 	if number == 0 {
 		return errUnknownBlock
-	}
-	// Retrieve the snapshot needed to verify this header and cache it
-	snap, err := p.snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
-	if err != nil {
-		return err
 	}
 
 	// Resolve the authorization key and check against validators
@@ -740,8 +735,11 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		snap    *Snapshot
 	)
 
-	for snap == nil {
+	if number%100 == 0 {
 		p.logger.Info("Query snapshots from disk", "number", number, "hash", hash)
+	}
+
+	for snap == nil {
 		// If an in-memory snapshot was found, use that
 		if s, ok := p.recentSnaps.Get(hash); ok {
 			snap = s
@@ -815,10 +813,9 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	// If we've generated a new checkpoint snapshot, save to disk
 	if verify && snap.Number%CheckpointInterval == 0 && len(headers) > 0 {
 		if err = snap.store(p.db); err != nil {
-			p.logger.Info("Stored checkpoint snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 			return nil, err
 		}
-		//log.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
+		p.logger.Info("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 	}
 	return snap, err
 }
