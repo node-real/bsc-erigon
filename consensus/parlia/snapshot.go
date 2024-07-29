@@ -368,7 +368,8 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		snap.Number = number
 		snap.Hash = header.Hash()
 		if snap.Number+s.config.Epoch >= headers[len(headers)-1].Number.Uint64() {
-			recentSnaps.Add(snap.Hash, snap)
+			historySnap := snap.copy()
+			recentSnaps.Add(historySnap.Hash, snap)
 		}
 	}
 	return snap, nil

@@ -811,11 +811,11 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	if err != nil {
 		return nil, err
 	}
-	p.logger.Info("Stored checkpoint snapshot to recentSnaps", "number", snap.Number, "hash", hash)
 
 	// If we've generated a new checkpoint snapshot, save to disk
 	if verify && snap.Number%CheckpointInterval == 0 && len(headers) > 0 {
 		if err = snap.store(p.db); err != nil {
+			p.logger.Info("Stored checkpoint snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 			return nil, err
 		}
 		//log.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
