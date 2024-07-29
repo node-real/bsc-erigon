@@ -243,7 +243,6 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 	// Sanity check that the headers can be applied
 	for i := 0; i < len(headers)-1; i++ {
 		if headers[i+1].Number.Uint64() != headers[i].Number.Uint64()+1 {
-			log.Error("Sanity check", "parent", headers[i].Number.Uint64(), "header", headers[i+1].Number.Uint64())
 			return nil, errOutOfRangeChain
 		}
 		if !bytes.Equal(headers[i+1].ParentHash.Bytes(), headers[i].Hash().Bytes()) {
@@ -251,7 +250,6 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		}
 	}
 	if headers[0].Number.Uint64() != s.Number+1 {
-		log.Error("Snap Number", "parent", headers[0].Number.Uint64(), "header", s.Number)
 		return nil, errOutOfRangeChain
 	}
 	if !bytes.Equal(headers[0].ParentHash.Bytes(), s.Hash.Bytes()) {

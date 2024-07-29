@@ -735,10 +735,6 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		snap    *Snapshot
 	)
 
-	if number%100 == 0 {
-		p.logger.Info("Query snapshots from disk", "number", number, "hash", hash)
-	}
-
 	for snap == nil {
 		// If an in-memory snapshot was found, use that
 		if s, ok := p.recentSnaps.Get(hash); ok {
@@ -815,7 +811,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		if err = snap.store(p.db); err != nil {
 			return nil, err
 		}
-		p.logger.Info("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
+		p.logger.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 	}
 	return snap, err
 }
@@ -1099,7 +1095,6 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 		}
 
 		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
-		p.logger.Info("distributeFinalityReward get snapshot", "err", err, "Number", justifiedBlock.Number.Uint64()-1)
 		if err != nil {
 			return true, err
 		}
