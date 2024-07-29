@@ -741,6 +741,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 	)
 
 	for snap == nil {
+		p.logger.Info("Query snapshots from disk", "number", number, "hash", hash)
 		// If an in-memory snapshot was found, use that
 		if s, ok := p.recentSnaps.Get(hash); ok {
 			snap = s
@@ -750,7 +751,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%CheckpointInterval == 0 {
 			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
-				log.Info("Loaded snapshot from disk", "number", number, "hash", hash)
+				p.logger.Info("Loaded snapshot from disk", "number", number, "hash", hash)
 				snap = s
 				if !verify || snap != nil {
 					break
@@ -811,6 +812,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		return nil, err
 	}
 	p.recentSnaps.Add(snap.Hash, snap)
+	p.logger.Info("Stored checkpoint snapshot to recentSnaps", "number", snap.Number, "hash", hash)
 
 	// If we've generated a new checkpoint snapshot, save to disk
 	if verify && snap.Number%CheckpointInterval == 0 && len(headers) > 0 {
@@ -1101,8 +1103,8 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 		}
 
 		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
+		p.logger.Info("distributeFinalityReward get snapshot", "err", err, "Number", justifiedBlock.Number.Uint64()-1)
 		if err != nil {
-			p.logger.Error("distributeFinalityReward get snapshot", "err", err)
 			return true, err
 		}
 		validators := snap.validators()
