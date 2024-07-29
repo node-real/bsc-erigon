@@ -35,11 +35,16 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 				delay = 0
 			}
 
-			// Exclude the recently signed validators
+			// Exclude the recently signed validators and the in turn validator
 			temp := make([]libcommon.Address, 0, len(validators))
 			for _, addr := range validators {
 				if snap.signRecentlyByCounts(addr, counts) {
 					continue
+				}
+				if chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+					if addr == inTurnAddr {
+						continue
+					}
 				}
 				temp = append(temp, addr)
 			}
