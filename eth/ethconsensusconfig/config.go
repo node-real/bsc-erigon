@@ -49,7 +49,7 @@ import (
 
 func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chainConfig *chain.Config, config interface{}, notify []string, noVerify bool,
 	heimdallClient heimdall.HeimdallClient, withoutHeimdall bool, blockReader services.FullBlockReader, readonly bool,
-	logger log.Logger, chainDb kv.RwDB, polygonBridge bridge.Service,
+	logger log.Logger, polygonBridge bridge.Service,
 ) consensus.Engine {
 	var eng consensus.Engine
 
@@ -140,7 +140,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			}
 			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), nodeConfig.Dirs.DataDir), math.MaxUint64, chainConfig, blockReader)
 
-			eng = parlia.New(chainConfig, db, blobStore, blockReader, chainDb, logger)
+			eng = parlia.New(chainConfig, db, blobStore, blockReader, logger)
 		}
 	case *borcfg.BorConfig:
 		// If Matic bor consensus is requested, set it up
@@ -192,5 +192,5 @@ func CreateConsensusEngineBareBones(ctx context.Context, chainConfig *chain.Conf
 	}
 
 	return CreateConsensusEngine(ctx, &nodecfg.Config{}, chainConfig, consensusConfig, nil /* notify */, true, /* noVerify */
-		nil /* heimdallClient */, true /* withoutHeimdall */, nil /* blockReader */, false /* readonly */, logger, nil, nil)
+		nil /* heimdallClient */, true /* withoutHeimdall */, nil /* blockReader */, false /* readonly */, logger, nil)
 }

@@ -634,7 +634,7 @@ func stageSnapshots(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	defer agg.Close()
 
 	br, bw := blocksIO(db, logger)
-	_, _, _, _, _ = newSync(ctx, db, nil /* miningConfig */, logger)
+	engine, _, _, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	chainConfig, _ := fromdb.ChainConfig(db), fromdb.PruneMode(db)
 
 	return db.Update(ctx, func(tx kv.RwTx) error {
@@ -644,7 +644,7 @@ func stageSnapshots(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 			}
 		}
 		dirs := datadir.New(datadirCli)
-		if err := reset2.ResetBlocks(tx, db, agg, br, bw, dirs, *chainConfig, logger); err != nil {
+		if err := reset2.ResetBlocks(tx, db, agg, br, bw, dirs, *chainConfig, engine, logger); err != nil {
 			return fmt.Errorf("resetting blocks: %w", err)
 		}
 		ac := agg.BeginFilesRo()
@@ -689,7 +689,7 @@ func stageHeaders(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	defer borSn.Close()
 	defer agg.Close()
 	br, bw := blocksIO(db, logger)
-	_, _, _, _, _ = newSync(ctx, db, nil /* miningConfig */, logger)
+	engine, _, _, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	chainConfig, _ := fromdb.ChainConfig(db), fromdb.PruneMode(db)
 
 	if integritySlow {
@@ -716,7 +716,7 @@ func stageHeaders(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 				}
 			}
 
-			if err := reset2.ResetBlocks(tx, db, agg, br, bw, dirs, *chainConfig, logger); err != nil {
+			if err := reset2.ResetBlocks(tx, db, agg, br, bw, dirs, *chainConfig, engine, logger); err != nil {
 				return err
 			}
 			return nil
@@ -1486,8 +1486,7 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig,
 		blobStore = parlia.BlobStore
 	}
 
-	stages := stages2.NewDefaultStages(context.Background(), db, snapDb, blobStore, p2p.Config{}, &cfg, sentryControlServer, notifications, nil, blockReader, blockRetire, agg, nil, nil,
-		heimdallClient, recents, signatures, logger)
+	stages := stages2.NewDefaultStages(context.Background(), db, snapDb, blobStore, p2p.Config{}, &cfg, sentryControlServer, notifications, nil, blockReader, blockRetire, agg, nil, nil, engine, heimdallClient, recents, signatures, logger)
 	sync := stagedsync.New(cfg.Sync, stages, stagedsync.DefaultUnwindOrder, stagedsync.DefaultPruneOrder, logger)
 
 	miner := stagedsync.NewMiningState(&cfg.Miner)
@@ -1587,5 +1586,5 @@ func initConsensusEngine(ctx context.Context, cc *chain2.Config, dir string, db 
 		consensusConfig = &config.Ethash
 	}
 	return ethconsensusconfig.CreateConsensusEngine(ctx, &nodecfg.Config{Dirs: datadir.New(dir)}, cc, consensusConfig, config.Miner.Notify, config.Miner.Noverify,
-		heimdallClient, config.WithoutHeimdall, blockReader, db.ReadOnly(), logger, db, nil), heimdallClient
+		heimdallClient, config.WithoutHeimdall, blockReader, db.ReadOnly(), logger, nil), heimdallClient
 }

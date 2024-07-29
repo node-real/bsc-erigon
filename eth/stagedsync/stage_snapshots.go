@@ -23,6 +23,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"io"
 	"io/fs"
 	"math/big"
@@ -81,6 +83,7 @@ type SnapshotsCfg struct {
 	snapshotDownloader protodownloader.DownloaderClient
 	blockReader        services.FullBlockReader
 	notifier           *shards.Notifications
+	engine             consensus.Engine
 
 	caplin           bool
 	blobs            bool
@@ -99,6 +102,7 @@ func StageSnapshotsCfg(db kv.RwDB,
 	snapshotDownloader protodownloader.DownloaderClient,
 	blockReader services.FullBlockReader,
 	notifier *shards.Notifications,
+	engine consensus.Engine,
 	agg *state.Aggregator,
 	caplin bool,
 	blobs bool,
@@ -115,6 +119,7 @@ func StageSnapshotsCfg(db kv.RwDB,
 		notifier:           notifier,
 		caplin:             caplin,
 		agg:                agg,
+		engine:             engine,
 		silkworm:           silkworm,
 		syncConfig:         syncConfig,
 		blobs:              blobs,
@@ -317,7 +322,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 	}
 
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Fill DB"})
-	if err := FillDBFromSnapshots(s.LogPrefix(), ctx, tx, cfg.dirs, cfg.blockReader, cfg.agg, logger); err != nil {
+	if err := FillDBFromSnapshots(s.LogPrefix(), ctx, tx, cfg.dirs, cfg.blockReader, cfg.agg, cfg.chainConfig, cfg.engine, logger); err != nil {
 		return err
 	}
 	if casted, ok := tx.(*temporal.Tx); ok {
@@ -335,7 +340,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 	return nil
 }
 
-func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs datadir.Dirs, blockReader services.FullBlockReader, agg *state.Aggregator, logger log.Logger) error {
+func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs datadir.Dirs, blockReader services.FullBlockReader, agg *state.Aggregator, chainConfig chain.Config, engine consensus.Engine, logger log.Logger) error {
 	startTime := time.Now()
 	blocksAvailable := blockReader.FrozenBlocks()
 	logEvery := time.NewTicker(logInterval)
@@ -366,6 +371,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			// for now easier just store them in db
 			td := big.NewInt(0)
 			blockNumBytes := make([]byte, 8)
+			chainReader := &ChainReaderImpl{config: &chainConfig, tx: tx, blockReader: blockReader}
 			if err := blockReader.HeadersRange(ctx, func(header *types.Header) error {
 				blockNum, blockHash := header.Number.Uint64(), header.Hash()
 				td.Add(td, header.Difficulty)
@@ -383,6 +389,17 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 				binary.BigEndian.PutUint64(blockNumBytes, blockNum)
 				if err := h2n.Collect(blockHash[:], blockNumBytes); err != nil {
 					return err
+				}
+				if engine != nil && engine.Type() == chain.ParliaConsensus {
+					// consensus may have own database, let's fill it
+					// different consensuses may have some conditions for validators snapshots
+					need := false
+					need = (blockNum-1)%(100*parlia.CheckpointInterval) == 0
+					if need {
+						if err := engine.VerifyHeader(chainReader, header, true /* seal */); err != nil {
+							return err
+						}
+					}
 				}
 				select {
 				case <-ctx.Done():
