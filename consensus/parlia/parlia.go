@@ -745,7 +745,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		// If an on-disk checkpoint snapshot can be found, use that
 		if number%CheckpointInterval == 0 {
 			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
-				p.logger.Info("Loaded snapshot from disk", "number", number, "hash", hash)
+				p.logger.Trace("Loaded snapshot from disk", "number", number, "hash", hash)
 				snap = s
 				if !verify || snap != nil {
 					break
