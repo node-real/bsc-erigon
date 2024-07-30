@@ -2,10 +2,11 @@ package ethconsensusconfig
 
 import (
 	"context"
-	"github.com/ledgerwatch/erigon/core/blob_storage"
-	"github.com/spf13/afero"
 	"math"
 	"path/filepath"
+
+	"github.com/ledgerwatch/erigon/core/blob_storage"
+	"github.com/spf13/afero"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/ledgerwatch/log/v3"
@@ -122,7 +123,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			}
 			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), nodeConfig.Dirs.DataDir), math.MaxUint64, chainConfig, blockReader)
 
-			eng = parlia.New(chainConfig, db, blobStore, blockReader, chainDb[0], logger)
+			eng = parlia.New(chainConfig, db, blobStore, blockReader, logger)
 		}
 	case *borcfg.BorConfig:
 		// If Matic bor consensus is requested, set it up

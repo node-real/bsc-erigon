@@ -88,7 +88,7 @@ func ResetBlocks(tx kv.RwTx, db kv.RoDB, agg *state.Aggregator,
 	}
 
 	if br.FreezingCfg().Enabled && br.FrozenBlocks() > 0 {
-		if err := stagedsync.FillDBFromSnapshots("filling_db_from_snapshots", context.Background(), tx, dirs, br, agg, logger); err != nil {
+		if err := stagedsync.FillDBFromSnapshots("filling_db_from_snapshots", context.Background(), tx, dirs, br, agg, cc, engine, logger); err != nil {
 			return err
 		}
 		_ = stages.SaveStageProgress(tx, stages.Snapshots, br.FrozenBlocks())
