@@ -365,14 +365,16 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 				delete(snap.RecentForkHashes, number-i)
 			}
 		}
-		snap.Number = number
-		snap.Hash = header.Hash()
 		if snap.Number+s.config.Epoch >= headers[len(headers)-1].Number.Uint64() {
-			historySnap := snap.copy()
-			recentSnaps.Add(historySnap.Hash, historySnap)
+			temp := snap.copy()
+			temp.Number = number
+			temp.Hash = header.Hash()
+			recentSnaps.Add(temp.Hash, temp)
 		}
 	}
-
+	snap.Number += uint64(len(headers))
+	snap.Hash = headers[len(headers)-1].Hash()
+	recentSnaps.Add(snap.Hash, snap)
 	return snap, nil
 }
 
