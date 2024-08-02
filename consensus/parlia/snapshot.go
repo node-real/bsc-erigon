@@ -374,6 +374,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 	}
 	snap.Number += uint64(len(headers))
 	snap.Hash = headers[len(headers)-1].Hash()
+	recentSnaps.Add(snap.Hash, snap)
 	return snap, nil
 }
 
