@@ -194,10 +194,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask) {
 	var err error
 	header := txTask.Header
 	lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
-	parent, _ := rw.blockReader.HeaderByHash(rw.ctx, rw.chainTx, header.ParentHash)
-	if parent != nil {
-		lastBlockTime = parent.Time
-	}
 	//fmt.Printf("txNum=%d blockNum=%d history=%t\n", txTask.TxNum, txTask.BlockNum, txTask.HistoryExecution)
 
 	switch {
