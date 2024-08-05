@@ -320,7 +320,7 @@ require (
 replace (
 	github.com/anacrolix/torrent => github.com/erigontech/torrent v1.54.2-alpha-32
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
-	github.com/erigontech/erigon-snapshot => github.com/blxdyx/bsc-erigon-snapshot v0.0.0-20240804071937-7114291ecaa6
+	github.com/erigontech/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20240805061542-ddf011a69761
 	github.com/gballet/go-verkle => github.com/gballet/go-verkle v0.0.0-20221121182333-31427a1f2d35
 	github.com/holiman/bloomfilter/v2 => github.com/AskAlexSharov/bloomfilter/v2 v2.0.8
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
