@@ -245,6 +245,7 @@ func BodiesForward(
 
 				if cfg.chanConfig.Parlia != nil && cfg.chanConfig.IsCancun(headerNumber, header.Time) {
 					if err = core.IsDataAvailable(cr, header, rawBody, cfg.bd.LatestBlock); err != nil {
+						log.Error("Miss blobSidecars", "err", err)
 						return false, err
 					}
 				}
