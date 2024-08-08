@@ -355,7 +355,6 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 	if err != nil {
 		return fmt.Errorf("create state reader: %v", err)
 	}
-
 	ibs := state.New(stateReader)
 
 	if config != nil && config.StateOverrides != nil {

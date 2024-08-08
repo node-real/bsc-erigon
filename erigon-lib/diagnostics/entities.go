@@ -69,6 +69,7 @@ type PeerStatisticMsgUpdate struct {
 type SyncStatistics struct {
 	SnapshotDownload SnapshotDownloadStatistics `json:"snapshotDownload"`
 	SnapshotIndexing SnapshotIndexingStatistics `json:"snapshotIndexing"`
+	SnapshotFillDB   SnapshotFillDBStatistics   `json:"snapshotFillDB"`
 	BlockExecution   BlockExecutionStatistics   `json:"blockExecution"`
 	SyncFinished     bool                       `json:"syncFinished"`
 }
@@ -115,8 +116,9 @@ type SegmentPeer struct {
 }
 
 type SnapshotIndexingStatistics struct {
-	Segments    []SnapshotSegmentIndexingStatistics `json:"segments"`
-	TimeElapsed float64                             `json:"timeElapsed"`
+	Segments         []SnapshotSegmentIndexingStatistics `json:"segments"`
+	TimeElapsed      float64                             `json:"timeElapsed"`
+	IndexingFinished bool                                `json:"indexingFinished"`
 }
 
 type SnapshotSegmentIndexingStatistics struct {
@@ -128,6 +130,21 @@ type SnapshotSegmentIndexingStatistics struct {
 
 type SnapshotSegmentIndexingFinishedUpdate struct {
 	SegmentName string `json:"segmentName"`
+}
+
+type SnapshotFillDBStatistics struct {
+	Stages []SnapshotFillDBStage `json:"stages"`
+}
+
+type SnapshotFillDBStage struct {
+	StageName string `json:"stageName"`
+	Current   uint64 `json:"current"`
+	Total     uint64 `json:"total"`
+}
+
+type SnapshotFillDBStageUpdate struct {
+	Stage       SnapshotFillDBStage `json:"stage"`
+	TimeElapsed float64             `json:"timeElapsed"`
 }
 
 type BlockExecutionStatistics struct {
@@ -325,5 +342,9 @@ func (ti HeaderCanonicalMarkerUpdate) Type() Type {
 }
 
 func (ti HeadersProcessedUpdate) Type() Type {
+	return TypeOf(ti)
+}
+
+func (ti SnapshotFillDBStageUpdate) Type() Type {
 	return TypeOf(ti)
 }

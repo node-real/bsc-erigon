@@ -815,6 +815,7 @@ func dbCfg(label kv.Label, path string) mdbx.MdbxOpts {
 	// integration tool don't intent to create db, then easiest way to open db - it's pass mdbx.Accede flag, which allow
 	// to read all options from DB, instead of overriding them
 	opts = opts.Accede()
+
 	return opts
 }
 func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log.Logger) *libstate.Aggregator {
@@ -826,5 +827,6 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 		panic(err)
 	}
 	agg.SetWorkers(estimate.CompressSnapshot.Workers())
+
 	return agg
 }

@@ -314,10 +314,9 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 }
 
 func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs datadir.Dirs, blockReader services.FullBlockReader, agg *state.Aggregator, chainConfig chain.Config, engine consensus.Engine, logger log.Logger) error {
+	startTime := time.Now()
 	blocksAvailable := blockReader.FrozenBlocks()
 	logEvery := time.NewTicker(logInterval)
-	defer logEvery.Stop()
-	// updating the progress of further stages (but only forward) that are contained inside of snapshots
 	for _, stage := range []stages.SyncStage{stages.Headers, stages.Bodies, stages.BlockHashes, stages.Senders} {
 		progress, err := stages.GetStageProgress(tx, stage)
 		if err != nil {
@@ -370,6 +369,14 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 				case <-ctx.Done():
 					return ctx.Err()
 				case <-logEvery.C:
+					diagnostics.Send(diagnostics.SnapshotFillDBStageUpdate{
+						Stage: diagnostics.SnapshotFillDBStage{
+							StageName: string(stage),
+							Current:   header.Number.Uint64(),
+							Total:     blocksAvailable,
+						},
+						TimeElapsed: time.Since(startTime).Seconds(),
+					})
 					logger.Info(fmt.Sprintf("[%s] Total difficulty index: %dk/%dk", logPrefix, header.Number.Uint64()/1000, blockReader.FrozenBlocks()/1000))
 				default:
 				}
@@ -409,6 +416,14 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					case <-ctx.Done():
 						return ctx.Err()
 					case <-logEvery.C:
+						diagnostics.Send(diagnostics.SnapshotFillDBStageUpdate{
+							Stage: diagnostics.SnapshotFillDBStage{
+								StageName: string(stage),
+								Current:   blockNum,
+								Total:     blocksAvailable,
+							},
+							TimeElapsed: time.Since(startTime).Seconds(),
+						})
 						logger.Info(fmt.Sprintf("[%s] MaxTxNums index: %dk/%dk", logPrefix, blockNum/1000, blockReader.FrozenBlocks()/1000))
 					default:
 					}
@@ -434,6 +449,16 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			if err := rawdb.WriteSnapshots(tx, blockReader.FrozenFiles(), agg.Files()); err != nil {
 				return err
 			}
+
+		default:
+			diagnostics.Send(diagnostics.SnapshotFillDBStageUpdate{
+				Stage: diagnostics.SnapshotFillDBStage{
+					StageName: string(stage),
+					Current:   blocksAvailable, // as we are done with other stages
+					Total:     blocksAvailable,
+				},
+				TimeElapsed: time.Since(startTime).Seconds(),
+			})
 		}
 	}
 	return nil
@@ -1328,4 +1353,5 @@ func (u *snapshotUploader) upload(ctx context.Context, logger log.Logger) {
 			u.removeBefore(maxUploaded - u.cfg.syncConfig.FrozenBlockLimit)
 		}
 	}
+
 }

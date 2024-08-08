@@ -3,8 +3,12 @@ package diagnostics
 import (
 	"context"
 	"net/http"
+	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/c2h5oh/datasize"
 	"golang.org/x/sync/semaphore"
@@ -45,10 +49,7 @@ func NewDiagnosticClient(ctx context.Context, metricsMux *http.ServeMux, dataDir
 		return nil, err
 	}
 
-	hInfo := ReadSysInfo(db)
-	ss := ReadSyncStages(db)
-	snpdwl := ReadSnapshotDownloadInfo(db)
-	snpidx := ReadSnapshotIndexingInfo(db)
+	hInfo, ss, snpdwl, snpidx, snpfd := ReadSavedData(db)
 
 	return &DiagnosticClient{
 		ctx:         ctx,
@@ -60,6 +61,7 @@ func NewDiagnosticClient(ctx context.Context, metricsMux *http.ServeMux, dataDir
 		syncStats: SyncStatistics{
 			SnapshotDownload: snpdwl,
 			SnapshotIndexing: snpidx,
+			SnapshotFillDB:   snpfd,
 		},
 		hardwareInfo:     hInfo,
 		snapshotFileList: SnapshoFilesList{},
@@ -101,8 +103,59 @@ func (d *DiagnosticClient) Setup() {
 	d.setupBodiesDiagnostics(rootCtx)
 	d.setupResourcesUsageDiagnostics(rootCtx)
 	d.setupSpeedtestDiagnostics(rootCtx)
+	d.runSaveProcess(rootCtx)
+	d.runStopNodeListener(rootCtx)
 
 	//d.logDiagMsgs()
+
+}
+
+func (d *DiagnosticClient) runStopNodeListener(rootCtx context.Context) {
+	go func() {
+		ch := make(chan os.Signal, 1)
+		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
+		select {
+		case <-ch:
+			d.SaveData()
+		case <-rootCtx.Done():
+		}
+	}()
+}
+
+// Save diagnostic data by time interval to reduce save events
+func (d *DiagnosticClient) runSaveProcess(rootCtx context.Context) {
+	ticker := time.NewTicker(5 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				d.SaveData()
+			case <-rootCtx.Done():
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+}
+
+func (d *DiagnosticClient) SaveData() {
+	var funcs []func(tx kv.RwTx) error
+	funcs = append(funcs, SnapshotDownloadUpdater(d.syncStats.SnapshotDownload), StagesListUpdater(d.syncStages), SnapshotIndexingUpdater(d.syncStats.SnapshotIndexing))
+
+	err := d.db.Update(d.ctx, func(tx kv.RwTx) error {
+		for _, updater := range funcs {
+			updErr := updater(tx)
+			if updErr != nil {
+				return updErr
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		log.Warn("Failed to save diagnostics data", "err", err)
+	}
 }
 
 /*func (d *DiagnosticClient) logDiagMsgs() {
@@ -133,3 +186,75 @@ func interfaceToJSONString(i interface{}) string {
 	}
 	return string(b)
 }*/
+
+func ReadSavedData(db kv.RoDB) (hinfo HardwareInfo, ssinfo []SyncStage, snpdwl SnapshotDownloadStatistics, snpidx SnapshotIndexingStatistics, snpfd SnapshotFillDBStatistics) {
+	var ramBytes []byte
+	var cpuBytes []byte
+	var diskBytes []byte
+	var ssinfoData []byte
+	var snpdwlData []byte
+	var snpidxData []byte
+	var snpfdData []byte
+	var err error
+
+	if err := db.View(context.Background(), func(tx kv.Tx) error {
+		ramBytes, err = ReadRAMInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		cpuBytes, err = ReadCPUInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		diskBytes, err = ReadDiskInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		ssinfoData, err = SyncStagesFromTX(tx)
+		if err != nil {
+			return err
+		}
+
+		snpdwlData, err = SnapshotDownloadInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		snpidxData, err = SnapshotIndexingInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		snpfdData, err = SnapshotFillDBInfoFromTx(tx)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return HardwareInfo{}, []SyncStage{}, SnapshotDownloadStatistics{}, SnapshotIndexingStatistics{}, SnapshotFillDBStatistics{}
+	}
+
+	var ramInfo RAMInfo
+	var cpuInfo CPUInfo
+	var diskInfo DiskInfo
+	ParseData(ramBytes, &ramInfo)
+	ParseData(cpuBytes, &cpuInfo)
+	ParseData(diskBytes, &diskInfo)
+
+	hinfo = HardwareInfo{
+		RAM:  ramInfo,
+		CPU:  cpuInfo,
+		Disk: diskInfo,
+	}
+
+	ParseData(ssinfoData, &ssinfo)
+	ParseData(snpdwlData, &snpdwl)
+	ParseData(snpidxData, &snpidx)
+	ParseData(snpfdData, &snpfd)
+
+	return hinfo, ssinfo, snpdwl, snpidx, snpfd
+}

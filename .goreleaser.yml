@@ -64,9 +64,3 @@ builds:
 
 snapshot:
   name_template: "{{ .Tag }}.next"
-
-announce:
-  slack:
-    enabled: false
-    # The name of the channel that the user selected as a destination for webhook messages.
-    channel: '#code-releases'
