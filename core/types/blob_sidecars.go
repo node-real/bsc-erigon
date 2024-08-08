@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	ssz2 "github.com/ledgerwatch/erigon/cl/ssz"
 	"io"
 	"math/big"
 
@@ -155,4 +156,19 @@ func (s *BlobSidecar) payloadSize() int {
 
 func (s *BlobSidecar) EncodingSize() int {
 	return s.payloadSize()
+}
+
+func (s *BlobSidecar) EncodeSSZ(buf []byte) ([]byte, error) {
+	return ssz2.MarshalSSZ(buf, s.getSchema()...)
+}
+
+func (b *BlobSidecar) getSchema() []interface{} {
+	s := []interface{}{&b.Index, b.Blob[:], b.KzgCommitment[:], b.KzgProof[:]}
+	if b.SignedBlockHeader != nil {
+		s = append(s, b.SignedBlockHeader)
+	}
+	if b.CommitmentInclusionProof != nil {
+		s = append(s, b.CommitmentInclusionProof)
+	}
+	return s
 }
