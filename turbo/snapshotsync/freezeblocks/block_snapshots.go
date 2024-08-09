@@ -1050,6 +1050,31 @@ func SegmentsCaplin(dir string, minBlock uint64) (res []snaptype.FileInfo, missi
 	return res, missingSnapshots, nil
 }
 
+func SegmentsBsc(dir string, minBlock uint64) (res []snaptype.FileInfo, missingSnapshots []Range, err error) {
+	list, err := snaptype.Segments(dir)
+	if err != nil {
+		return nil, missingSnapshots, err
+	}
+
+	{
+		var lSidecars []snaptype.FileInfo
+		var m []Range
+		for _, f := range list {
+			if f.Type.Enum() == snaptype.CaplinEnums.BlobSidecars {
+				lSidecars = append(lSidecars, f) // blobs are an exception
+			}
+		}
+		lSidecars, m = noGaps(noOverlaps(lSidecars), minBlock)
+		if len(m) > 0 {
+			lst := m[len(m)-1]
+			log.Debug("[snapshots] see gap", "type", snaptype.CaplinEnums.BlobSidecars, "from", lst.from)
+		}
+		res = append(res, lSidecars...)
+		missingSnapshots = append(missingSnapshots, m...)
+	}
+	return res, missingSnapshots, nil
+}
+
 func Segments(dir string, minBlock uint64) (res []snaptype.FileInfo, missingSnapshots []Range, err error) {
 	return typedSegments(dir, minBlock, coresnaptype.BlockSnapshotTypes, false)
 }
