@@ -12,11 +12,11 @@ import (
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/recsplit"
 	"github.com/ledgerwatch/erigon-lib/seg"
-	"github.com/ledgerwatch/erigon/core/blob_storage"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/rlp"
+	"github.com/ledgerwatch/erigon/turbo/services"
 	"github.com/ledgerwatch/log/v3"
 	"os"
 	"path/filepath"
@@ -52,6 +52,7 @@ func NewBscSnapshots(cfg ethconfig.BlocksFreezing, dirs datadir.Dirs, logger log
 
 func (s *BscSnapshots) IndicesMax() uint64  { return s.idxMax.Load() }
 func (s *BscSnapshots) SegmentsMax() uint64 { return s.segmentsMax.Load() }
+func (s *BscSnapshots) SegmentsMin() uint64 { return s.segmentsMin.Load() }
 
 func (s *BscSnapshots) LogStat(str string) {
 	s.logger.Info(fmt.Sprintf("[snapshots:%s] Stat", str),
@@ -253,7 +254,7 @@ func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*Segment, bool) {
 	return nil, false
 }
 
-func dumpBlobsRange(ctx context.Context, db kv.RoDB, store blob_storage.BlobStore, from uint64, to uint64, salt uint32, dirs datadir.Dirs, workers int, lvl log.Lvl, logger log.Logger) error {
+func dumpBlobsRange(ctx context.Context, db kv.RoDB, store services.BlobStorage, from uint64, to uint64, salt uint32, dirs datadir.Dirs, workers int, lvl log.Lvl, logger log.Logger) error {
 	tmpDir, snapDir := dirs.Tmp, dirs.Snap
 
 	segName := snaptype.BlobSidecars.FileName(0, from, to)
@@ -315,7 +316,7 @@ func dumpBlobsRange(ctx context.Context, db kv.RoDB, store blob_storage.BlobStor
 	return BlobSimpleIdx(ctx, f, salt, tmpDir, p, lvl, logger)
 }
 
-func DumpBlobs(ctx context.Context, blobStorage blob_storage.BlobStore, db kv.RoDB, fromSlot, toSlot uint64, salt uint32, dirs datadir.Dirs, compressWorkers int, lvl log.Lvl, logger log.Logger) error {
+func DumpBlobs(ctx context.Context, blobStorage services.BlobStorage, db kv.RoDB, fromSlot, toSlot uint64, salt uint32, dirs datadir.Dirs, compressWorkers int, lvl log.Lvl, logger log.Logger) error {
 	for i := fromSlot; i < toSlot; i = chooseSegmentEnd(i, toSlot, snaptype.CaplinEnums.BlobSidecars, nil) {
 		blocksPerFile := snapcfg.MergeLimit("", snaptype.CaplinEnums.BlobSidecars, i)
 

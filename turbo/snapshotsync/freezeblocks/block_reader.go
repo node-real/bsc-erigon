@@ -311,6 +311,7 @@ type BlockReader struct {
 	sn    *RoSnapshots
 	borSn *BorRoSnapshots
 	bs    services.BlobStorage
+	bscSn *BscSnapshots
 }
 
 func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots) *BlockReader {
