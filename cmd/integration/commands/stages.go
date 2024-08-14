@@ -1577,7 +1577,7 @@ func blocksIO(db kv.RoDB, logger log.Logger) (services.FullBlockReader, *blockio
 	openBlockReaderOnce.Do(func() {
 		sn, borSn, _ := allSnapshots(context.Background(), db, logger)
 		histV3 := kvcfg.HistoryV3.FromDB(db)
-		_blockReaderSingleton = freezeblocks.NewBlockReader(sn, borSn)
+		_blockReaderSingleton = freezeblocks.NewBlockReader(sn, borSn, nil)
 		_blockWriterSingleton = blockio.NewBlockWriter(histV3)
 	})
 	return _blockReaderSingleton, _blockWriterSingleton

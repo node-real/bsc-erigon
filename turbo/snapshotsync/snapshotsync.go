@@ -71,12 +71,18 @@ func RequestSnapshotsDownload(ctx context.Context, downloadRequest []services.Do
 func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool, caplin CaplinMode, agg *state.Aggregator, tx kv.RwTx, blockReader services.FullBlockReader, cc *chain.Config, snapshotDownloader proto_downloader.DownloaderClient, stagesIdsList []string) error {
 	snapshots := blockReader.Snapshots()
 	borSnapshots := blockReader.BorSnapshots()
+	bscSnapshots := blockReader.BscSnapshots()
 	if blockReader.FreezingCfg().NoDownloader {
 		if err := snapshots.ReopenFolder(); err != nil {
 			return err
 		}
 		if cc.Bor != nil {
 			if err := borSnapshots.ReopenFolder(); err != nil {
+				return err
+			}
+		}
+		if cc.Parlia != nil {
+			if err := bscSnapshots.ReopenFolder(); err != nil {
 				return err
 			}
 		}
@@ -87,7 +93,11 @@ func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool
 	if cc.Bor != nil {
 		borSnapshots.Close()
 	}
+	if cc.Parlia != nil {
+		bscSnapshots.Close()
+	}
 
+	blobs = cc.Parlia != nil
 	//Corner cases:
 	// - Erigon generated file X with hash H1. User upgraded Erigon. New version has preverified file X with hash H2. Must ignore H2 (don't send to Downloader)
 	// - Erigon "download once": means restart/upgrade/downgrade must not download files (and will be fast)
@@ -105,7 +115,7 @@ func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool
 				continue
 			}
 		}
-		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks") || strings.Contains(p.Name, "blobsidecars")) {
+		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks")) {
 			continue
 		}
 		if caplin == OnlyCaplin && !strings.Contains(p.Name, "beaconblocks") && !strings.Contains(p.Name, "blobsidecars") {
@@ -189,6 +199,12 @@ func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool
 
 	if cc.Bor != nil {
 		if err := borSnapshots.ReopenFolder(); err != nil {
+			return err
+		}
+	}
+
+	if cc.Parlia != nil {
+		if err := bscSnapshots.ReopenFolder(); err != nil {
 			return err
 		}
 	}

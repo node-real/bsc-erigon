@@ -396,6 +396,12 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
+	bscSnaps := freezeblocks.NewBscSnapshots(cfg, dirs, logger)
+	if err = bscSnaps.ReopenFolder(); err != nil {
+		return
+	}
+	bscSnaps.LogStat("bor:open")
+
 	chainConfig := fromdb.ChainConfig(chainDB)
 
 	var beaconConfig *clparams.BeaconChainConfig
@@ -424,7 +430,7 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
-	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps)
+	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps, bscSnaps)
 	blockWriter := blockio.NewBlockWriter(fromdb.HistV3(chainDB))
 	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, chainConfig, nil, logger)
 	return

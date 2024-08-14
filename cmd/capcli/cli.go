@@ -530,7 +530,8 @@ func (d *DownloadSnapshots) Run(ctx *Context) error {
 	return snapshotsync.WaitForDownloader(ctx, "CapCliDownloader", false, false, snapshotsync.OnlyCaplin, s, tx,
 		freezeblocks.NewBlockReader(
 			freezeblocks.NewRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root()),
-			freezeblocks.NewBorRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root())),
+			freezeblocks.NewBorRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root()),
+			freezeblocks.NewBscSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs, log.Root())),
 		params.ChainConfigByChainName(d.Chain), direct.NewDownloaderClient(bittorrentServer), []string{})
 }
 
@@ -570,7 +571,7 @@ func (r *RetrieveHistoricalState) Run(ctx *Context) error {
 	}
 
 	var bor *freezeblocks.BorRoSnapshots
-	blockReader := freezeblocks.NewBlockReader(allSnapshots, bor)
+	blockReader := freezeblocks.NewBlockReader(allSnapshots, bor, nil)
 	eth1Getter := getters.NewExecutionSnapshotReader(ctx, beaconConfig, blockReader, db)
 	csn := freezeblocks.NewCaplinSnapshots(ethconfig.BlocksFreezing{}, beaconConfig, dirs, log.Root())
 	if err := csn.ReopenFolder(); err != nil {

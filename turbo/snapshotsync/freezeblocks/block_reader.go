@@ -111,6 +111,7 @@ func (r *RemoteBlockReader) HeaderByNumber(ctx context.Context, tx kv.Getter, bl
 }
 func (r *RemoteBlockReader) Snapshots() services.BlockSnapshots    { panic("not implemented") }
 func (r *RemoteBlockReader) BorSnapshots() services.BlockSnapshots { panic("not implemented") }
+func (r *RemoteBlockReader) BscSnapshots() services.BlockSnapshots { panic("not implemented") }
 func (r *RemoteBlockReader) AllTypes() []snaptype.Type             { panic("not implemented") }
 func (r *RemoteBlockReader) FrozenBlocks() uint64                  { panic("not supported") }
 func (r *RemoteBlockReader) FrozenBorBlocks() uint64               { panic("not supported") }
@@ -314,10 +315,11 @@ type BlockReader struct {
 	bscSn *BscSnapshots
 }
 
-func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots) *BlockReader {
+func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots, bscSnapshot services.BlockSnapshots) *BlockReader {
 	borSn, _ := borSnapshots.(*BorRoSnapshots)
 	sn, _ := snapshots.(*RoSnapshots)
-	return &BlockReader{sn: sn, borSn: borSn}
+	bscSn, _ := bscSnapshot.(*BscSnapshots)
+	return &BlockReader{sn: sn, borSn: borSn, bscSn: bscSn}
 }
 
 func (r *BlockReader) WithSidecars(blobStorage services.BlobStorage) {
@@ -336,11 +338,22 @@ func (r *BlockReader) BorSnapshots() services.BlockSnapshots {
 	return nil
 }
 
+func (r *BlockReader) BscSnapshots() services.BlockSnapshots {
+	if r.bscSn != nil {
+		return r.bscSn
+	}
+
+	return nil
+}
+
 func (r *BlockReader) AllTypes() []snaptype.Type {
 	var types []snaptype.Type
 	types = append(types, r.sn.Types()...)
 	if r.borSn != nil {
 		types = append(types, r.borSn.Types()...)
+	}
+	if r.bscSn != nil {
+		types = append(types, r.bscSn.Types()...)
 	}
 	return types
 }
@@ -356,6 +369,9 @@ func (r *BlockReader) FrozenFiles() []string {
 	files := r.sn.Files()
 	if r.borSn != nil {
 		files = append(files, r.borSn.Files()...)
+	}
+	if r.bscSn != nil {
+		files = append(files, r.bscSn.Files()...)
 	}
 	sort.Strings(files)
 	return files

@@ -60,6 +60,8 @@ func (s *BscSnapshots) LogStat(str string) {
 		"indices", fmt.Sprintf("%dk", (s.IndicesMax()+1)/1000))
 }
 
+func (s *BscSnapshots) Types() []snaptype.Type { return snaptype.CaplinSnapshotTypes }
+
 func (s *CaplinSnapshots) LS() {
 	if s == nil {
 		return
