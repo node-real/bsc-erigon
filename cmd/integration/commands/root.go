@@ -104,7 +104,7 @@ func openDB(opts kv2.MdbxOpts, applyMigrations bool, logger log.Logger) (kv.RwDB
 			return nil, err
 		}
 		if h3 {
-			_, _, agg := allSnapshots(context.Background(), db, logger)
+			_, _, _, agg := allSnapshots(context.Background(), db, logger)
 			tdb, err := temporal.New(db, agg)
 			if err != nil {
 				return nil, err

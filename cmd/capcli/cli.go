@@ -531,7 +531,7 @@ func (d *DownloadSnapshots) Run(ctx *Context) error {
 		freezeblocks.NewBlockReader(
 			freezeblocks.NewRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root()),
 			freezeblocks.NewBorRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root()),
-			freezeblocks.NewBscSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs, log.Root())),
+			freezeblocks.NewBscRoSnapshots(ethconfig.NewSnapCfg(false, false, false), dirs.Snap, 0, log.Root())),
 		params.ChainConfigByChainName(d.Chain), direct.NewDownloaderClient(bittorrentServer), []string{})
 }
 

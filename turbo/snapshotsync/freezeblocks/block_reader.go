@@ -109,12 +109,14 @@ func (r *RemoteBlockReader) HeaderByNumber(ctx context.Context, tx kv.Getter, bl
 	}
 	return block.Header(), nil
 }
+func (r *RemoteBlockReader) BlobStore() services.BlobStorage       { panic("not implemented") }
 func (r *RemoteBlockReader) Snapshots() services.BlockSnapshots    { panic("not implemented") }
 func (r *RemoteBlockReader) BorSnapshots() services.BlockSnapshots { panic("not implemented") }
 func (r *RemoteBlockReader) BscSnapshots() services.BlockSnapshots { panic("not implemented") }
 func (r *RemoteBlockReader) AllTypes() []snaptype.Type             { panic("not implemented") }
 func (r *RemoteBlockReader) FrozenBlocks() uint64                  { panic("not supported") }
 func (r *RemoteBlockReader) FrozenBorBlocks() uint64               { panic("not supported") }
+func (r *RemoteBlockReader) FrozenBscBlocks() uint64               { panic("not supported") }
 func (r *RemoteBlockReader) FrozenFiles() (list []string)          { panic("not supported") }
 func (r *RemoteBlockReader) FreezingCfg() ethconfig.BlocksFreezing { panic("not supported") }
 
@@ -312,13 +314,13 @@ type BlockReader struct {
 	sn    *RoSnapshots
 	borSn *BorRoSnapshots
 	bs    services.BlobStorage
-	bscSn *BscSnapshots
+	bscSn *BscRoSnapshots
 }
 
 func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots, bscSnapshot services.BlockSnapshots) *BlockReader {
 	borSn, _ := borSnapshots.(*BorRoSnapshots)
 	sn, _ := snapshots.(*RoSnapshots)
-	bscSn, _ := bscSnapshot.(*BscSnapshots)
+	bscSn, _ := bscSnapshot.(*BscRoSnapshots)
 	return &BlockReader{sn: sn, borSn: borSn, bscSn: bscSn}
 }
 
@@ -329,6 +331,14 @@ func (r *BlockReader) WithSidecars(blobStorage services.BlobStorage) {
 func (r *BlockReader) CanPruneTo(currentBlockInDB uint64) uint64 {
 	return CanDeleteTo(currentBlockInDB, r.sn.BlocksAvailable())
 }
+
+func (r *BlockReader) BlobStore() services.BlobStorage {
+	if r.bs != nil {
+		return r.bs
+	}
+	return nil
+}
+
 func (r *BlockReader) Snapshots() services.BlockSnapshots { return r.sn }
 func (r *BlockReader) BorSnapshots() services.BlockSnapshots {
 	if r.borSn != nil {
@@ -365,6 +375,14 @@ func (r *BlockReader) FrozenBorBlocks() uint64 {
 	}
 	return 0
 }
+
+func (r *BlockReader) FrozenBscBlocks() uint64 {
+	if r.bscSn != nil {
+		return r.bscSn.BlocksAvailable()
+	}
+	return 0
+}
+
 func (r *BlockReader) FrozenFiles() []string {
 	files := r.sn.Files()
 	if r.borSn != nil {

@@ -114,10 +114,12 @@ type FullBlockReader interface {
 
 	FrozenBlocks() uint64
 	FrozenBorBlocks() uint64
+	FrozenBscBlocks() uint64
 	FrozenFiles() (list []string)
 	FreezingCfg() ethconfig.BlocksFreezing
 	CanPruneTo(currentBlockInDB uint64) (canPruneBlocksTo uint64)
 
+	BlobStore() BlobStorage
 	Snapshots() BlockSnapshots
 	BorSnapshots() BlockSnapshots
 	BscSnapshots() BlockSnapshots

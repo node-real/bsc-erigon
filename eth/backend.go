@@ -361,7 +361,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 		return nil, err
 	}
 
-	// TODO: @Blxdyx add remoteDbServer for bscSnapshots
+	// TODO: @Blxdyx add remoteDbServer for bscSnapshots, now it use for remote Rpc server.
 	kvRPC := remotedbserver.NewKvServer(ctx, backend.chainDB, allSnapshots, allBorSnapshots, agg, logger)
 	backend.notifications.StateChangesConsumer = kvRPC
 	backend.kvRPC = kvRPC
@@ -1390,7 +1390,7 @@ func (s *Ethereum) setUpSnapDownloader(ctx context.Context, downloaderCfg *downl
 	return err
 }
 
-func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConfig *ethconfig.Config, histV3 bool, isBor bool, isBsc bool, logger log.Logger) (services.FullBlockReader, *blockio.BlockWriter, *freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *freezeblocks.BscSnapshots, *libstate.Aggregator, error) {
+func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConfig *ethconfig.Config, histV3 bool, isBor bool, isBsc bool, logger log.Logger) (services.FullBlockReader, *blockio.BlockWriter, *freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *freezeblocks.BscRoSnapshots, *libstate.Aggregator, error) {
 	var minFrozenBlock uint64
 
 	if frozenLimit := snConfig.Sync.FrozenBlockLimit; frozenLimit != 0 {
@@ -1406,10 +1406,9 @@ func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConf
 		allBorSnapshots = freezeblocks.NewBorRoSnapshots(snConfig.Snapshot, dirs.Snap, minFrozenBlock, logger)
 	}
 
-	var allBscSnapshots *freezeblocks.BscSnapshots
+	var allBscSnapshots *freezeblocks.BscRoSnapshots
 	if isBsc {
-		allBscSnapshots = freezeblocks.NewBscSnapshots(snConfig.Snapshot, dirs, logger)
-		allBscSnapshots.ReopenFolder()
+		allBscSnapshots = freezeblocks.NewBscRoSnapshots(snConfig.Snapshot, dirs.Snap, minFrozenBlock, logger)
 	}
 
 	var err error
@@ -1418,10 +1417,16 @@ func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConf
 		if isBor {
 			allBorSnapshots.ReopenFolder()
 		}
+		if isBsc {
+			allBscSnapshots.ReopenFolder()
+		}
 	} else {
 		allSnapshots.OptimisticalyReopenWithDB(db)
 		if isBor {
 			allBorSnapshots.OptimisticalyReopenWithDB(db)
+		}
+		if isBsc {
+			allBscSnapshots.OptimisticalyReopenWithDB(db)
 		}
 	}
 	blockReader := freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, allBscSnapshots)

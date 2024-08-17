@@ -396,7 +396,7 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
-	bscSnaps := freezeblocks.NewBscSnapshots(cfg, dirs, logger)
+	bscSnaps := freezeblocks.NewBscRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = bscSnaps.ReopenFolder(); err != nil {
 		return
 	}

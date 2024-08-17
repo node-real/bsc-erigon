@@ -496,9 +496,10 @@ var cmdSetSnap = &cobra.Command{
 			return
 		}
 		defer db.Close()
-		sn, borSn, agg := allSnapshots(cmd.Context(), db, logger)
+		sn, borSn, bscSn, agg := allSnapshots(cmd.Context(), db, logger)
 		defer sn.Close()
 		defer borSn.Close()
+		defer bscSn.Close()
 		defer agg.Close()
 
 		cfg := sn.Cfg()
@@ -739,9 +740,10 @@ func stageHeaders(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 		return err
 	}
 
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	br, bw := blocksIO(db, logger)
 	engine, _, _, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
@@ -838,7 +840,7 @@ func stageBorHeimdall(db kv.RwDB, ctx context.Context, unwindTypes []string, log
 			return nil
 		}
 		if unwind > 0 {
-			sn, borSn, agg := allSnapshots(ctx, db, logger)
+			sn, borSn, _, agg := allSnapshots(ctx, db, logger)
 			defer sn.Close()
 			defer borSn.Close()
 			defer agg.Close()
@@ -869,7 +871,7 @@ func stageBorHeimdall(db kv.RwDB, ctx context.Context, unwindTypes []string, log
 			return nil
 		}
 
-		sn, borSn, agg := allSnapshots(ctx, db, logger)
+		sn, borSn, _, agg := allSnapshots(ctx, db, logger)
 		defer sn.Close()
 		defer borSn.Close()
 		defer agg.Close()
@@ -902,9 +904,10 @@ func stageBorHeimdall(db kv.RwDB, ctx context.Context, unwindTypes []string, log
 }
 
 func stageBodies(db kv.RwDB, ctx context.Context, logger log.Logger) error {
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	chainConfig, historyV3 := fromdb.ChainConfig(db), kvcfg.HistoryV3.FromDB(db)
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
@@ -942,9 +945,10 @@ func stageBodies(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 func stageSenders(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	tmpdir := datadir.New(datadirCli).Tmp
 	chainConfig := fromdb.ChainConfig(db)
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 
@@ -1040,9 +1044,10 @@ func stageExec(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 
 	engine, vmConfig, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	must(sync.SetCurrentStage(stages.Execution))
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 
 	if warmup {
@@ -1123,9 +1128,10 @@ func stageExec(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 
 func stageTrie(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	dirs, pm, historyV3 := datadir.New(datadirCli), fromdb.PruneMode(db), kvcfg.HistoryV3.FromDB(db)
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	must(sync.SetCurrentStage(stages.IntermediateHashes))
@@ -1181,9 +1187,10 @@ func stageTrie(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 
 func stageHashState(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	dirs, pm, historyV3 := datadir.New(datadirCli), fromdb.PruneMode(db), kvcfg.HistoryV3.FromDB(db)
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	must(sync.SetCurrentStage(stages.HashState))
@@ -1362,9 +1369,10 @@ func stageHistory(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	if historyV3 {
 		return fmt.Errorf("this stage is disable in --history.v3=true")
 	}
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	must(sync.SetCurrentStage(stages.AccountHistoryIndex))
@@ -1421,7 +1429,7 @@ func stageHistory(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 		if err != nil {
 			return err
 		}
-		_ = printStages(tx, sn, borSn, agg)
+		_ = printStages(tx, sn, borSn, bscSn, agg)
 	} else {
 		if err := stagedsync.SpawnAccountHistoryIndex(stageAcc, tx, cfg, ctx, logger); err != nil {
 			return err
@@ -1438,9 +1446,10 @@ func stageTxLookup(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 	_, _, sync, _, _ := newSync(ctx, db, nil /* miningConfig */, logger)
 	chainConfig := fromdb.ChainConfig(db)
 	must(sync.SetCurrentStage(stages.TxLookup))
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
 
 	if reset {
@@ -1488,11 +1497,12 @@ func stageTxLookup(db kv.RwDB, ctx context.Context, logger log.Logger) error {
 }
 
 func printAllStages(db kv.RoDB, ctx context.Context, logger log.Logger) error {
-	sn, borSn, agg := allSnapshots(ctx, db, logger)
+	sn, borSn, bscSn, agg := allSnapshots(ctx, db, logger)
 	defer sn.Close()
 	defer borSn.Close()
+	defer bscSn.Close()
 	defer agg.Close()
-	return db.View(ctx, func(tx kv.Tx) error { return printStages(tx, sn, borSn, agg) })
+	return db.View(ctx, func(tx kv.Tx) error { return printStages(tx, sn, borSn, bscSn, agg) })
 }
 
 func printAppliedMigrations(db kv.RwDB, ctx context.Context, logger log.Logger) error {
@@ -1522,9 +1532,10 @@ func removeMigration(db kv.RwDB, ctx context.Context) error {
 var openSnapshotOnce sync.Once
 var _allSnapshotsSingleton *freezeblocks.RoSnapshots
 var _allBorSnapshotsSingleton *freezeblocks.BorRoSnapshots
+var _allBscSnapshotsSingleton *freezeblocks.BscRoSnapshots
 var _aggSingleton *libstate.Aggregator
 
-func allSnapshots(ctx context.Context, db kv.RoDB, logger log.Logger) (*freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *libstate.Aggregator) {
+func allSnapshots(ctx context.Context, db kv.RoDB, logger log.Logger) (*freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *freezeblocks.BscRoSnapshots, *libstate.Aggregator) {
 	openSnapshotOnce.Do(func() {
 		var useSnapshots bool
 		_ = db.View(context.Background(), func(tx kv.Tx) error {
@@ -1537,6 +1548,7 @@ func allSnapshots(ctx context.Context, db kv.RoDB, logger log.Logger) (*freezebl
 		snapCfg := ethconfig.NewSnapCfg(useSnapshots, true, true)
 		_allSnapshotsSingleton = freezeblocks.NewRoSnapshots(snapCfg, dirs.Snap, 0, logger)
 		_allBorSnapshotsSingleton = freezeblocks.NewBorRoSnapshots(snapCfg, dirs.Snap, 0, logger)
+		_allBscSnapshotsSingleton = freezeblocks.NewBscRoSnapshots(snapCfg, dirs.Snap, 0, logger)
 
 		var err error
 		_aggSingleton, err = libstate.NewAggregator(ctx, dirs.SnapHistory, dirs.Tmp, config3.HistoryV3AggregationStep, db, logger)
@@ -1557,6 +1569,10 @@ func allSnapshots(ctx context.Context, db kv.RoDB, logger log.Logger) (*freezebl
 				panic(err)
 			}
 			_allBorSnapshotsSingleton.LogStat("all")
+			if err := _allBscSnapshotsSingleton.ReopenFolder(); err != nil {
+				panic(err)
+			}
+			_allBscSnapshotsSingleton.LogStat("all")
 			db.View(context.Background(), func(tx kv.Tx) error {
 				_aggSingleton.LogStats(tx, func(endTxNumMinimax uint64) uint64 {
 					_, histBlockNumProgress, _ := rawdbv3.TxNums.FindBlockNum(tx, endTxNumMinimax)
@@ -1566,7 +1582,7 @@ func allSnapshots(ctx context.Context, db kv.RoDB, logger log.Logger) (*freezebl
 			})
 		}
 	})
-	return _allSnapshotsSingleton, _allBorSnapshotsSingleton, _aggSingleton
+	return _allSnapshotsSingleton, _allBorSnapshotsSingleton, _allBscSnapshotsSingleton, _aggSingleton
 }
 
 var openBlockReaderOnce sync.Once
@@ -1575,9 +1591,9 @@ var _blockWriterSingleton *blockio.BlockWriter
 
 func blocksIO(db kv.RoDB, logger log.Logger) (services.FullBlockReader, *blockio.BlockWriter) {
 	openBlockReaderOnce.Do(func() {
-		sn, borSn, _ := allSnapshots(context.Background(), db, logger)
+		sn, borSn, bscSn, _ := allSnapshots(context.Background(), db, logger)
 		histV3 := kvcfg.HistoryV3.FromDB(db)
-		_blockReaderSingleton = freezeblocks.NewBlockReader(sn, borSn, nil)
+		_blockReaderSingleton = freezeblocks.NewBlockReader(sn, borSn, bscSn)
 		_blockWriterSingleton = blockio.NewBlockWriter(histV3)
 	})
 	return _blockReaderSingleton, _blockWriterSingleton
@@ -1616,7 +1632,7 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig,
 		cfg.Miner = *miningConfig
 	}
 	cfg.Dirs = datadir.New(datadirCli)
-	allSn, _, agg := allSnapshots(ctx, db, logger)
+	allSn, _, _, agg := allSnapshots(ctx, db, logger)
 	cfg.Snapshot = allSn.Cfg()
 
 	blockReader, blockWriter := blocksIO(db, logger)
