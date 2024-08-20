@@ -53,6 +53,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	} else {
 		minimumBlob = chapelMinSegFrom
 	}
+	blocksRetired := false
 	for _, snap := range blockReader.BscSnapshots().Types() {
 		if maxBlockNum <= minBlockNum || minBlockNum < minimumBlob || maxBlockNum-minBlockNum < snaptype.Erigon2MergeLimit {
 			continue
@@ -60,30 +61,28 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 		blockFrom := minBlockNum
 		blockTo := maxBlockNum
-		if has, err := br.dbHasEnoughDataForBscRetire(ctx); err != nil {
-			return false, err
-		} else if !has {
-			return false, nil
-		}
 
 		logger.Log(lvl, "[bsc snapshot] Retire Bsc Blobs", "type", snap,
 			"range", fmt.Sprintf("%d-%d", blockFrom, blockTo))
 
+		blocksRetired = true
 		if err := DumpBlobs(ctx, blockFrom, blockTo, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, logger, blockReader); err != nil {
 			return true, fmt.Errorf("DumpBlobs: %w", err)
 		}
+	}
 
+	if blocksRetired {
 		if err := snapshots.ReopenFolder(); err != nil {
 			return true, fmt.Errorf("reopen: %w", err)
 		}
-
 		snapshots.LogStat("bsc:retire")
 		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
 			notifier.OnNewSnapshot()
 		}
 
 		// now prune blobs from the database
-		blockTo = (blockTo / snaptype.Erigon2MergeLimit) * snaptype.Erigon2MergeLimit
+		blockFrom := minBlockNum
+		blockTo := (maxBlockNum / snaptype.Erigon2MergeLimit) * snaptype.Erigon2MergeLimit
 		roTx, err := db.BeginRo(ctx)
 		if err != nil {
 			return false, nil
@@ -97,9 +96,17 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			}
 			blockReader.BlobStore().RemoveBlobSidecars(ctx, i, blockHash)
 		}
+		if seedNewSnapshots != nil {
+			downloadRequest := []services.DownloadRequest{
+				services.NewDownloadRequest("", ""),
+			}
+			if err := seedNewSnapshots(downloadRequest); err != nil {
+				return false, err
+			}
+		}
 	}
 
-	return false, nil
+	return blocksRetired, nil
 }
 
 type BscRoSnapshots struct {

@@ -209,12 +209,13 @@ func doIntegrity(cliCtx *cli.Context) error {
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
 
-	blockSnaps, borSnaps, caplinSnaps, blockRetire, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, blockRetire, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 
@@ -358,12 +359,13 @@ func doIndicesCommand(cliCtx *cli.Context) error {
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
 	chainConfig := fromdb.ChainConfig(chainDB)
-	blockSnaps, borSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 
@@ -382,8 +384,8 @@ func doIndicesCommand(cliCtx *cli.Context) error {
 }
 
 func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.Dirs, chainDB kv.RwDB, logger log.Logger) (
-	blockSnaps *freezeblocks.RoSnapshots, borSnaps *freezeblocks.BorRoSnapshots, csn *freezeblocks.CaplinSnapshots,
-	br *freezeblocks.BlockRetire, agg *libstate.Aggregator, err error,
+	blockSnaps *freezeblocks.RoSnapshots, borSnaps *freezeblocks.BorRoSnapshots, bscSnaps *freezeblocks.BscRoSnapshots,
+	csn *freezeblocks.CaplinSnapshots, br *freezeblocks.BlockRetire, agg *libstate.Aggregator, err error,
 ) {
 	blockSnaps = freezeblocks.NewRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = blockSnaps.ReopenFolder(); err != nil {
@@ -396,11 +398,11 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
-	bscSnaps := freezeblocks.NewBscRoSnapshots(cfg, dirs.Snap, 0, logger)
+	bscSnaps = freezeblocks.NewBscRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = bscSnaps.ReopenFolder(); err != nil {
 		return
 	}
-	bscSnaps.LogStat("bor:open")
+	bscSnaps.LogStat("bsc:open")
 
 	chainConfig := fromdb.ChainConfig(chainDB)
 
@@ -557,12 +559,13 @@ func doRetireCommand(cliCtx *cli.Context) error {
 	defer db.Close()
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
-	blockSnaps, borSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, db, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, db, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 

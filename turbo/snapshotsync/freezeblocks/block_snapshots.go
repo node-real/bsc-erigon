@@ -1359,6 +1359,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, minBlockNum uint64, max
 		br.maxScheduledBlock.Store(maxBlockNum)
 	}
 	includeBor := br.chainConfig.Bor != nil
+	includeBsc := br.chainConfig.Parlia != nil
 
 	var err error
 	if includeBor {
@@ -1378,7 +1379,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, minBlockNum uint64, max
 	}
 
 	for {
-		var ok, okBor bool
+		var ok, okBor, okBsc bool
 
 		minBlockNum = cmp.Max(br.blockReader.FrozenBlocks(), minBlockNum)
 		maxBlockNum = br.maxScheduledBlock.Load()
@@ -1395,7 +1396,20 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, minBlockNum uint64, max
 			}
 		}
 
-		if !(ok || okBor) {
+		if includeBsc {
+			for {
+				minBlockNum = cmp.Max(br.blockReader.FrozenBscBlocks(), minBlockNum)
+				okBsc, err = br.retireBscBlocks(ctx, br.blockReader.FrozenBscBlocks(), minBlockNum, lvl, seedNewSnapshots, onDeleteSnapshots)
+				if err != nil {
+					return err
+				}
+				if !okBsc {
+					break
+				}
+			}
+		}
+
+		if !(ok || okBor || okBsc) {
 			break
 		}
 	}
@@ -1409,6 +1423,12 @@ func (br *BlockRetire) BuildMissedIndicesIfNeed(ctx context.Context, logPrefix s
 
 	if cc.Bor != nil {
 		if err := br.borSnapshots().RoSnapshots.buildMissedIndicesIfNeed(ctx, logPrefix, notifier, br.dirs, cc, br.logger); err != nil {
+			return err
+		}
+	}
+
+	if cc.Parlia != nil {
+		if err := br.bscSnapshots().RoSnapshots.buildMissedIndicesIfNeed(ctx, logPrefix, notifier, br.dirs, cc, br.logger); err != nil {
 			return err
 		}
 	}
