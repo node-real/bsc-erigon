@@ -286,29 +286,35 @@ func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB,
 	defer tx.Rollback()
 	noErr := true
 	for i := blockFrom; i < blockTo; i++ {
-		// read root.
-		blockHash, err := blockReader.CanonicalHash(ctx, tx, i)
+		block, err := blockReader.BlockByNumber(ctx, tx, i)
 		if err != nil {
-			log.Error("ReadCanonicalHash", "blockNum", i, "blockHash", blockHash, "err", err)
+			log.Error("ReadCanonicalHash", "blockNum", i, "blockHash", block.Hash(), "err", err)
 			noErr = false
 		}
+		var blobTxCount uint64
 
-		blobTxCount, err := blobStore.BlobTxCount(ctx, blockHash)
-		if err != nil {
-			log.Error("Get blobTxCount err", err)
-			noErr = false
+		for _, tx := range block.Transactions() {
+			if tx.Type() != types.BlobTxType {
+				continue
+			}
+			blobTxCount++
 		}
 		if blobTxCount == 0 {
 			continue
 		}
-		_, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
+		blobs, found, err := blobStore.ReadBlobSidecars(ctx, i, block.Hash())
 		if err != nil {
 			noErr = false
 			log.Error("read blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
 		}
 		if !found {
 			noErr = false
-			log.Error("blob sidecars not found for block %d", i)
+			log.Error("blob sidecars not found for block ", "blockNumber", i, "count", blobTxCount)
+		}
+
+		if uint64(len(blobs)) != blobTxCount {
+			noErr = false
+			log.Error("blob sidecars not found for block ", "blockNumber", i, "want", blobTxCount, "actual", len(blobs))
 		}
 
 		if i%20_000 == 0 {
