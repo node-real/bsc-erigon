@@ -279,7 +279,11 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 }
 
 func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, logger log.Logger) bool {
-	tx, _ := chainDB.BeginRo(ctx)
+	tx, err := chainDB.BeginRo(ctx)
+	if err != nil {
+		return false
+	}
+	defer tx.Rollback()
 	noErr := true
 	for i := blockFrom; i < blockTo; i++ {
 		// read root.
