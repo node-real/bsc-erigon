@@ -442,6 +442,7 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
 		bs = openBlobStore(dirs, chainConfig, blockReader)
+		bscSnaps.LogStat("blobStore:open")
 	}
 	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, bs, chainConfig, nil, logger)
 	return
