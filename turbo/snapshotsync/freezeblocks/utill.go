@@ -8,7 +8,6 @@ import (
 	"github.com/ledgerwatch/erigon-lib/common/hexutil"
 	"github.com/ledgerwatch/erigon/core/types"
 	"io/ioutil"
-	"math/big"
 	"net/http"
 )
 
@@ -24,16 +23,16 @@ type RPCRequest struct {
 }
 
 type BlockResponse struct {
-	Jsonrpc string      `json:"jsonrpc"`
-	Id      int         `json:"id"`
-	Result  interface{} `json:"result"`
-	Error   interface{} `json:"error"`
+	Jsonrpc string          `json:"jsonrpc"`
+	Id      int             `json:"id"`
+	Result  json.RawMessage `json:"result"`
+	Error   interface{}     `json:"error"`
 }
 type BlobResponse struct {
 	BlobTxSidecar types.BlobTxSidecar `json:"blobSidecar"`
-	BlockNumber   *big.Int            `json:"blockNumber"`
+	BlockNumber   string              `json:"blockNumber"`
 	BlockHash     libcommon.Hash      `json:"blockHash"`
-	TxIndex       uint64              `json:"txIndex"`
+	TxIndex       string              `json:"txIndex"`
 	TxHash        libcommon.Hash      `json:"txHash"`
 }
 
@@ -68,7 +67,7 @@ func GetBlobSidecars(blockNumber uint64) types.BlobSidecars {
 	var blockResponse BlockResponse
 	err = json.Unmarshal(responseBody, &blockResponse)
 	if err != nil {
-		fmt.Println("Error unmarshalling response:", err)
+		fmt.Println("Error unmarshalling response a:", err)
 		return nil
 	}
 
@@ -77,20 +76,22 @@ func GetBlobSidecars(blockNumber uint64) types.BlobSidecars {
 		return nil
 	}
 
-	var blobResponse []BlobResponse
-	err = json.Unmarshal(responseBody, &blobResponse)
+	var blobResponse []*BlobResponse
+	err = json.Unmarshal(blockResponse.Result, &blobResponse)
 	if err != nil {
-		fmt.Println("Error unmarshalling response:", err)
+		fmt.Println("Error unmarshalling response b:", err)
 		return nil
 	}
 
 	var blobSidecars types.BlobSidecars
 	for _, blobSidecar := range blobResponse {
+		bn, _ := hexutil.DecodeBig(blobSidecar.BlockNumber)
+		tx, _ := hexutil.DecodeUint64(blobSidecar.TxIndex)
 		blob := &types.BlobSidecar{
 			BlobTxSidecar: blobSidecar.BlobTxSidecar,
-			BlockNumber:   blobSidecar.BlockNumber,
+			BlockNumber:   bn,
 			BlockHash:     blobSidecar.BlockHash,
-			TxIndex:       blobSidecar.TxIndex,
+			TxIndex:       tx,
 			TxHash:        blobSidecar.TxHash,
 		}
 		blobSidecars = append(blobSidecars, blob)
