@@ -66,7 +66,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			"range", fmt.Sprintf("%d-%d", blockFrom, blockTo))
 
 		blocksRetired = true
-		if err := DumpBlobs(ctx, blockFrom, blockTo, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, logger, blockReader); err != nil {
+		if err := DumpBlobs(ctx, blockFrom, blockTo, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
 			return true, fmt.Errorf("DumpBlobs: %w", err)
 		}
 	}
@@ -161,7 +161,7 @@ func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*Segment, bool) {
 	return v.base.Segment(snaptype.BlobSidecars, blockNum)
 }
 
-func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger, blockReader services.FullBlockReader) (err error) {
+func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger) (err error) {
 	f := snaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
 	sn, err := seg.NewCompressor(ctx, "Snapshot "+f.Type.Name(), f.Path, tmpDir, seg.MinPatternScore, workers, lvl, logger)
 	if err != nil {
@@ -183,7 +183,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			return err
 		}
 
-		blobTxCount, err := blockReader.ReadBlobTxCount(ctx, i, blockHash)
+		blobTxCount, err := blobStore.BlobTxCount(ctx, blockHash)
 		if err != nil {
 			return err
 		}
@@ -191,7 +191,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			sn.AddWord(nil)
 			continue
 		}
-		sidecars, found, err := blockReader.ReadBlobByNumber(ctx, tx, i)
+		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
 		if err != nil {
 			return err
 		}
@@ -223,14 +223,14 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	return nil
 }
 
-func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, logger log.Logger, blockReader services.FullBlockReader) error {
+func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
 	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig) {
 		blocksPerFile := snapcfg.MergeLimit("", snaptype.CaplinEnums.BlobSidecars, i)
 		if blockTo-i < blocksPerFile {
 			break
 		}
 		logger.Log(lvl, "Dumping blobs sidecars", "from", i, "to", blockTo)
-		if err := dumpBlobsRange(ctx, i, chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig), tmpDir, snapDir, chainDB, chainConfig, workers, lvl, logger, blockReader); err != nil {
+		if err := dumpBlobsRange(ctx, i, chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig), tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger); err != nil {
 			return err
 		}
 	}
