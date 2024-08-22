@@ -19,6 +19,7 @@ import (
 	"github.com/ledgerwatch/log/v3"
 	"path/filepath"
 	"reflect"
+	"time"
 )
 
 var BscProduceFiles = dbg.EnvBool("BSC_PRODUCE_FILES", false)
@@ -284,6 +285,7 @@ func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB,
 		return false
 	}
 	defer tx.Rollback()
+	var missedBlobs []uint64
 	noErr := true
 	for i := blockFrom; i < blockTo; i++ {
 		block, err := blockReader.BlockByNumber(ctx, tx, i)
@@ -305,21 +307,44 @@ func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB,
 		blobs, found, err := blobStore.ReadBlobSidecars(ctx, i, block.Hash())
 		if err != nil {
 			noErr = false
+			missedBlobs = append(missedBlobs, i)
 			log.Error("read blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
+			err := blobStore.RemoveBlobSidecars(ctx, i, block.Hash())
+			log.Error("Remove blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
+			continue
 		}
 		if !found {
 			noErr = false
+			missedBlobs = append(missedBlobs, i)
 			log.Error("blob sidecars not found for block ", "blockNumber", i, "count", blobTxCount)
+			continue
 		}
 
 		if uint64(len(blobs)) != blobTxCount {
+			missedBlobs = append(missedBlobs, i)
 			noErr = false
 			log.Error("blob sidecars not found for block ", "blockNumber", i, "want", blobTxCount, "actual", len(blobs))
+			continue
 		}
 
 		if i%20_000 == 0 {
 			logger.Info("Dumping beacon blobs", "progress", i)
 		}
 	}
+
+	log.Info("Start query missedBlobs from http")
+	for _, num := range missedBlobs {
+		blobs := GetBlobSidecars(num)
+		hash, err := blockReader.CanonicalHash(ctx, tx, num)
+		if err != nil {
+			log.Error("GetBlobSidecars failed", "num", num, "err", err)
+			return noErr
+		}
+		if err = blobStore.WriteBlobSidecars(ctx, hash, blobs); err != nil {
+			log.Error("WriteBlobSidecars failed", "num", num, "err", err)
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	return noErr
 }
