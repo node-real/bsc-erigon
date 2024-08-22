@@ -193,7 +193,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 		}
 		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
 		if err != nil {
-			return err
+			return fmt.Errorf("read blob sidecars: blockNum = %d, err = %v", i, err)
 		}
 		if !found {
 			return fmt.Errorf("blob sidecars not found for block %d", i)
