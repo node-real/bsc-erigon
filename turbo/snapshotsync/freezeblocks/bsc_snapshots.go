@@ -12,6 +12,7 @@ import (
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/seg"
 	"github.com/ledgerwatch/erigon/cmd/hack/tool/fromdb"
+	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/rlp"
 	"github.com/ledgerwatch/erigon/turbo/services"
@@ -47,19 +48,18 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	chainConfig := fromdb.ChainConfig(br.db)
 	var minimumBlob uint64
 	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
-	minBlockNum = max(blockReader.FrozenBscBlocks(), minBlockNum)
 	if chainConfig.ChainName == networkname.BSCChainName {
 		minimumBlob = bscMinSegFrom
 	} else {
 		minimumBlob = chapelMinSegFrom
 	}
+	blockFrom := max(blockReader.FrozenBscBlobs(), minimumBlob)
 	blocksRetired := false
 	for _, snap := range blockReader.BscSnapshots().Types() {
-		if maxBlockNum <= minBlockNum || minBlockNum < minimumBlob || maxBlockNum-minBlockNum < snaptype.Erigon2MergeLimit {
+		if maxBlockNum <= blockFrom || maxBlockNum-blockFrom < snaptype.Erigon2MergeLimit {
 			continue
 		}
 
-		blockFrom := minBlockNum
 		blockTo := maxBlockNum
 
 		logger.Log(lvl, "[bsc snapshot] Retire Bsc Blobs", "type", snap,
@@ -94,7 +94,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			if err != nil {
 				return false, err
 			}
-			blockReader.BlobStore().RemoveBlobSidecars(ctx, i, blockHash)
+			br.bs.RemoveBlobSidecars(ctx, i, blockHash)
 		}
 		if seedNewSnapshots != nil {
 			downloadRequest := []services.DownloadRequest{
@@ -183,7 +183,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			return err
 		}
 
-		blobTxCount, err := blockReader.BlobStore().BlobTxCount(ctx, blockHash)
+		blobTxCount, err := blockReader.ReadBlobTxCount(ctx, i, blockHash)
 		if err != nil {
 			return err
 		}
@@ -191,7 +191,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			sn.AddWord(nil)
 			continue
 		}
-		sidecars, found, err := blockReader.BlobStore().ReadBlobSidecars(ctx, i, blockHash)
+		sidecars, found, err := blockReader.ReadBlobByNumber(ctx, tx, i)
 		if err != nil {
 			return err
 		}
@@ -237,86 +237,40 @@ func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chai
 	return nil
 }
 
-//
-//func (s *BscSnapshots) BuildMissingIndices(ctx context.Context, logger log.Logger) error {
-//	if s == nil {
-//		return nil
-//	}
-//	// if !s.segmentsReady.Load() {
-//	// 	return fmt.Errorf("not all snapshot segments are available")
-//	// }
-//
-//	// wait for Downloader service to download all expected snapshots
-//	segments, _, err := SegmentsBsc(s.dir, 0)
-//	if err != nil {
-//		return err
-//	}
-//	noneDone := true
-//	for index := range segments {
-//		segment := segments[index]
-//		// The same slot=>offset mapping is used for both beacon blocks and blob sidecars.
-//		if segment.Type.Enum() != snaptype.CaplinEnums.BlobSidecars {
-//			continue
-//		}
-//		if segment.Type.HasIndexFiles(segment, logger) {
-//			continue
-//		}
-//		p := &background.Progress{}
-//		noneDone = false
-//		if err := BlobSimpleIdx(ctx, segment, s.Salt, s.tmpdir, p, log.LvlDebug, logger); err != nil {
-//			return err
-//		}
-//	}
-//	if noneDone {
-//		return nil
-//	}
-//
-//	return s.ReopenFolder()
-//}
-//
-//func (s *BscSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar, error) {
-//	view := s.View()
-//	defer view.Close()
-//
-//	var buf []byte
-//
-//	seg, ok := view.BlobSidecarsSegment(blockNum)
-//	if !ok {
-//		return nil, nil
-//	}
-//
-//	idxNum := seg.Index()
-//
-//	if idxNum == nil {
-//		return nil, nil
-//	}
-//	blockOffset := idxNum.OrdinalLookup(blockNum - idxNum.BaseDataID())
-//
-//	gg := seg.MakeGetter()
-//	gg.Reset(blockOffset)
-//	if !gg.HasNext() {
-//		return nil, nil
-//	}
-//
-//	buf, _ = gg.Next(buf)
-//	if len(buf) == 0 {
-//		return nil, nil
-//	}
-//
-//	var sidecars []*types.BlobSidecar
-//	err := rlp.DecodeBytes(buf, &sidecars)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return sidecars, nil
-//}
-//
-//func (s *BscSnapshots) FrozenBlobs() uint64 {
-//	ret := uint64(0)
-//	for _, seg := range s.BlobSidecars.segments {
-//		ret = max(ret, seg.to)
-//	}
-//	return ret
-//}
-//
+func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar, error) {
+	view := s.View()
+	defer view.Close()
+
+	var buf []byte
+
+	seg, ok := view.BlobSidecarsSegment(blockNum)
+	if !ok {
+		return nil, nil
+	}
+
+	idxNum := seg.Index()
+
+	if idxNum == nil {
+		return nil, nil
+	}
+	blockOffset := idxNum.OrdinalLookup(blockNum - idxNum.BaseDataID())
+
+	gg := seg.MakeGetter()
+	gg.Reset(blockOffset)
+	if !gg.HasNext() {
+		return nil, nil
+	}
+
+	buf, _ = gg.Next(buf)
+	if len(buf) == 0 {
+		return nil, nil
+	}
+
+	var sidecars []*types.BlobSidecar
+	err := rlp.DecodeBytes(buf, &sidecars)
+	if err != nil {
+		return nil, err
+	}
+
+	return sidecars, nil
+}

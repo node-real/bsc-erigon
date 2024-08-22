@@ -46,6 +46,7 @@ type Dirs struct {
 	Nodes           string
 	CaplinBlobs     string
 	CaplinIndexing  string
+	Blobs           string
 }
 
 func New(datadir string) Dirs {
@@ -74,11 +75,12 @@ func New(datadir string) Dirs {
 		Nodes:           filepath.Join(datadir, "nodes"),
 		CaplinBlobs:     filepath.Join(datadir, "caplin", "blobs"),
 		CaplinIndexing:  filepath.Join(datadir, "caplin", "indexing"),
+		Blobs:           filepath.Join(datadir, "blobs"),
 	}
 
 	dir.MustExist(dirs.Chaindata, dirs.Tmp,
 		dirs.SnapIdx, dirs.SnapHistory, dirs.SnapDomain, dirs.SnapAccessors,
-		dirs.Downloader, dirs.TxPool, dirs.Nodes, dirs.CaplinBlobs, dirs.CaplinIndexing)
+		dirs.Downloader, dirs.TxPool, dirs.Nodes, dirs.CaplinBlobs, dirs.CaplinIndexing, dirs.Blobs)
 	return dirs
 }
 

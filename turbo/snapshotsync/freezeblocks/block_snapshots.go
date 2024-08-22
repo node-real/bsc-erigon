@@ -1119,6 +1119,7 @@ type BlockRetire struct {
 	workers int
 	tmpDir  string
 	db      kv.RoDB
+	bs      services.BlobStorage
 
 	notifier    services.DBEventNotifier
 	logger      log.Logger
@@ -1128,8 +1129,8 @@ type BlockRetire struct {
 	chainConfig *chain.Config
 }
 
-func NewBlockRetire(compressWorkers int, dirs datadir.Dirs, blockReader services.FullBlockReader, blockWriter *blockio.BlockWriter, db kv.RoDB, chainConfig *chain.Config, notifier services.DBEventNotifier, logger log.Logger) *BlockRetire {
-	return &BlockRetire{workers: compressWorkers, tmpDir: dirs.Tmp, dirs: dirs, blockReader: blockReader, blockWriter: blockWriter, db: db, chainConfig: chainConfig, notifier: notifier, logger: logger}
+func NewBlockRetire(compressWorkers int, dirs datadir.Dirs, blockReader services.FullBlockReader, blockWriter *blockio.BlockWriter, db kv.RoDB, bs services.BlobStorage, chainConfig *chain.Config, notifier services.DBEventNotifier, logger log.Logger) *BlockRetire {
+	return &BlockRetire{workers: compressWorkers, tmpDir: dirs.Tmp, dirs: dirs, blockReader: blockReader, blockWriter: blockWriter, db: db, bs: bs, chainConfig: chainConfig, notifier: notifier, logger: logger}
 }
 
 func (br *BlockRetire) SetWorkers(workers int) {
@@ -1398,8 +1399,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, minBlockNum uint64, max
 
 		if includeBsc {
 			for {
-				minBlockNum = cmp.Max(br.blockReader.FrozenBscBlocks(), minBlockNum)
-				okBsc, err = br.retireBscBlocks(ctx, br.blockReader.FrozenBscBlocks(), minBlockNum, lvl, seedNewSnapshots, onDeleteSnapshots)
+				okBsc, err = br.retireBscBlocks(ctx, br.blockReader.FrozenBscBlobs(), minBlockNum, lvl, seedNewSnapshots, onDeleteSnapshots)
 				if err != nil {
 					return err
 				}

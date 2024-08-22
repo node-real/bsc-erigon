@@ -7,9 +7,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/erigon-lib/chain"
+	"github.com/ledgerwatch/erigon/core/blob_storage"
+	"github.com/ledgerwatch/erigon/turbo/services"
+	"github.com/spf13/afero"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -432,7 +438,12 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 
 	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps, bscSnaps)
 	blockWriter := blockio.NewBlockWriter(fromdb.HistV3(chainDB))
-	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, chainConfig, nil, logger)
+
+	var bs services.BlobStorage
+	if chainConfig.Parlia != nil {
+		bs = openBlobStore(dirs, chainConfig, blockReader)
+	}
+	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, bs, chainConfig, nil, logger)
 	return
 }
 
@@ -836,4 +847,11 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 	agg.SetWorkers(estimate.CompressSnapshot.Workers())
 
 	return agg
+}
+
+func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, blockReader services.FullBlockReader) services.BlobStorage {
+	blobDbPath := path.Join(dirs.Blobs, "blob")
+	blobDb := mdbx.MustOpen(blobDbPath)
+	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), math.MaxUint64, chainConfig, blockReader)
+	return blobStore
 }

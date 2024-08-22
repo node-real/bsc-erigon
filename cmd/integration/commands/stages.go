@@ -1667,7 +1667,6 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig,
 	}
 
 	notifications := &shards.Notifications{}
-	blockRetire := freezeblocks.NewBlockRetire(1, dirs, blockReader, blockWriter, db, chainConfig, notifications.Events, logger)
 
 	var (
 		snapDb     kv.RwDB
@@ -1684,7 +1683,7 @@ func newSync(ctx context.Context, db kv.RwDB, miningConfig *params.MiningConfig,
 	if parlia, ok := engine.(*parlia.Parlia); ok {
 		blobStore = parlia.BlobStore
 	}
-
+	blockRetire := freezeblocks.NewBlockRetire(1, dirs, blockReader, blockWriter, db, blobStore, chainConfig, notifications.Events, logger)
 	stages := stages2.NewDefaultStages(context.Background(), db, snapDb, blobStore, p2p.Config{}, &cfg, sentryControlServer, notifications, nil, blockReader, blockRetire, agg, nil, nil,
 		engine, heimdallClient, recents, signatures, logger)
 	sync := stagedsync.New(cfg.Sync, stages, stagedsync.DefaultUnwindOrder, stagedsync.DefaultPruneOrder, logger)
