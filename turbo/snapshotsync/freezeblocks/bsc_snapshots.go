@@ -224,6 +224,9 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 }
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
+	if checkBlobs(ctx, blockFrom, blockTo, chainDB, blobStore, blockReader, logger) == false {
+		return fmt.Errorf("check blobs failed")
+	}
 	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig) {
 		blocksPerFile := snapcfg.MergeLimit("", snaptype.CaplinEnums.BlobSidecars, i)
 		if blockTo-i < blocksPerFile {
@@ -273,4 +276,40 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 	}
 
 	return sidecars, nil
+}
+
+func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, logger log.Logger) bool {
+	tx, _ := chainDB.BeginRo(ctx)
+	noErr := true
+	for i := blockFrom; i < blockTo; i++ {
+		// read root.
+		blockHash, err := blockReader.CanonicalHash(ctx, tx, i)
+		if err != nil {
+			log.Error("ReadCanonicalHash", "blockNum", i, "blockHash", blockHash, "err", err)
+			noErr = false
+		}
+
+		blobTxCount, err := blobStore.BlobTxCount(ctx, blockHash)
+		if err != nil {
+			log.Error("Get blobTxCount err", err)
+			noErr = false
+		}
+		if blobTxCount == 0 {
+			continue
+		}
+		_, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
+		if err != nil {
+			noErr = false
+			log.Error("read blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
+		}
+		if !found {
+			noErr = false
+			log.Error("blob sidecars not found for block %d", i)
+		}
+
+		if i%20_000 == 0 {
+			logger.Info("Dumping beacon blobs", "progress", i)
+		}
+	}
+	return noErr
 }
