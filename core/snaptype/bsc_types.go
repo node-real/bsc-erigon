@@ -19,7 +19,6 @@ func init() {
 
 func initTypes() {
 	bscTypes := append(BlockSnapshotTypes, BscSnapshotTypes...)
-
 	snapcfg.RegisterKnownTypes(networkname.BSCChainName, bscTypes)
 	snapcfg.RegisterKnownTypes(networkname.ChapelChainName, bscTypes)
 }
