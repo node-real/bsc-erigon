@@ -12,6 +12,7 @@ import (
 	"github.com/ledgerwatch/erigon-lib/kv"
 	"github.com/ledgerwatch/erigon-lib/seg"
 	"github.com/ledgerwatch/erigon/cmd/hack/tool/fromdb"
+	coresnaptype "github.com/ledgerwatch/erigon/core/snaptype"
 	"github.com/ledgerwatch/erigon/core/types"
 	"github.com/ledgerwatch/erigon/eth/ethconfig"
 	"github.com/ledgerwatch/erigon/rlp"
@@ -120,7 +121,7 @@ type BscRoSnapshots struct {
 //   - gaps are not allowed
 //   - segment have [from:to) semantic
 func NewBscRoSnapshots(cfg ethconfig.BlocksFreezing, snapDir string, segmentsMin uint64, logger log.Logger) *BscRoSnapshots {
-	return &BscRoSnapshots{*newRoSnapshots(cfg, snapDir, []snaptype.Type{snaptype.BlobSidecars}, segmentsMin, logger)}
+	return &BscRoSnapshots{*newRoSnapshots(cfg, snapDir, coresnaptype.BscSnapshotTypes, segmentsMin, logger)}
 }
 
 func (s *BscRoSnapshots) Ranges() []Range {
@@ -130,7 +131,7 @@ func (s *BscRoSnapshots) Ranges() []Range {
 }
 
 func (s *BscRoSnapshots) ReopenFolder() error {
-	files, _, err := typedSegments(s.dir, s.segmentsMin.Load(), []snaptype.Type{snaptype.BlobSidecars}, false)
+	files, _, err := typedSegments(s.dir, s.segmentsMin.Load(), coresnaptype.BscSnapshotTypes, false)
 	if err != nil {
 		return err
 	}
@@ -148,7 +149,7 @@ type BscView struct {
 
 func (s *BscRoSnapshots) View() *BscView {
 	v := &BscView{base: s.RoSnapshots.View()}
-	v.base.baseSegType = snaptype.BlobSidecars
+	v.base.baseSegType = coresnaptype.BlobSidecars
 	return v
 }
 
@@ -156,14 +157,14 @@ func (v *BscView) Close() {
 	v.base.Close()
 }
 
-func (v *BscView) BlobSidecars() []*Segment { return v.base.Segments(snaptype.BlobSidecars) }
+func (v *BscView) BlobSidecars() []*Segment { return v.base.Segments(coresnaptype.BlobSidecars) }
 
 func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*Segment, bool) {
-	return v.base.Segment(snaptype.BlobSidecars, blockNum)
+	return v.base.Segment(coresnaptype.BlobSidecars, blockNum)
 }
 
 func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger) (err error) {
-	f := snaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
+	f := coresnaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
 	sn, err := seg.NewCompressor(ctx, "Snapshot "+f.Type.Name(), f.Path, tmpDir, seg.MinPatternScore, workers, lvl, logger)
 	if err != nil {
 		return err
@@ -207,7 +208,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			return err
 		}
 		if i%20_000 == 0 {
-			logger.Log(lvl, "Dumping beacon blobs", "progress", i)
+			logger.Log(lvl, "Dumping bsc blobs", "progress", i)
 		}
 
 	}
@@ -225,16 +226,16 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 }
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
-	if checkBlobs(ctx, blockFrom, blockTo, chainDB, blobStore, blockReader, logger) == false {
-		return fmt.Errorf("check blobs failed")
-	}
-	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig) {
-		blocksPerFile := snapcfg.MergeLimit("", snaptype.CaplinEnums.BlobSidecars, i)
+	//if checkBlobs(ctx, blockFrom, blockTo, chainDB, blobStore, blockReader, logger) == false {
+	//	return fmt.Errorf("check blobs failed")
+	//}
+	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig) {
+		blocksPerFile := snapcfg.MergeLimit("", coresnaptype.Enums.BscBlobs, i)
 		if blockTo-i < blocksPerFile {
 			break
 		}
 		logger.Log(lvl, "Dumping blobs sidecars", "from", i, "to", blockTo)
-		if err := dumpBlobsRange(ctx, i, chooseSegmentEnd(i, blockTo, snaptype.CaplinEnums.BlobSidecars, chainConfig), tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger); err != nil {
+		if err := dumpBlobsRange(ctx, i, chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig), tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger); err != nil {
 			return err
 		}
 	}
@@ -278,62 +279,6 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 
 	return sidecars, nil
 }
-
-//var missedBlobs = []uint64{
-//	39565743,
-//	39679711,
-//	39679823,
-//	39688495,
-//	39712447,
-//	39712471,
-//	39712559,
-//	39713015,
-//	39716655,
-//	39716807,
-//	40180114,
-//	40180115,
-//	40208199,
-//	40211855,
-//	40211856,
-//	40212934,
-//	40212939,
-//	40227488,
-//	40231835,
-//	40232104,
-//	40239458,
-//	40297217,
-//	40314598,
-//	40315505,
-//	40316006,
-//	40316698,
-//	40319042,
-//	40320395,
-//	40322006,
-//	40322007,
-//	40693732,
-//	40899197,
-//	41756117,
-//	41756119,
-//	41756123,
-//	41756126,
-//	41756130,
-//	41756132,
-//	41756134,
-//	41756135,
-//	41756138,
-//	41756142,
-//	41756145,
-//	41756147,
-//	41756149,
-//	41756152,
-//	41756156,
-//	41756160,
-//	41756163,
-//	41756164,
-//	41756165,
-//	41756169,
-//	41756172,
-//}
 
 func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, logger log.Logger) bool {
 	tx, err := chainDB.BeginRo(ctx)
