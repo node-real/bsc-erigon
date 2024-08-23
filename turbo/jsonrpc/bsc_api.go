@@ -227,17 +227,11 @@ func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockN
 		return nil, err
 	}
 	defer tx.Rollback()
-
-	blockNumber, blockHash, _, err := rpchelper.GetBlockNumber(numberOrHash, tx, api.ethApi.filters)
+	blockNumber, _, _, err := rpchelper.GetBlockNumber(numberOrHash, tx, api.ethApi.filters)
 	if err != nil {
 		return nil, err
 	}
-
-	bsc, err := api.parlia()
-	if err != nil {
-		return nil, err
-	}
-	blobSidecars, found, err := bsc.BlobStore.ReadBlobSidecars(ctx, blockNumber, blockHash)
+	blobSidecars, found, err := api.ethApi._blockReader.ReadBlobByNumber(ctx, tx, blockNumber)
 	if err != nil || !found {
 		return nil, err
 	}
@@ -249,6 +243,11 @@ func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockN
 }
 
 func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash) (map[string]interface{}, error) {
+	roTx, err := api.ethApi.db.BeginRo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer roTx.Rollback()
 	tx, err := api.ethApi.GetTransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -256,11 +255,8 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 	if tx == nil || tx.BlockNumber == nil || tx.BlockHash == nil || tx.TransactionIndex == nil {
 		return nil, nil
 	}
-	bsc, err := api.parlia()
-	if err != nil {
-		return nil, err
-	}
-	blobSidecars, found, err := bsc.BlobStore.ReadBlobSidecars(ctx, tx.BlockNumber.Uint64(), *tx.BlockHash)
+
+	blobSidecars, found, err := api.ethApi._blockReader.ReadBlobByNumber(ctx, roTx, tx.BlockNumber.Uint64())
 	if err != nil || !found {
 		return nil, err
 	}
