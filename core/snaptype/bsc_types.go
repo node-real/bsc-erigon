@@ -26,7 +26,7 @@ func initTypes() {
 var (
 	BlobSidecars = snaptype.RegisterType(
 		Enums.BscBlobs,
-		"blobsidecars",
+		"bscblobsidecars",
 		snaptype.Versions{
 			Current:      1, //2,
 			MinSupported: 1,
