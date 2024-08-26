@@ -233,9 +233,9 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 }
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
-	//if checkBlobs(ctx, blockFrom, blockTo, chainDB, blobStore, blockReader, logger) == false {
-	//	return fmt.Errorf("check blobs failed")
-	//}
+	if checkBlobs(ctx, blockFrom, blockTo, chainDB, blobStore, blockReader, logger) == false {
+		return fmt.Errorf("check blobs failed")
+	}
 	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig) {
 		blocksPerFile := snapcfg.MergeLimit("", coresnaptype.Enums.BscBlobs, i)
 		if blockTo-i < blocksPerFile {
