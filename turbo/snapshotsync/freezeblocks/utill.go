@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	infuraURL = "https://bsc-testnet.nodereal.io/v1/2e9d633513f945d89ec95755ae183afd" // 替换为你的Infura项目ID
+	testnetURL = "https://bsc-testnet.nodereal.io/v1/2e9d633513f945d89ec95755ae183afd"
+	mainNetURL = "https://bsc-mainnet.nodereal.io/v1/e2d346d33d304b069bb4111aa1ff2868"
 )
 
 type RPCRequest struct {
@@ -51,7 +52,7 @@ func GetBlobSidecars(blockNumber uint64) types.BlobSidecars {
 		return nil
 	}
 
-	resp, err := http.Post(infuraURL, "application/json", bytes.NewBuffer(body))
+	resp, err := http.Post(mainNetURL, "application/json", bytes.NewBuffer(body))
 	if err != nil {
 		fmt.Println("Error making request:", err)
 		return nil
