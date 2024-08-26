@@ -336,7 +336,7 @@ func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB,
 		}
 
 		if i%20_000 == 0 {
-			logger.Info("Dumping beacon blobs", "progress", i)
+			logger.Info("Dumping bsc blobs", "progress", i)
 		}
 	}
 
