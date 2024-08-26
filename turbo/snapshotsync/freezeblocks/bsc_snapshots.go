@@ -96,7 +96,10 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			if err != nil {
 				return false, err
 			}
-			br.bs.RemoveBlobSidecars(ctx, i, blockHash)
+			if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
+				log.Error("remove sidecars", "blockNum", i, "err", err)
+			}
+
 		}
 		if seedNewSnapshots != nil {
 			downloadRequest := []services.DownloadRequest{
