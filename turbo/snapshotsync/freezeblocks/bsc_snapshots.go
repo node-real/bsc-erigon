@@ -138,7 +138,7 @@ func (s *BscRoSnapshots) Ranges() []Range {
 }
 
 func (s *BscRoSnapshots) ReopenFolder() error {
-	files, _, err := typedSegments(s.dir, s.segmentsMin.Load(), coresnaptype.BscSnapshotTypes, false)
+	files, _, err := typedSegments(s.dir, s.segmentsMin.Load(), coresnaptype.BscSnapshotTypes, true)
 	if err != nil {
 		return err
 	}
