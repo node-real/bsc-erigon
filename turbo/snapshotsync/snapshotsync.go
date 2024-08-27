@@ -97,7 +97,7 @@ func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool
 		bscSnapshots.Close()
 	}
 
-	blobs = cc.Parlia != nil
+	NoParlia := cc.Parlia == nil
 	//Corner cases:
 	// - Erigon generated file X with hash H1. User upgraded Erigon. New version has preverified file X with hash H2. Must ignore H2 (don't send to Downloader)
 	// - Erigon "download once": means restart/upgrade/downgrade must not download files (and will be fast)
@@ -121,7 +121,7 @@ func WaitForDownloader(ctx context.Context, logPrefix string, histV3, blobs bool
 		if caplin == OnlyCaplin && !strings.Contains(p.Name, "beaconblocks") && !strings.Contains(p.Name, "blobsidecars") {
 			continue
 		}
-		if !blobs && strings.Contains(p.Name, "blobsidecars") {
+		if !blobs && strings.Contains(p.Name, "blobsidecars") && NoParlia {
 			continue
 		}
 		downloadRequest = append(downloadRequest, services.NewDownloadRequest(p.Name, p.Hash))
