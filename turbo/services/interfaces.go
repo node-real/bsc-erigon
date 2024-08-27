@@ -101,6 +101,11 @@ type BlockAndTxnReader interface {
 	TxnReader
 }
 
+type BlobReader interface {
+	ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error)
+	ReadBlobTxCount(ctx context.Context, blockNum uint64, hash common.Hash) (uint32, error)
+}
+
 type FullBlockReader interface {
 	BlockReader
 	BodyReader
@@ -111,15 +116,18 @@ type FullBlockReader interface {
 	BorCheckpointReader
 	TxnReader
 	CanonicalReader
+	BlobReader
 
 	FrozenBlocks() uint64
 	FrozenBorBlocks() uint64
+	FrozenBscBlobs() uint64
 	FrozenFiles() (list []string)
 	FreezingCfg() ethconfig.BlocksFreezing
 	CanPruneTo(currentBlockInDB uint64) (canPruneBlocksTo uint64)
 
 	Snapshots() BlockSnapshots
 	BorSnapshots() BlockSnapshots
+	BscSnapshots() BlockSnapshots
 
 	AllTypes() []snaptype.Type
 }

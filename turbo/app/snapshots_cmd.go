@@ -7,9 +7,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/ledgerwatch/erigon-lib/chain"
+	"github.com/ledgerwatch/erigon/core/blob_storage"
+	"github.com/ledgerwatch/erigon/turbo/services"
+	"github.com/spf13/afero"
 	"io"
+	"math"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -209,12 +215,13 @@ func doIntegrity(cliCtx *cli.Context) error {
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
 
-	blockSnaps, borSnaps, caplinSnaps, blockRetire, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, blockRetire, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 
@@ -358,12 +365,13 @@ func doIndicesCommand(cliCtx *cli.Context) error {
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
 	chainConfig := fromdb.ChainConfig(chainDB)
-	blockSnaps, borSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, chainDB, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 
@@ -382,8 +390,8 @@ func doIndicesCommand(cliCtx *cli.Context) error {
 }
 
 func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.Dirs, chainDB kv.RwDB, logger log.Logger) (
-	blockSnaps *freezeblocks.RoSnapshots, borSnaps *freezeblocks.BorRoSnapshots, csn *freezeblocks.CaplinSnapshots,
-	br *freezeblocks.BlockRetire, agg *libstate.Aggregator, err error,
+	blockSnaps *freezeblocks.RoSnapshots, borSnaps *freezeblocks.BorRoSnapshots, bscSnaps *freezeblocks.BscRoSnapshots,
+	csn *freezeblocks.CaplinSnapshots, br *freezeblocks.BlockRetire, agg *libstate.Aggregator, err error,
 ) {
 	blockSnaps = freezeblocks.NewRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = blockSnaps.ReopenFolder(); err != nil {
@@ -396,17 +404,21 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
+	bscSnaps = freezeblocks.NewBscRoSnapshots(cfg, dirs.Snap, 0, logger)
+	if err = bscSnaps.ReopenFolder(); err != nil {
+		return
+	}
+	bscSnaps.LogStat("bsc:open")
+
 	chainConfig := fromdb.ChainConfig(chainDB)
 
 	var beaconConfig *clparams.BeaconChainConfig
 	_, beaconConfig, _, err = clparams.GetConfigsByNetworkName(chainConfig.ChainName)
-	if err != nil {
-		return
-	}
-
-	csn = freezeblocks.NewCaplinSnapshots(cfg, beaconConfig, dirs, logger)
-	if err = csn.ReopenFolder(); err != nil {
-		return
+	if err == nil {
+		csn = freezeblocks.NewCaplinSnapshots(cfg, beaconConfig, dirs, logger)
+		if err = csn.ReopenFolder(); err != nil {
+			return
+		}
 	}
 
 	borSnaps.LogStat("bor:open")
@@ -424,9 +436,15 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 		return
 	}
 
-	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps)
+	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps, bscSnaps)
 	blockWriter := blockio.NewBlockWriter(fromdb.HistV3(chainDB))
-	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, chainConfig, nil, logger)
+
+	var bs services.BlobStorage
+	if chainConfig.Parlia != nil {
+		bs = openBlobStore(dirs, chainConfig, blockReader)
+		bscSnaps.LogStat("blobStore:open")
+	}
+	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, bs, chainConfig, nil, logger)
 	return
 }
 
@@ -551,12 +569,13 @@ func doRetireCommand(cliCtx *cli.Context) error {
 	defer db.Close()
 
 	cfg := ethconfig.NewSnapCfg(true, false, true)
-	blockSnaps, borSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, db, logger)
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, br, agg, err := openSnaps(ctx, cfg, dirs, db, logger)
 	if err != nil {
 		return err
 	}
 	defer blockSnaps.Close()
 	defer borSnaps.Close()
+	defer bscSnaps.Close()
 	defer caplinSnaps.Close()
 	defer agg.Close()
 
@@ -829,4 +848,11 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 	agg.SetWorkers(estimate.CompressSnapshot.Workers())
 
 	return agg
+}
+
+func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, blockReader services.FullBlockReader) services.BlobStorage {
+	blobDbPath := path.Join(dirs.Blobs, "blob")
+	blobDb := mdbx.MustOpen(blobDbPath)
+	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), math.MaxUint64, chainConfig, blockReader)
+	return blobStore
 }

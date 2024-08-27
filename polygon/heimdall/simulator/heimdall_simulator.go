@@ -104,7 +104,7 @@ func NewHeimdall(ctx context.Context, chain string, snapshotLocation string, log
 		ctx:                ctx,
 		knownBorSnapshots:  knownBorSnapshots,
 		activeBorSnapshots: activeBorSnapshots,
-		blockReader:        freezeblocks.NewBlockReader(nil, activeBorSnapshots),
+		blockReader:        freezeblocks.NewBlockReader(nil, activeBorSnapshots, nil),
 		logger:             logger,
 		downloader:         downloader,
 		chain:              chain,

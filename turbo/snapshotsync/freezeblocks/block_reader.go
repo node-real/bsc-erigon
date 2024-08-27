@@ -111,9 +111,11 @@ func (r *RemoteBlockReader) HeaderByNumber(ctx context.Context, tx kv.Getter, bl
 }
 func (r *RemoteBlockReader) Snapshots() services.BlockSnapshots    { panic("not implemented") }
 func (r *RemoteBlockReader) BorSnapshots() services.BlockSnapshots { panic("not implemented") }
+func (r *RemoteBlockReader) BscSnapshots() services.BlockSnapshots { panic("not implemented") }
 func (r *RemoteBlockReader) AllTypes() []snaptype.Type             { panic("not implemented") }
 func (r *RemoteBlockReader) FrozenBlocks() uint64                  { panic("not supported") }
 func (r *RemoteBlockReader) FrozenBorBlocks() uint64               { panic("not supported") }
+func (r *RemoteBlockReader) FrozenBscBlobs() uint64                { panic("not supported") }
 func (r *RemoteBlockReader) FrozenFiles() (list []string)          { panic("not supported") }
 func (r *RemoteBlockReader) FreezingCfg() ethconfig.BlocksFreezing { panic("not supported") }
 
@@ -306,17 +308,27 @@ func (r *RemoteBlockReader) Checkpoint(ctx context.Context, tx kv.Getter, spanId
 	return nil, nil
 }
 
+func (r *RemoteBlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
+	return nil, false, nil
+}
+
+func (r *RemoteBlockReader) ReadBlobTxCount(ctx context.Context, blockNum uint64, hash common.Hash) (uint32, error) {
+	return 0, nil
+}
+
 // BlockReader can read blocks from db and snapshots
 type BlockReader struct {
 	sn    *RoSnapshots
 	borSn *BorRoSnapshots
 	bs    services.BlobStorage
+	bscSn *BscRoSnapshots
 }
 
-func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots) *BlockReader {
+func NewBlockReader(snapshots services.BlockSnapshots, borSnapshots services.BlockSnapshots, bscSnapshot services.BlockSnapshots) *BlockReader {
 	borSn, _ := borSnapshots.(*BorRoSnapshots)
 	sn, _ := snapshots.(*RoSnapshots)
-	return &BlockReader{sn: sn, borSn: borSn}
+	bscSn, _ := bscSnapshot.(*BscRoSnapshots)
+	return &BlockReader{sn: sn, borSn: borSn, bscSn: bscSn}
 }
 
 func (r *BlockReader) WithSidecars(blobStorage services.BlobStorage) {
@@ -326,10 +338,19 @@ func (r *BlockReader) WithSidecars(blobStorage services.BlobStorage) {
 func (r *BlockReader) CanPruneTo(currentBlockInDB uint64) uint64 {
 	return CanDeleteTo(currentBlockInDB, r.sn.BlocksAvailable())
 }
+
 func (r *BlockReader) Snapshots() services.BlockSnapshots { return r.sn }
 func (r *BlockReader) BorSnapshots() services.BlockSnapshots {
 	if r.borSn != nil {
 		return r.borSn
+	}
+
+	return nil
+}
+
+func (r *BlockReader) BscSnapshots() services.BlockSnapshots {
+	if r.bscSn != nil {
+		return r.bscSn
 	}
 
 	return nil
@@ -341,6 +362,9 @@ func (r *BlockReader) AllTypes() []snaptype.Type {
 	if r.borSn != nil {
 		types = append(types, r.borSn.Types()...)
 	}
+	if r.bscSn != nil {
+		types = append(types, r.bscSn.Types()...)
+	}
 	return types
 }
 
@@ -351,10 +375,21 @@ func (r *BlockReader) FrozenBorBlocks() uint64 {
 	}
 	return 0
 }
+
+func (r *BlockReader) FrozenBscBlobs() uint64 {
+	if r.bscSn != nil {
+		return r.bscSn.BlocksAvailable()
+	}
+	return 0
+}
+
 func (r *BlockReader) FrozenFiles() []string {
 	files := r.sn.Files()
 	if r.borSn != nil {
 		files = append(files, r.borSn.Files()...)
+	}
+	if r.bscSn != nil {
+		files = append(files, r.bscSn.Files()...)
 	}
 	sort.Strings(files)
 	return files
@@ -583,15 +618,13 @@ func (r *BlockReader) BodyRlp(ctx context.Context, tx kv.Getter, hash common.Has
 	if err != nil {
 		return nil, err
 	}
-	if r.bs != nil {
-		blobSidecars, found, err := r.bs.ReadBlobSidecars(ctx, blockHeight, hash)
-		if err == nil && found && len(blobSidecars) > 0 {
-			// Has to be there as it is optional
-			if body.Withdrawals == nil {
-				body.Withdrawals = make([]*types.Withdrawal, 0)
-			}
-			body.Sidecars = blobSidecars
+	blobSidecars, found, err := r.ReadBlobByNumber(ctx, tx, blockHeight)
+	if err == nil && found && len(blobSidecars) > 0 {
+		// Has to be there as it is optional
+		if body.Withdrawals == nil {
+			body.Withdrawals = make([]*types.Withdrawal, 0)
 		}
+		body.Sidecars = blobSidecars
 	}
 
 	bodyRlp, err = rlp.EncodeToBytes(body)
@@ -1731,6 +1764,38 @@ func (r *BlockReader) LastFrozenCheckpointId() uint64 {
 	index := lastSegment.Index()
 
 	return index.BaseDataID() + index.KeyCount() - 1
+}
+
+func (r *BlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
+	maxBlobInFiles := r.FrozenBscBlobs()
+	if blockHeight > maxBlobInFiles || maxBlobInFiles == 0 {
+		blockHash, err := r.CanonicalHash(ctx, tx, blockHeight)
+		if err != nil {
+			return nil, false, fmt.Errorf("failed ReadCanonicalHash: %w", err)
+		}
+		return r.bs.ReadBlobSidecars(ctx, blockHeight, blockHash)
+	}
+	log.Info("Read BlobSidecar from snapshots")
+	blobs, err := r.bscSn.ReadBlobSidecars(blockHeight)
+	if err != nil {
+		return nil, false, err
+	}
+	if blobs == nil {
+		return nil, false, nil
+	}
+	return blobs, true, nil
+}
+
+func (r *BlockReader) ReadBlobTxCount(ctx context.Context, blockNum uint64, hash common.Hash) (uint32, error) {
+	maxBlobInFiles := r.FrozenBscBlobs()
+	if blockNum > maxBlobInFiles || maxBlobInFiles == 0 {
+		return r.bs.BlobTxCount(ctx, hash)
+	}
+	blobs, err := r.bscSn.ReadBlobSidecars(blockNum)
+	if err != nil {
+		return 0, err
+	}
+	return uint32(len(blobs)), nil
 }
 
 // ---- Data Integrity part ----

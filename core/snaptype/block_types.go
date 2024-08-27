@@ -33,31 +33,34 @@ func init() {
 	snapcfg.RegisterKnownTypes(networkname.GoerliChainName, ethereumTypes)
 	snapcfg.RegisterKnownTypes(networkname.GnosisChainName, ethereumTypes)
 	snapcfg.RegisterKnownTypes(networkname.ChiadoChainName, ethereumTypes)
-	snapcfg.RegisterKnownTypes(networkname.BSCChainName, ethereumTypes)
 }
 
 var Enums = struct {
 	snaptype.Enums
 	Headers,
 	Bodies,
-	Transactions snaptype.Enum
+	Transactions,
+	BscBlobs snaptype.Enum
 }{
 	Enums:        snaptype.Enums{},
 	Headers:      snaptype.MinCoreEnum,
 	Bodies:       snaptype.MinCoreEnum + 1,
 	Transactions: snaptype.MinCoreEnum + 2,
+	BscBlobs:     snaptype.MinBscEnum,
 }
 
 var Indexes = struct {
 	HeaderHash,
 	BodyHash,
 	TxnHash,
-	TxnHash2BlockNum snaptype.Index
+	TxnHash2BlockNum,
+	BscBlobNum snaptype.Index
 }{
 	HeaderHash:       snaptype.Index{Name: "headers"},
 	BodyHash:         snaptype.Index{Name: "bodies"},
 	TxnHash:          snaptype.Index{Name: "transactions"},
 	TxnHash2BlockNum: snaptype.Index{Name: "transactions-to-block", Offset: 1},
+	BscBlobNum:       snaptype.Index{Name: "blocksidecars"},
 }
 
 var (
