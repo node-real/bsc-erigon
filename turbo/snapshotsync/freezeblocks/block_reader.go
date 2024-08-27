@@ -308,7 +308,7 @@ func (r *RemoteBlockReader) Checkpoint(ctx context.Context, tx kv.Getter, spanId
 	return nil, nil
 }
 
-func (r *RemoteBlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Tx, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
+func (r *RemoteBlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
 	return nil, false, nil
 }
 
@@ -618,15 +618,13 @@ func (r *BlockReader) BodyRlp(ctx context.Context, tx kv.Getter, hash common.Has
 	if err != nil {
 		return nil, err
 	}
-	if r.bs != nil {
-		blobSidecars, found, err := r.bs.ReadBlobSidecars(ctx, blockHeight, hash)
-		if err == nil && found && len(blobSidecars) > 0 {
-			// Has to be there as it is optional
-			if body.Withdrawals == nil {
-				body.Withdrawals = make([]*types.Withdrawal, 0)
-			}
-			body.Sidecars = blobSidecars
+	blobSidecars, found, err := r.ReadBlobByNumber(ctx, tx, blockHeight)
+	if err == nil && found && len(blobSidecars) > 0 {
+		// Has to be there as it is optional
+		if body.Withdrawals == nil {
+			body.Withdrawals = make([]*types.Withdrawal, 0)
 		}
+		body.Sidecars = blobSidecars
 	}
 
 	bodyRlp, err = rlp.EncodeToBytes(body)
@@ -1768,7 +1766,7 @@ func (r *BlockReader) LastFrozenCheckpointId() uint64 {
 	return index.BaseDataID() + index.KeyCount() - 1
 }
 
-func (r *BlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Tx, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
+func (r *BlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
 	maxBlobInFiles := r.FrozenBscBlobs()
 	if blockHeight > maxBlobInFiles || maxBlobInFiles == 0 {
 		blockHash, err := r.CanonicalHash(ctx, tx, blockHeight)

@@ -303,7 +303,7 @@ func (back *RemoteBackend) BorStartEventID(ctx context.Context, tx kv.Tx, hash c
 	return back.blockReader.BorStartEventID(ctx, tx, hash, blockNum)
 }
 
-func (back *RemoteBackend) ReadBlobByNumber(ctx context.Context, tx kv.Tx, blockNum uint64) ([]*types.BlobSidecar, bool, error) {
+func (back *RemoteBackend) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockNum uint64) ([]*types.BlobSidecar, bool, error) {
 	return back.blockReader.ReadBlobByNumber(ctx, tx, blockNum)
 }
 

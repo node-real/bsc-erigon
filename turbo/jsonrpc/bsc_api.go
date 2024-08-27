@@ -270,11 +270,11 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 
 func marshalBlobSidecar(sidecar *types.BlobSidecar) map[string]interface{} {
 	fields := map[string]interface{}{
-		"blockHash":   sidecar.BlockHash,
-		"blockNumber": hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
-		"txHash":      sidecar.TxHash,
-		"txIndex":     hexutil.EncodeUint64(sidecar.TxIndex),
-		"blobSidecar": sidecar.BlobTxSidecar,
+		"blockHash":        sidecar.BlockHash,
+		"blockNumber":      hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
+		"transactionHash":  sidecar.TxHash,
+		"transactionIndex": hexutil.EncodeUint64(sidecar.TxIndex),
+		"blobSidecar":      sidecar.BlobTxSidecar,
 	}
 	return fields
 }

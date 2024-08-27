@@ -102,7 +102,7 @@ type BlockAndTxnReader interface {
 }
 
 type BlobReader interface {
-	ReadBlobByNumber(ctx context.Context, tx kv.Tx, blockHeight uint64) ([]*types.BlobSidecar, bool, error)
+	ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error)
 	ReadBlobTxCount(ctx context.Context, blockNum uint64, hash common.Hash) (uint32, error)
 }
 

@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	testnetURL = "https://bsc-testnet.nodereal.io/v1/2e9d633513f945d89ec95755ae183afd"
-	mainNetURL = "https://bsc-mainnet.nodereal.io/v1/e2d346d33d304b069bb4111aa1ff2868"
+	testnetURL = ""
+	mainNetURL = ""
 )
 
 type RPCRequest struct {
