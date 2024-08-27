@@ -283,7 +283,6 @@ func marshalBlobSidecar(sidecar *types.BlobSidecar, fullBlob bool) map[string]in
 		"blockNumber": hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
 		"txHash":      sidecar.TxHash,
 		"txIndex":     hexutil.EncodeUint64(sidecar.TxIndex),
-		"blobSidecar": sidecar.BlobTxSidecar,
 	}
 	fields["blobSidecar"] = marshalBlob(sidecar.BlobTxSidecar, fullBlob)
 	return fields
