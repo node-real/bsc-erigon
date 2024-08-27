@@ -446,7 +446,7 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 			}()
 		}
 		onNewSnapshot()
-		blockReader = freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots)
+		blockReader = freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, nil)
 
 		db, err = temporal.New(rwKv, agg)
 		if err != nil {

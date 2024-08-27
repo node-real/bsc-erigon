@@ -31,8 +31,8 @@ type BscAPI interface {
 	GetTransactionsByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) ([]*RPCTransaction, error)
 	GetVerifyResult(ctx context.Context, blockNr rpc.BlockNumber, blockHash libcommon.Hash, diffHash libcommon.Hash) ([]map[string]interface{}, error)
 	PendingTransactions() ([]*RPCTransaction, error)
-	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error)
-	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash) (map[string]interface{}, error)
+	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error)
+	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error)
 }
 
 type BscImpl struct {
@@ -221,34 +221,41 @@ func (s *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
 	return nil, fmt.Errorf(NotImplemented, "eth_pendingTransactions")
 }
 
-func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error) {
+func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error) {
+	showBlob := true
+	if fullBlob != nil {
+		showBlob = *fullBlob
+	}
 	tx, err := api.ethApi.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-
-	blockNumber, blockHash, _, err := rpchelper.GetBlockNumber(ctx, numberOrHash, tx, api.ethApi._blockReader, api.ethApi.filters)
+	blockNumber, _, _, err := rpchelper.GetBlockNumber(numberOrHash, tx, api.ethApi.filters)
 	if err != nil {
 		return nil, err
 	}
-
-	bsc, err := api.parlia()
-	if err != nil {
-		return nil, err
-	}
-	blobSidecars, found, err := bsc.BlobStore.ReadBlobSidecars(ctx, blockNumber, blockHash)
+	blobSidecars, found, err := api.ethApi._blockReader.ReadBlobByNumber(ctx, tx, blockNumber)
 	if err != nil || !found {
 		return nil, err
 	}
 	result := make([]map[string]interface{}, len(blobSidecars))
 	for i, sidecar := range blobSidecars {
-		result[i] = marshalBlobSidecar(sidecar)
+		result[i] = marshalBlobSidecar(sidecar, showBlob)
 	}
 	return result, nil
 }
 
-func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash) (map[string]interface{}, error) {
+func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error) {
+	showBlob := true
+	if fullBlob != nil {
+		showBlob = *fullBlob
+	}
+	roTx, err := api.ethApi.db.BeginRo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer roTx.Rollback()
 	tx, err := api.ethApi.GetTransactionByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -256,29 +263,44 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 	if tx == nil || tx.BlockNumber == nil || tx.BlockHash == nil || tx.TransactionIndex == nil {
 		return nil, nil
 	}
-	bsc, err := api.parlia()
-	if err != nil {
-		return nil, err
-	}
-	blobSidecars, found, err := bsc.BlobStore.ReadBlobSidecars(ctx, tx.BlockNumber.Uint64(), *tx.BlockHash)
+
+	blobSidecars, found, err := api.ethApi._blockReader.ReadBlobByNumber(ctx, roTx, tx.BlockNumber.Uint64())
 	if err != nil || !found {
 		return nil, err
 	}
 	for _, sidecar := range blobSidecars {
 		if sidecar.TxIndex == uint64(*tx.TransactionIndex) {
-			return marshalBlobSidecar(sidecar), nil
+			return marshalBlobSidecar(sidecar, showBlob), nil
 		}
 	}
 	return nil, nil
 }
 
-func marshalBlobSidecar(sidecar *types.BlobSidecar) map[string]interface{} {
+func marshalBlobSidecar(sidecar *types.BlobSidecar, fullBlob bool) map[string]interface{} {
 	fields := map[string]interface{}{
 		"blockHash":   sidecar.BlockHash,
 		"blockNumber": hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
 		"txHash":      sidecar.TxHash,
 		"txIndex":     hexutil.EncodeUint64(sidecar.TxIndex),
-		"blobSidecar": sidecar.BlobTxSidecar,
+	}
+	fields["blobSidecar"] = marshalBlob(sidecar.BlobTxSidecar, fullBlob)
+	return fields
+}
+
+func marshalBlob(blobTxSidecar types.BlobTxSidecar, fullBlob bool) map[string]interface{} {
+	fields := map[string]interface{}{
+		"blobs":       blobTxSidecar.Blobs,
+		"commitments": blobTxSidecar.Commitments,
+		"proofs":      blobTxSidecar.Proofs,
+	}
+	if !fullBlob {
+		var blobs []libcommon.Hash
+		for _, blob := range blobTxSidecar.Blobs {
+			var value libcommon.Hash
+			copy(value[:], blob[:32])
+			blobs = append(blobs, value)
+		}
+		fields["blobs"] = blobs
 	}
 	return fields
 }
