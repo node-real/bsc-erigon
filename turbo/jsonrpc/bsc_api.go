@@ -3,6 +3,7 @@ package jsonrpc
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/hexutil"
 	"github.com/ledgerwatch/erigon/consensus"
@@ -31,8 +32,8 @@ type BscAPI interface {
 	GetTransactionsByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) ([]*RPCTransaction, error)
 	GetVerifyResult(ctx context.Context, blockNr rpc.BlockNumber, blockHash libcommon.Hash, diffHash libcommon.Hash) ([]map[string]interface{}, error)
 	PendingTransactions() ([]*RPCTransaction, error)
-	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error)
-	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash) (map[string]interface{}, error)
+	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error)
+	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error)
 }
 
 type BscImpl struct {
@@ -221,7 +222,11 @@ func (s *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
 	return nil, fmt.Errorf(NotImplemented, "eth_pendingTransactions")
 }
 
-func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash) ([]map[string]interface{}, error) {
+func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error) {
+	showBlob := true
+	if fullBlob != nil {
+		showBlob = *fullBlob
+	}
 	tx, err := api.ethApi.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
@@ -237,12 +242,16 @@ func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockN
 	}
 	result := make([]map[string]interface{}, len(blobSidecars))
 	for i, sidecar := range blobSidecars {
-		result[i] = marshalBlobSidecar(sidecar)
+		result[i] = marshalBlobSidecar(sidecar, showBlob)
 	}
 	return result, nil
 }
 
-func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash) (map[string]interface{}, error) {
+func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error) {
+	showBlob := true
+	if fullBlob != nil {
+		showBlob = *fullBlob
+	}
 	roTx, err := api.ethApi.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
@@ -262,19 +271,38 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 	}
 	for _, sidecar := range blobSidecars {
 		if sidecar.TxIndex == uint64(*tx.TransactionIndex) {
-			return marshalBlobSidecar(sidecar), nil
+			return marshalBlobSidecar(sidecar, showBlob), nil
 		}
 	}
 	return nil, nil
 }
 
-func marshalBlobSidecar(sidecar *types.BlobSidecar) map[string]interface{} {
+func marshalBlobSidecar(sidecar *types.BlobSidecar, fullBlob bool) map[string]interface{} {
 	fields := map[string]interface{}{
-		"blockHash":        sidecar.BlockHash,
-		"blockNumber":      hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
-		"transactionHash":  sidecar.TxHash,
-		"transactionIndex": hexutil.EncodeUint64(sidecar.TxIndex),
-		"blobSidecar":      sidecar.BlobTxSidecar,
+		"blockHash":   sidecar.BlockHash,
+		"blockNumber": hexutil.EncodeUint64(sidecar.BlockNumber.Uint64()),
+		"txHash":      sidecar.TxHash,
+		"txIndex":     hexutil.EncodeUint64(sidecar.TxIndex),
+		"blobSidecar": sidecar.BlobTxSidecar,
+	}
+	fields["blobSidecar"] = marshalBlob(sidecar.BlobTxSidecar, fullBlob)
+	return fields
+}
+
+func marshalBlob(blobTxSidecar types.BlobTxSidecar, fullBlob bool) map[string]interface{} {
+	fields := map[string]interface{}{
+		"blobs":       blobTxSidecar.Blobs,
+		"commitments": blobTxSidecar.Commitments,
+		"proofs":      blobTxSidecar.Proofs,
+	}
+	if !fullBlob {
+		var blobs []common.Hash
+		for _, blob := range blobTxSidecar.Blobs {
+			var value common.Hash
+			copy(value[:], blob[:32])
+			blobs = append(blobs, value)
+		}
+		fields["blobs"] = blobs
 	}
 	return fields
 }
