@@ -104,7 +104,6 @@ var (
 * tevm - write TEVM translated code to the DB`,
 		Value: "default",
 	}
-
 	PruneBscBlobSidecarsFlag = cli.BoolFlag{
 		Name:  "prune.blobSidecars",
 		Usage: `enable blob pruning in bsc`,
@@ -443,6 +442,8 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 		utils.Fatalf("error: --prune.mode must be one of archive, full, minimal")
 	}
 	cfg.Prune = mode
+
+	cfg.BlobPrune = *f.Bool(PruneBscBlobSidecarsFlag.Name, PruneBscBlobSidecarsFlag.Value, PruneBscBlobSidecarsFlag.Usage)
 
 	if v := f.String(BatchSizeFlag.Name, BatchSizeFlag.Value, BatchSizeFlag.Usage); v != nil {
 		err := cfg.BatchSize.UnmarshalText([]byte(*v))
