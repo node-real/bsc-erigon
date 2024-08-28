@@ -122,15 +122,10 @@ func (bs *BlobStore) ReadBlobSidecars(ctx context.Context, number uint64, hash l
 }
 
 // Do a bit of pruning
-func (bs *BlobStore) Prune() error {
+func (bs *BlobStore) Prune(tx kv.Tx) error {
 	if bs.blocksKept == math.MaxUint64 {
 		return nil
 	}
-	tx, err := bs.db.BeginRo(context.Background())
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 	block, err := bs.blockReader.CurrentBlock(tx)
 	if err != nil {
 		return err
