@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"math/big"
 	"os"
 	"sync"
@@ -439,6 +440,7 @@ func MockWithEverything(tb testing.TB, gspec *types.Genesis, key *ecdsa.PrivateK
 
 		recents    *lru.ARCCache[libcommon.Hash, *bor.Snapshot]
 		signatures *lru.ARCCache[libcommon.Hash, libcommon.Address]
+		blobStore  services.BlobStorage
 	)
 
 	snapDownloader.EXPECT().
@@ -458,6 +460,10 @@ func MockWithEverything(tb testing.TB, gspec *types.Genesis, key *ecdsa.PrivateK
 		snapDb = bor.DB
 		recents = bor.Recents
 		signatures = bor.Signatures
+	}
+	if parlia, ok := engine.(*parlia.Parlia); ok {
+		blobStore = parlia.BlobStore
+		mock.BlockReader.WithSidecars(blobStore)
 	}
 	miningConfig := cfg.Miner
 	miningConfig.Enabled = true
