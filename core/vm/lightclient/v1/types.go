@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/tendermint/tendermint/crypto/ed25519"
 	"github.com/tendermint/tendermint/crypto/merkle"
@@ -97,7 +98,7 @@ func (cs ConsensusState) EncodeConsensusState() ([]byte, error) {
 
 	pos := uint64(0)
 	if uint64(len(cs.ChainID)) > chainIDLength {
-		return nil, fmt.Errorf("chainID length should be no more than 32")
+		return nil, errors.New("chainID length should be no more than 32")
 	}
 	copy(encodingBytes[pos:pos+chainIDLength], cs.ChainID)
 	pos += chainIDLength

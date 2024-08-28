@@ -381,7 +381,7 @@ func (sc BlobTxSidecar) payloadSize() int {
 func (sc *BlobTxSidecar) ValidateBlobTxSidecar(blobVersionedHashes []libcommon.Hash) error {
 	l1 := len(blobVersionedHashes)
 	if l1 == 0 {
-		return fmt.Errorf("a blob tx must contain at least one blob")
+		return errors.New("a blob tx must contain at least one blob")
 	}
 	l2 := len(sc.Commitments)
 	l3 := len(sc.Blobs)

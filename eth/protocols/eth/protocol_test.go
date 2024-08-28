@@ -257,7 +257,7 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		Proofs:      types.KZGProofs{types.KZGProof{}, types.KZGProof{}},
 	}
 	blobTx := &types.BlobTx{
-		DynamicFeeTransaction: *dynamicTx,
+		DynamicFeeTransaction: *dynamicTx, //nolint
 		MaxFeePerBlobGas:      uint256.NewInt(5),
 		BlobVersionedHashes:   []libcommon.Hash{{}},
 	}
