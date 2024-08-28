@@ -1246,6 +1246,7 @@ type BlockRetire struct {
 	workers int
 	tmpDir  string
 	db      kv.RoDB
+	bs      services.BlobStorage
 
 	notifier    services.DBEventNotifier
 	logger      log.Logger
@@ -1261,6 +1262,7 @@ func NewBlockRetire(
 	blockReader services.FullBlockReader,
 	blockWriter *blockio.BlockWriter,
 	db kv.RoDB,
+	bs services.BlobStorage,
 	chainConfig *chain.Config,
 	notifier services.DBEventNotifier,
 	snBuildAllowed *semaphore.Weighted,
@@ -1273,6 +1275,7 @@ func NewBlockRetire(
 		blockReader:    blockReader,
 		blockWriter:    blockWriter,
 		db:             db,
+		bs:             bs,
 		snBuildAllowed: snBuildAllowed,
 		chainConfig:    chainConfig,
 		notifier:       notifier,
@@ -1293,6 +1296,10 @@ func (br *BlockRetire) snapshots() *RoSnapshots { return br.blockReader.Snapshot
 
 func (br *BlockRetire) borSnapshots() *BorRoSnapshots {
 	return br.blockReader.BorSnapshots().(*BorRoSnapshots)
+}
+
+func (br *BlockRetire) bscSnapshots() *BscRoSnapshots {
+	return br.blockReader.BscSnapshots().(*BscRoSnapshots)
 }
 
 func (br *BlockRetire) HasNewFrozenFiles() bool {
@@ -1522,6 +1529,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, requestedMinBlockNum ui
 		br.maxScheduledBlock.Store(requestedMaxBlockNum)
 	}
 	includeBor := br.chainConfig.Bor != nil
+	includeBsc := br.chainConfig.Parlia != nil
 
 	if err := br.BuildMissedIndicesIfNeed(ctx, "RetireBlocks", br.notifier, br.chainConfig); err != nil {
 		return err
@@ -1547,7 +1555,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, requestedMinBlockNum ui
 
 	var err error
 	for {
-		var ok, okBor bool
+		var ok, okBor, okBsc bool
 		minBlockNum := max(br.blockReader.FrozenBlocks(), requestedMinBlockNum)
 		maxBlockNum := br.maxScheduledBlock.Load()
 		ok, err = br.retireBlocks(ctx, minBlockNum, maxBlockNum, lvl, seedNewSnapshots, onDeleteSnapshots)
@@ -1562,13 +1570,26 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, requestedMinBlockNum ui
 				return err
 			}
 		}
+
+		if includeBsc {
+			for {
+				okBsc, err = br.retireBscBlocks(ctx, br.blockReader.FrozenBscBlobs(), minBlockNum, lvl, seedNewSnapshots, onDeleteSnapshots)
+				if err != nil {
+					return err
+				}
+				if !okBsc {
+					break
+				}
+			}
+		}
+
 		if onFinish != nil {
 			if err := onFinish(); err != nil {
 				return err
 			}
 		}
 
-		if !(ok || okBor) {
+		if !(ok || okBor || okBsc) {
 			break
 		}
 	}
@@ -1582,6 +1603,12 @@ func (br *BlockRetire) BuildMissedIndicesIfNeed(ctx context.Context, logPrefix s
 
 	if cc.Bor != nil {
 		if err := br.borSnapshots().RoSnapshots.buildMissedIndicesIfNeed(ctx, logPrefix, notifier, br.dirs, cc, br.logger); err != nil {
+			return err
+		}
+	}
+
+	if cc.Parlia != nil {
+		if err := br.bscSnapshots().RoSnapshots.buildMissedIndicesIfNeed(ctx, logPrefix, notifier, br.dirs, cc, br.logger); err != nil {
 			return err
 		}
 	}

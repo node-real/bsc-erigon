@@ -231,7 +231,7 @@ func (api *BscImpl) GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockN
 		return nil, err
 	}
 	defer tx.Rollback()
-	blockNumber, _, _, err := rpchelper.GetBlockNumber(numberOrHash, tx, api.ethApi.filters)
+	blockNumber, _, _, err := rpchelper.GetBlockNumber(ctx, numberOrHash, tx, api.ethApi._blockReader, api.ethApi.filters)
 	if err != nil {
 		return nil, err
 	}

@@ -342,7 +342,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 
 	// Check if we have an already initialized chain and fall back to
 	// that if so. Otherwise we need to generate a new genesis spec.
-	blockReader, blockWriter, allSnapshots, allBorSnapshots, agg, err := setUpBlockReader(ctx, chainKv, config.Dirs, config, chainConfig.Bor != nil, logger)
+	blockReader, blockWriter, allSnapshots, allBorSnapshots, _, agg, err := setUpBlockReader(ctx, chainKv, config.Dirs, config, chainConfig.Bor != nil, chainConfig.Parlia != nil, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -764,7 +764,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 	blockSnapBuildSema := semaphore.NewWeighted(int64(dbg.BuildSnapshotAllowance))
 
 	agg.SetSnapshotBuildSema(blockSnapBuildSema)
-	blockRetire := freezeblocks.NewBlockRetire(1, dirs, blockReader, blockWriter, backend.chainDB, backend.chainConfig, backend.notifications.Events, blockSnapBuildSema, logger)
+	blockRetire := freezeblocks.NewBlockRetire(1, dirs, blockReader, blockWriter, backend.chainDB, blobStore, backend.chainConfig, backend.notifications.Events, blockSnapBuildSema, logger)
 
 	miningRPC = privateapi.NewMiningServer(ctx, backend, ethashApi, logger)
 
@@ -1449,7 +1449,7 @@ func (s *Ethereum) setUpSnapDownloader(ctx context.Context, downloaderCfg *downl
 	return err
 }
 
-func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConfig *ethconfig.Config, isBor bool, logger log.Logger) (services.FullBlockReader, *blockio.BlockWriter, *freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *libstate.Aggregator, error) {
+func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConfig *ethconfig.Config, isBor, isBsc bool, logger log.Logger) (services.FullBlockReader, *blockio.BlockWriter, *freezeblocks.RoSnapshots, *freezeblocks.BorRoSnapshots, *freezeblocks.BscRoSnapshots, *libstate.Aggregator, error) {
 	var minFrozenBlock uint64
 
 	if frozenLimit := snConfig.Sync.FrozenBlockLimit; frozenLimit != 0 {
@@ -1464,10 +1464,16 @@ func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConf
 	if isBor {
 		allBorSnapshots = freezeblocks.NewBorRoSnapshots(snConfig.Snapshot, dirs.Snap, minFrozenBlock, logger)
 	}
+
+	var allBscSnapshots *freezeblocks.BscRoSnapshots
+	if isBsc {
+		allBscSnapshots = freezeblocks.NewBscRoSnapshots(snConfig.Snapshot, dirs.Snap, minFrozenBlock, logger)
+	}
+
 	cr := rawdb.NewCanonicalReader()
 	agg, err := libstate.NewAggregator(ctx, dirs, config3.HistoryV3AggregationStep, db, cr, logger)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	agg.SetProduceMod(snConfig.Snapshot.ProduceE3)
@@ -1484,16 +1490,22 @@ func setUpBlockReader(ctx context.Context, db kv.RwDB, dirs datadir.Dirs, snConf
 		return nil
 	})
 	g.Go(func() error {
+		if isBsc {
+			allBscSnapshots.OptimisticalyReopenFolder()
+		}
+		return nil
+	})
+	g.Go(func() error {
 		return agg.OpenFolder()
 	})
 	if err = g.Wait(); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	blockReader := freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots)
+	blockReader := freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, allBscSnapshots)
 	blockWriter := blockio.NewBlockWriter()
 
-	return blockReader, blockWriter, allSnapshots, allBorSnapshots, agg, nil
+	return blockReader, blockWriter, allSnapshots, allBorSnapshots, allBscSnapshots, agg, nil
 }
 
 func (s *Ethereum) Peers(ctx context.Context) (*remote.PeersReply, error) {
