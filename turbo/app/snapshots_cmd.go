@@ -149,7 +149,7 @@ var snapshotCommand = cli.Command{
 				&SnapshotFromFlag,
 				&SnapshotToFlag,
 				&SnapshotEveryFlag,
-				&SnapshotWithBsc,
+				&SnapshotWithoutBsc,
 			}),
 		},
 		{
@@ -397,10 +397,9 @@ var (
 		Name:  "rebuild",
 		Usage: "Force rebuild",
 	}
-	SnapshotWithBsc = cli.BoolFlag{
-		Name:  "withBsc",
-		Usage: "Build Bsc snapshots",
-		Value: true,
+	SnapshotWithoutBsc = cli.BoolFlag{
+		Name:  "withoutBsc",
+		Usage: "don't build Bsc snapshots",
 	}
 )
 
@@ -1219,7 +1218,7 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 	from := cliCtx.Uint64(SnapshotFromFlag.Name)
 	to := cliCtx.Uint64(SnapshotToFlag.Name)
 	every := cliCtx.Uint64(SnapshotEveryFlag.Name)
-	withBsc := cliCtx.Bool(SnapshotWithBsc.Name)
+	blobPrune := cliCtx.Bool(SnapshotWithoutBsc.Name)
 
 	db := dbCfg(kv.ChainDB, dirs.Chaindata).MustOpen()
 	defer db.Close()
@@ -1228,7 +1227,7 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
-		bs = openBlobStore(dirs, chainConfig, withBsc)
+		bs = openBlobStore(dirs, chainConfig, blobPrune)
 	}
 
 	cfg := ethconfig.NewSnapCfg(false, true, true)
@@ -1554,13 +1553,13 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 //	return nil
 //}
 
-func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, withBsc bool) services.BlobStorage {
+func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, blobPrune bool) services.BlobStorage {
 	blobDbPath := path.Join(dirs.Blobs, "blob")
 	blobDb := mdbx.MustOpen(blobDbPath)
 	var blobKept uint64
 	blobKept = math.MaxUint64
-	if !withBsc {
-		blobKept = 0
+	if blobPrune {
+		blobKept = params.MinBlocksForBlobRequests
 	}
 	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), blobKept, chainConfig, nil)
 	return blobStore
