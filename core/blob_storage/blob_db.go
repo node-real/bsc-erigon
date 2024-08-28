@@ -198,3 +198,7 @@ func (bs *BlobStore) RemoveBlobSidecars(ctx context.Context, number uint64, hash
 	}
 	return tx.Commit()
 }
+
+func (bs *BlobStore) BlobKept() bool {
+	return bs.blocksKept == math.MaxUint64
+}

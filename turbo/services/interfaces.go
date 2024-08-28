@@ -100,6 +100,7 @@ type BlobStorage interface {
 	WriteStream(w io.Writer, number uint64, hash common.Hash, idx uint64) error // Used for P2P networking
 	BlobTxCount(ctx context.Context, hash common.Hash) (uint32, error)
 	Prune() error
+	BlobKept() bool
 }
 
 type TxnReader interface {
