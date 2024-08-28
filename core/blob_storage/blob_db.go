@@ -122,15 +122,11 @@ func (bs *BlobStore) ReadBlobSidecars(ctx context.Context, number uint64, hash l
 }
 
 // Do a bit of pruning
-func (bs *BlobStore) Prune(tx kv.Tx) error {
+func (bs *BlobStore) Prune(current uint64) error {
 	if bs.blocksKept == math.MaxUint64 {
 		return nil
 	}
-	block, err := bs.blockReader.CurrentBlock(tx)
-	if err != nil {
-		return err
-	}
-	currentBlock := block.NumberU64() - bs.blocksKept
+	currentBlock := current - bs.blocksKept
 	currentBlock = (currentBlock / subdivision) * subdivision
 	var startPrune uint64
 	if currentBlock >= 1_000_000 {

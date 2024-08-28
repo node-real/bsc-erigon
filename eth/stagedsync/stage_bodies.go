@@ -456,7 +456,7 @@ func UnwindBodiesStage(u *UnwindState, tx kv.RwTx, cfg BodiesCfg, ctx context.Co
 
 func PruneBodiesStage(p *PruneState, tx kv.RwTx, cfg BodiesCfg, ctx context.Context) (err error) {
 	if cfg.blobStore != nil {
-		return cfg.blobStore.Prune(tx)
+		return cfg.blobStore.Prune(p.ForwardProgress)
 	}
 	return nil
 }
