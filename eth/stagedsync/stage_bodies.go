@@ -453,3 +453,10 @@ func UnwindBodiesStage(u *UnwindState, tx kv.RwTx, cfg BodiesCfg, ctx context.Co
 	}
 	return nil
 }
+
+func PruneBodiesStage(p *PruneState, tx kv.RwTx, cfg BodiesCfg, ctx context.Context) (err error) {
+	if cfg.blobStore != nil {
+		return cfg.blobStore.Prune()
+	}
+	return nil
+}

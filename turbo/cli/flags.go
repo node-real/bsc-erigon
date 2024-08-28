@@ -105,6 +105,12 @@ var (
 		Value: "default",
 	}
 
+	PruneBscBlobSidecarsFlag = cli.BoolFlag{
+		Name:  "prune.blobSidecars",
+		Usage: `enable blob pruning in bsc`,
+		Value: false,
+	}
+
 	// mTLS flags
 	TLSFlag = cli.BoolFlag{
 		Name:  "tls",
@@ -304,6 +310,8 @@ func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.
 		mode.Blocks = prune.Distance(2048) // 2048 is just some blocks to allow reorgs
 		mode.History = prune.Distance(0)
 	}
+
+	cfg.BlobPrune = ctx.Bool(PruneBscBlobSidecarsFlag.Name)
 
 	if err != nil {
 		utils.Fatalf(fmt.Sprintf("error while parsing mode: %v", err))

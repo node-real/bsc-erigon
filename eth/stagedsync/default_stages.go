@@ -110,7 +110,7 @@ func DefaultStages(ctx context.Context,
 				return UnwindBodiesStage(u, txc.Tx, bodies, ctx)
 			},
 			Prune: func(p *PruneState, tx kv.RwTx, logger log.Logger) error {
-				return nil
+				return PruneBodiesStage(p, tx, bodies, ctx)
 			},
 		},
 		{
