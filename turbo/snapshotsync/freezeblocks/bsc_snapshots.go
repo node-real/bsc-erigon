@@ -91,14 +91,14 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 		for i := blockFrom; i < blockTo; i++ {
 			if i%10000 == 0 {
-				log.Info("remove sidecars", "blockNum", i)
+				logger.Info("remove sidecars", "blockNum", i)
 			}
 			blockHash, err := blockReader.CanonicalHash(ctx, roTx, i)
 			if err != nil {
 				return false, err
 			}
 			if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
-				log.Error("remove sidecars", "blockNum", i, "err", err)
+				logger.Error("remove sidecars", "blockNum", i, "err", err)
 			}
 
 		}
@@ -283,75 +283,3 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 
 	return sidecars, nil
 }
-
-//
-//func checkBlobs(ctx context.Context, blockFrom, blockTo uint64, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, logger log.Logger) bool {
-//	tx, err := chainDB.BeginRo(ctx)
-//	if err != nil {
-//		return false
-//	}
-//	defer tx.Rollback()
-//	var missedBlobs []uint64
-//	noErr := true
-//	for i := blockFrom; i < blockTo; i++ {
-//		block, err := blockReader.BlockByNumber(ctx, tx, i)
-//		if err != nil {
-//			log.Error("ReadCanonicalHash", "blockNum", i, "blockHash", block.Hash(), "err", err)
-//			noErr = false
-//		}
-//		var blobTxCount uint64
-//
-//		for _, tx := range block.Transactions() {
-//			if tx.Type() != types.BlobTxType {
-//				continue
-//			}
-//			blobTxCount++
-//		}
-//		if blobTxCount == 0 {
-//			continue
-//		}
-//		blobs, found, err := blobStore.ReadBlobSidecars(ctx, i, block.Hash())
-//		if err != nil {
-//			noErr = false
-//			missedBlobs = append(missedBlobs, i)
-//			log.Error("read blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
-//			err := blobStore.RemoveBlobSidecars(ctx, i, block.Hash())
-//			log.Error("Remove blob sidecars:", "blockNum", i, "blobTxCount", blobTxCount, "err", err)
-//			continue
-//		}
-//		if !found {
-//			noErr = false
-//			missedBlobs = append(missedBlobs, i)
-//			log.Error("blob sidecars not found for block ", "blockNumber", i, "count", blobTxCount)
-//			continue
-//		}
-//
-//		if uint64(len(blobs)) != blobTxCount {
-//			missedBlobs = append(missedBlobs, i)
-//			noErr = false
-//			log.Error("blob sidecars not found for block ", "blockNumber", i, "want", blobTxCount, "actual", len(blobs))
-//			continue
-//		}
-//
-//		if i%20_000 == 0 {
-//			logger.Info("Dumping bsc blobs", "progress", i)
-//		}
-//	}
-//
-//	log.Info("Start query missedBlobs from http")
-//	for _, num := range missedBlobs {
-//		blobs := GetBlobSidecars(num)
-//		hash, err := blockReader.CanonicalHash(ctx, tx, num)
-//		if err != nil {
-//			log.Error("GetBlobSidecars failed", "num", num, "err", err)
-//			return noErr
-//		}
-//		if err = blobStore.WriteBlobSidecars(ctx, hash, blobs); err != nil {
-//			log.Error("WriteBlobSidecars failed", "num", num, "err", err)
-//		}
-//		log.Info("WriteBlobSidecars blobs", "num", num, "hash", hash, "blobs", len(blobs))
-//		time.Sleep(1 * time.Second)
-//	}
-//
-//	return noErr
-//}
