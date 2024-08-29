@@ -270,6 +270,7 @@ func computeBlocksToPrune(blockReader services.FullBlockReader, p prune.Mode) (b
 // for MVP we sync with Downloader only once, in future will send new snapshots also
 func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs, headerchain, blobs bool, prune prune.Mode, caplin CaplinMode, agg *state.Aggregator, tx kv.RwTx, blockReader services.FullBlockReader, cc *chain.Config, snapshotDownloader proto_downloader.DownloaderClient, stagesIdsList []string) error {
 	snapshots := blockReader.Snapshots()
+	bscSnapshots := blockReader.BscSnapshots()
 	borSnapshots := blockReader.BorSnapshots()
 
 	// Find minimum block to download.
@@ -279,6 +280,11 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 		}
 		if cc.Bor != nil {
 			if err := borSnapshots.ReopenFolder(); err != nil {
+				return err
+			}
+		}
+		if cc.Parlia != nil {
+			if err := bscSnapshots.ReopenFolder(); err != nil {
 				return err
 			}
 		}
@@ -314,9 +320,13 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 		}
 	}
 
+	if caplin == NoCaplin {
+		blobs = !blobs
+	}
+
 	// build all download requests
 	for _, p := range preverifiedBlockSnapshots {
-		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks") || strings.Contains(p.Name, "blobsidecars")) {
+		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks") || strings.Contains(p.Name, "blobsidecars")) && !strings.Contains(p.Name, "bscblobsiders") {
 			continue
 		}
 		if caplin == OnlyCaplin && !strings.Contains(p.Name, "beaconblocks") && !strings.Contains(p.Name, "blobsidecars") {
@@ -412,6 +422,12 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 
 	if cc.Bor != nil {
 		if err := borSnapshots.ReopenFolder(); err != nil {
+			return err
+		}
+	}
+
+	if cc.Parlia != nil {
+		if err := bscSnapshots.ReopenFolder(); err != nil {
 			return err
 		}
 	}
