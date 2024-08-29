@@ -144,7 +144,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			if blobPrune {
 				blocksKept = params.MinBlocksForBlobRequests
 			}
-			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), nodeConfig.Dirs.DataDir), blocksKept, chainConfig, blockReader)
+			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), nodeConfig.Dirs.DataDir), blocksKept, chainConfig)
 
 			eng = parlia.New(chainConfig, db, blobStore, blockReader, logger)
 		}

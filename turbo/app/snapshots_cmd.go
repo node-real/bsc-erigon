@@ -1561,6 +1561,6 @@ func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, blobPrune bool)
 	if blobPrune {
 		blobKept = params.MinBlocksForBlobRequests
 	}
-	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), blobKept, chainConfig, nil)
+	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), blobKept, chainConfig)
 	return blobStore
 }

@@ -25,11 +25,10 @@ type BlobStore struct {
 	fs          afero.Fs
 	chainConfig *chain.Config
 	blocksKept  uint64
-	blockReader services.BlockReader
 }
 
-func NewBlobStore(db kv.RwDB, fs afero.Fs, blocksKept uint64, chainConfig *chain.Config, blockReader services.BlockReader) services.BlobStorage {
-	return &BlobStore{fs: fs, db: db, blocksKept: blocksKept, chainConfig: chainConfig, blockReader: blockReader}
+func NewBlobStore(db kv.RwDB, fs afero.Fs, blocksKept uint64, chainConfig *chain.Config) services.BlobStorage {
+	return &BlobStore{fs: fs, db: db, blocksKept: blocksKept, chainConfig: chainConfig}
 }
 
 func blobSidecarFilePath(blockNumber uint64, index uint64, hash libcommon.Hash) (folderpath, filepath string) {
