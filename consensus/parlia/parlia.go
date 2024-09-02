@@ -1077,7 +1077,7 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 	head := header
 	accumulatedWeights := make(map[libcommon.Address]uint64)
 	for height := currentHeight - 1; height+epoch >= currentHeight && height >= 1; height-- {
-		head = chain.GetHeaderByHash(head.ParentHash)
+		head = chain.GetHeader(head.ParentHash, head.Number.Uint64()-1)
 		if head == nil {
 			return true, fmt.Errorf("header is nil at height %d", height)
 		}
@@ -1088,7 +1088,7 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 		if voteAttestation == nil {
 			continue
 		}
-		justifiedBlock := chain.GetHeaderByHash(voteAttestation.Data.TargetHash)
+		justifiedBlock := chain.GetHeader(voteAttestation.Data.TargetHash, voteAttestation.Data.TargetNumber)
 		if justifiedBlock == nil {
 			p.logger.Warn("justifiedBlock is nil at height %d", voteAttestation.Data.TargetNumber)
 			continue
