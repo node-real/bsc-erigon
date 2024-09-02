@@ -342,7 +342,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 
 	// Check if we have an already initialized chain and fall back to
 	// that if so. Otherwise we need to generate a new genesis spec.
-	blockReader, blockWriter, allSnapshots, allBorSnapshots, _, agg, err := setUpBlockReader(ctx, chainKv, config.Dirs, config, chainConfig.Bor != nil, chainConfig.Parlia != nil, logger)
+	blockReader, blockWriter, allSnapshots, allBorSnapshots, allBscSnapshots, agg, err := setUpBlockReader(ctx, chainKv, config.Dirs, config, chainConfig.Bor != nil, chainConfig.Parlia != nil, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -362,7 +362,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 		}
 	}
 
-	kvRPC := remotedbserver.NewKvServer(ctx, backend.chainDB, allSnapshots, allBorSnapshots, agg, logger)
+	kvRPC := remotedbserver.NewKvServer(ctx, backend.chainDB, allSnapshots, allBorSnapshots, allBscSnapshots, agg, logger)
 	backend.notifications.StateChangesConsumer = kvRPC
 	backend.kvRPC = kvRPC
 

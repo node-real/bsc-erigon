@@ -72,6 +72,7 @@ type KvServer struct {
 	stateChangeStreams *StateChangePubSub
 	blockSnapshots     Snapshots
 	borSnapshots       Snapshots
+	bscSnapshots       Snapshots
 	historySnapshots   Snapshots
 	ctx                context.Context
 
@@ -95,7 +96,7 @@ type Snapshots interface {
 	Files() []string
 }
 
-func NewKvServer(ctx context.Context, db kv.RoDB, snapshots Snapshots, borSnapshots Snapshots, historySnapshots Snapshots, logger log.Logger) *KvServer {
+func NewKvServer(ctx context.Context, db kv.RoDB, snapshots Snapshots, borSnapshots Snapshots, bscSnapshots Snapshots, historySnapshots Snapshots, logger log.Logger) *KvServer {
 	return &KvServer{
 		trace:              false,
 		rangeStep:          1024,
@@ -104,6 +105,7 @@ func NewKvServer(ctx context.Context, db kv.RoDB, snapshots Snapshots, borSnapsh
 		ctx:                ctx,
 		blockSnapshots:     snapshots,
 		borSnapshots:       borSnapshots,
+		bscSnapshots:       bscSnapshots,
 		historySnapshots:   historySnapshots,
 		txs:                map[uint64]*threadSafeTx{},
 		txsMapLock:         &sync.RWMutex{},
@@ -464,6 +466,10 @@ func (s *KvServer) Snapshots(_ context.Context, _ *remote.SnapshotsRequest) (rep
 	blockFiles := s.blockSnapshots.Files()
 	if s.borSnapshots != nil && !reflect.ValueOf(s.borSnapshots).IsNil() { // nolint
 		blockFiles = append(blockFiles, s.borSnapshots.Files()...)
+	}
+
+	if s.bscSnapshots != nil && !reflect.ValueOf(s.bscSnapshots).IsNil() { // nolint
+		blockFiles = append(blockFiles, s.bscSnapshots.Files()...)
 	}
 
 	reply = &remote.SnapshotsReply{BlocksFiles: blockFiles}

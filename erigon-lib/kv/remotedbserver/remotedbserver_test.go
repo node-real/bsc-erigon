@@ -47,7 +47,7 @@ func TestKvServer_renew(t *testing.T) {
 		return nil
 	}))
 
-	s := NewKvServer(ctx, db, nil, nil, nil, log.New())
+	s := NewKvServer(ctx, db, nil, nil, nil, nil, log.New())
 	g, ctx := errgroup.WithContext(ctx)
 	testCase := func() error {
 		id, err := s.begin(ctx)
@@ -107,7 +107,7 @@ func TestKVServerSnapshotsReturnsSnapshots(t *testing.T) {
 	historySnapshots := NewMockSnapshots(ctrl)
 	historySnapshots.EXPECT().Files().Return([]string{"history"}).Times(1)
 
-	s := NewKvServer(ctx, nil, blockSnapshots, nil, historySnapshots, log.New())
+	s := NewKvServer(ctx, nil, blockSnapshots, nil, nil, historySnapshots, log.New())
 	reply, err := s.Snapshots(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"headers.seg", "bodies.seg"}, reply.BlocksFiles)
@@ -124,7 +124,7 @@ func TestKVServerSnapshotsReturnsBorSnapshots(t *testing.T) {
 	historySnapshots := NewMockSnapshots(ctrl)
 	historySnapshots.EXPECT().Files().Return([]string{"history"}).Times(1)
 
-	s := NewKvServer(ctx, nil, blockSnapshots, borSnapshots, historySnapshots, log.New())
+	s := NewKvServer(ctx, nil, blockSnapshots, borSnapshots, nil, historySnapshots, log.New())
 	reply, err := s.Snapshots(ctx, nil)
 	require.NoError(t, err)
 	require.Equal(t, []string{"headers.seg", "bodies.seg", "borevents.seg", "borspans.seg"}, reply.BlocksFiles)
@@ -133,9 +133,26 @@ func TestKVServerSnapshotsReturnsBorSnapshots(t *testing.T) {
 
 func TestKVServerSnapshotsReturnsEmptyIfNoBlockSnapshots(t *testing.T) {
 	ctx := context.Background()
-	s := NewKvServer(ctx, nil, nil, nil, nil, log.New())
+	s := NewKvServer(ctx, nil, nil, nil, nil, nil, log.New())
 	reply, err := s.Snapshots(ctx, nil)
 	require.NoError(t, err)
 	require.Empty(t, reply.BlocksFiles)
 	require.Empty(t, reply.HistoryFiles)
+}
+
+func TestKVServerSnapshotsReturnsBscSnapshots(t *testing.T) {
+	ctx := context.Background()
+	ctrl := gomock.NewController(t)
+	blockSnapshots := NewMockSnapshots(ctrl)
+	blockSnapshots.EXPECT().Files().Return([]string{"headers.seg", "bodies.seg"}).Times(1)
+	bscSnapshots := NewMockSnapshots(ctrl)
+	bscSnapshots.EXPECT().Files().Return([]string{"bscblobsidecars.seg"}).Times(1)
+	historySnapshots := NewMockSnapshots(ctrl)
+	historySnapshots.EXPECT().Files().Return([]string{"history"}).Times(1)
+
+	s := NewKvServer(ctx, nil, blockSnapshots, nil, bscSnapshots, historySnapshots, log.New())
+	reply, err := s.Snapshots(ctx, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"headers.seg", "bodies.seg", "bscblobsidecars.seg"}, reply.BlocksFiles)
+	require.Equal(t, []string{"history"}, reply.HistoryFiles)
 }

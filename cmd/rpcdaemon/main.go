@@ -50,7 +50,6 @@ func main() {
 		defer db.Close()
 		defer engine.Close()
 
-		// ToDo @blxdyx support query blob data in Rpcdaemon
 		apiList := jsonrpc.APIList(db, backend, txPool, mining, ff, stateCache, blockReader, cfg, engine, logger, nil)
 		rpc.PreAllocateRPCMetricLabels(apiList)
 		if err := cli.StartRpcServer(ctx, cfg, apiList, logger); err != nil {

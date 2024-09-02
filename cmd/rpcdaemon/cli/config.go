@@ -21,11 +21,15 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/core/blob_storage"
+	"github.com/spf13/afero"
+	"math"
 	"math/big"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -342,6 +346,7 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 	// Configure DB first
 	var allSnapshots *freezeblocks.RoSnapshots
 	var allBorSnapshots *freezeblocks.BorRoSnapshots
+	var allBscSnapshots *freezeblocks.BscRoSnapshots
 	onNewSnapshot := func() {}
 
 	var cc *chain.Config
@@ -388,12 +393,15 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 		// Configure sapshots
 		allSnapshots = freezeblocks.NewRoSnapshots(cfg.Snap, cfg.Dirs.Snap, 0, logger)
 		allBorSnapshots = freezeblocks.NewBorRoSnapshots(cfg.Snap, cfg.Dirs.Snap, 0, logger)
+		allBscSnapshots = freezeblocks.NewBscRoSnapshots(cfg.Snap, cfg.Dirs.Snap, 0, logger)
 		// To povide good UX - immediatly can read snapshots after RPCDaemon start, even if Erigon is down
 		// Erigon does store list of snapshots in db: means RPCDaemon can read this list now, but read by `remoteKvClient.Snapshots` after establish grpc connection
 		allSnapshots.OptimisticReopenWithDB(db)
 		allBorSnapshots.OptimisticalyReopenWithDB(db)
+		allBscSnapshots.OptimisticalyReopenWithDB(db)
 		allSnapshots.LogStat("remote")
 		allBorSnapshots.LogStat("bor:remote")
+		allBscSnapshots.LogStat("bsc:remote")
 
 		cr := rawdb.NewCanonicalReader()
 		agg, err := libstate.NewAggregator(ctx, cfg.Dirs, config3.HistoryV3AggregationStep, db, cr, logger)
@@ -428,6 +436,11 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 				} else {
 					allBorSnapshots.LogStat("bor:reopen")
 				}
+				if err := allBscSnapshots.ReopenList(reply.BlocksFiles, true); err != nil {
+					logger.Error("[bsc snapshots] reopen", "err", err)
+				} else {
+					allBscSnapshots.LogStat("bsc:reopen")
+				}
 
 				//if err = agg.openList(reply.HistoryFiles, true); err != nil {
 				if err = agg.OpenFolder(); err != nil {
@@ -446,7 +459,15 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 			}()
 		}
 		onNewSnapshot()
-		blockReader = freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, nil)
+		blockReader = freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, allBscSnapshots)
+		// open blob db
+		if cc.Parlia != nil {
+			logger.Warn("Opening blob store", "path", cfg.Dirs.Blobs)
+			blobDbPath := path.Join(cfg.Dirs.Blobs, "blob")
+			blobDb := kv2.NewMDBX(log.New()).Path(blobDbPath).MustOpen()
+			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), cfg.Dirs.Blobs), math.MaxUint64, cc)
+			blockReader.WithSidecars(blobStore)
+		}
 
 		db, err = temporal.New(rwKv, agg)
 		if err != nil {
