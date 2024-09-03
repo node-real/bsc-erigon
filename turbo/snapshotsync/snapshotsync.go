@@ -320,6 +320,7 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 		}
 	}
 
+	// Bsc keep all the blob snapshot but Caplin is on the contrary
 	if caplin == NoCaplin {
 		blobs = !blobs
 	}

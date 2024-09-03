@@ -3,6 +3,7 @@ package blob_storage
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"github.com/c2h5oh/datasize"
 	"github.com/erigontech/erigon/cl/sentinel/communication/ssz_snappy"
@@ -49,7 +50,7 @@ func snappyReader(r io.Reader, val *types.BlobSidecar) error {
 		return fmt.Errorf("unable to read varint from message prefix: %v", err)
 	}
 	if encodedLn > uint64(16*datasize.MB) {
-		return fmt.Errorf("payload too big")
+		return errors.New("payload too big")
 	}
 	sr := snappy.NewReader(r)
 	raw := make([]byte, encodedLn)

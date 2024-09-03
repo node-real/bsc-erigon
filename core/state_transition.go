@@ -21,6 +21,7 @@ package core
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/erigontech/erigon/consensus"
 	"slices"
@@ -418,10 +419,10 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	if rules.IsNano {
 		for _, blackListAddr := range types.NanoBlackList {
 			if blackListAddr == sender.Address() {
-				return nil, fmt.Errorf("block blacklist account")
+				return nil, errors.New("block blacklist account")
 			}
 			if msg.To() != nil && *msg.To() == blackListAddr {
-				return nil, fmt.Errorf("block blacklist account")
+				return nil, errors.New("block blacklist account")
 			}
 		}
 	}
