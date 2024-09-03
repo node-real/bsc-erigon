@@ -17,8 +17,6 @@
 package jsonrpc
 
 import (
-	"github.com/erigontech/erigon/consensus/parlia"
-
 	txpool "github.com/erigontech/erigon-lib/gointerfaces/txpoolproto"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/kvcache"
@@ -49,8 +47,8 @@ func APIList(db kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.TxpoolClient, m
 	dbImpl := NewDBAPIImpl() /* deprecated */
 	adminImpl := NewAdminAPI(eth)
 	parityImpl := NewParityAPIImpl(base, db)
+	bscImpl := NewBscAPI(ethImpl)
 
-	var bscImpl *BscImpl
 	var borImpl *BorImpl
 
 	type lazy interface {
@@ -59,8 +57,6 @@ func APIList(db kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.TxpoolClient, m
 	}
 
 	switch engine := engine.(type) {
-	case *parlia.Parlia:
-		bscImpl = NewBscAPI(ethImpl)
 	case *bor.Bor:
 		borImpl = NewBorAPI(base, db)
 	case lazy:

@@ -217,7 +217,7 @@ func (api *BscImpl) GetVerifyResult(ctx context.Context, blockNr rpc.BlockNumber
 
 // PendingTransactions returns the transactions that are in the transaction pool
 // and have a from address that is one of the accounts this node manages.
-func (s *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
+func (api *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
 	return nil, fmt.Errorf(NotImplemented, "eth_pendingTransactions")
 }
 
