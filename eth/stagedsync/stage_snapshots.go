@@ -385,6 +385,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			td := big.NewInt(0)
 			blockNumBytes := make([]byte, 8)
 			posa, isPoSa := engine.(consensus.PoSA)
+			var bscProgress uint64
 			chainReader := &ChainReaderImpl{config: &chainConfig, tx: tx, blockReader: blockReader}
 			if err := blockReader.HeadersRange(ctx, func(header *types.Header) error {
 				blockNum, blockHash := header.Number.Uint64(), header.Hash()
@@ -416,9 +417,15 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					}
 				}
 				if isPoSa {
-					// Fill bsc consensus snapshots may have some conditions for validators snapshots
-					if err := posa.ResetSnapshot(chainReader, header); err != nil {
+					bscProgress, err = posa.GetBscProgress()
+					if err == nil {
 						return err
+					}
+					if blockNum > bscProgress {
+						// Fill bsc consensus snapshots may have some conditions for validators snapshots
+						if err := posa.ResetSnapshot(chainReader, header); err != nil {
+							return err
+						}
 					}
 				}
 				select {

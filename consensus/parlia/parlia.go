@@ -1618,6 +1618,10 @@ func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent 
 	return nil
 }
 
+func (p *Parlia) GetBscProgress() (uint64, error) {
+	return getLatest(p.db)
+}
+
 // ResetSnapshot  Fill consensus db from snapshot
 func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Search for a snapshot in memory or on disk for checkpoints
@@ -1628,36 +1632,60 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.
 	hash := header.Hash()
 	number := header.Number.Uint64()
 
-	// If we're at the genesis, snapshot the initial state.
-	if number == 0 {
-		// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
-		validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
-		if err != nil {
-			return err
+	for snap == nil {
+		if s, ok := p.recentSnaps.Get(hash); ok {
+			snap = s
+			break
 		}
-		// new snapshot
-		snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
-		p.recentSnaps.Add(hash, snap)
-		if err := snap.store(p.db); err != nil {
-			return err
+
+		// If an on-disk checkpoint snapshot can be found, use that
+		if number%CheckpointInterval == 0 {
+			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
+				log.Trace("Loaded snapshot from disk", "number", number, "hash", hash)
+				snap = s
+				break
+			}
 		}
-		p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
-	} else {
-		snap, ok := p.recentSnaps.Get(header.ParentHash)
-		if !ok {
-			return fmt.Errorf("can't found parent Snap, number = %d", number)
-		}
-		headers = append(headers, header)
-		if _, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps); err != nil {
-			return err
-		}
-		// If we've generated a new checkpoint snapshot, save to disk
-		if snap.Number%CheckpointInterval == 0 {
+
+		// If we're at the genesis, snapshot the initial state.
+		if number == 0 {
+			// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
+			validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
+			if err != nil {
+				return err
+			}
+			// new snapshot
+			snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
+			p.recentSnaps.Add(hash, snap)
 			if err := snap.store(p.db); err != nil {
 				return err
 			}
-			p.logger.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
+			p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+			break
 		}
+		headers = append(headers, header)
+		number, hash = number-1, header.ParentHash
+		header = chain.GetHeader(hash, number)
 	}
-	return nil
+
+	// check if snapshot is nil
+	if snap == nil {
+		return fmt.Errorf("unknown error while retrieving snapshot at block number %v", number)
+	}
+
+	// Previous snapshot found, apply any pending headers on top of it
+	for i := 0; i < len(headers)/2; i++ {
+		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
+	}
+	snap, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps)
+	if err != nil {
+		return err
+	}
+	if snap.Number%CheckpointInterval == 0 && len(headers) > 0 {
+		if err = snap.store(p.db); err != nil {
+			return err
+		}
+		log.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
+	}
+	return err
 }
