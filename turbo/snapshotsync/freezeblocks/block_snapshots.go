@@ -2033,7 +2033,6 @@ func ForEachHeader(ctx context.Context, s *RoSnapshots, walker func(header *type
 				word, _ = g.Next(word[:0])
 				var header types.Header
 				r.Reset(word[1:])
-				log.Info(sn.FileName())
 				if err := rlp.Decode(r, &header); err != nil {
 					return err
 				}
