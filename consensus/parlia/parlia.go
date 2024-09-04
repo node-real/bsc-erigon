@@ -467,7 +467,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	} else {
 		parents = nil
 	}
-	snap, err := p.Snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
+	snap, err := p.snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
 	if err != nil {
 		return err
 	}
@@ -637,7 +637,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 		return err
 	}
 
-	snap, err := p.Snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
+	snap, err := p.snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
 	if err != nil {
 		return err
 	}
@@ -728,7 +728,7 @@ func (p *Parlia) verifySeal(header *types.Header, snap *Snapshot) error {
 // !!! be careful
 // the block with `number` and `hash` is just the last element of `parents`,
 // unlike other interfaces such as verifyCascadingFields, `parents` are real parents
-func (p *Parlia) Snapshot(chain consensus.ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*Snapshot, error) {
+func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -970,7 +970,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	curIndex := userTxs.Len()
 	// warn if not in majority fork
 	number := header.Number.Uint64()
-	snap, err := p.Snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
+	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1094,7 +1094,7 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 			continue
 		}
 
-		snap, err := p.Snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
+		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
 		if err != nil {
 			return true, err
 		}
@@ -1218,7 +1218,7 @@ func (p *Parlia) SealHash(header *types.Header) (hash libcommon.Hash) {
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have.
 func (p *Parlia) CalcDifficulty(chain consensus.ChainHeaderReader, time, parentTime uint64, parentDifficulty *big.Int, parentNumber uint64, parentHash, parentUncleHash libcommon.Hash, _ uint64) *big.Int {
-	snap, err := p.Snapshot(chain, parentNumber, parentHash, nil, false /* verify */)
+	snap, err := p.snapshot(chain, parentNumber, parentHash, nil, false /* verify */)
 	if err != nil {
 		return nil
 	}
@@ -1281,7 +1281,7 @@ func (p *Parlia) IsSystemContract(to *libcommon.Address) bool {
 }
 
 func (p *Parlia) EnoughDistance(chain consensus.ChainReader, header *types.Header) bool {
-	snap, err := p.Snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil, false /* verify */)
+	snap, err := p.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return true
 	}
@@ -1293,7 +1293,7 @@ func (p *Parlia) IsLocalBlock(header *types.Header) bool {
 }
 
 func (p *Parlia) AllowLightProcess(chain consensus.ChainReader, currentHeader *types.Header) bool {
-	snap, err := p.Snapshot(chain, currentHeader.Number.Uint64()-1, currentHeader.ParentHash, nil, false /* verify */)
+	snap, err := p.snapshot(chain, currentHeader.Number.Uint64()-1, currentHeader.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return true
 	}
@@ -1558,7 +1558,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	if chain == nil || header == nil {
 		return 0, libcommon.Hash{}, fmt.Errorf("illegal chain or header")
 	}
-	snap, err := p.Snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
+	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
 		p.logger.Error("GetJustifiedNumberAndHash snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())
@@ -1583,7 +1583,7 @@ func (p *Parlia) GetFinalizedHeader(chain consensus.ChainHeaderReader, header *t
 		return chain.GetHeaderByNumber(0)
 	}
 
-	snap, err := p.Snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
+	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
 		p.logger.Error("GetFinalizedHeader snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())
@@ -1613,6 +1613,50 @@ func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent 
 	if p.chainConfig.IsRamanujan(header.Number.Uint64()) {
 		if header.Time < parent.Time+p.config.Period+backOffTime(snap, header, header.Coinbase, p.chainConfig) {
 			return fmt.Errorf("header %d, time %d, now %d, period: %d, backof: %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), p.config.Period, backOffTime(snap, header, header.Coinbase, p.chainConfig), consensus.ErrFutureBlock)
+		}
+	}
+	return nil
+}
+
+// ResetSnapshot  Fill consensus db from snapshot
+func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.Header) error {
+	// Search for a snapshot in memory or on disk for checkpoints
+	var (
+		headers []*types.Header
+		snap    *Snapshot
+	)
+	hash := header.Hash()
+	number := header.Number.Uint64()
+
+	// If we're at the genesis, snapshot the initial state.
+	if number == 0 {
+		// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
+		validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
+		if err != nil {
+			return err
+		}
+		// new snapshot
+		snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
+		p.recentSnaps.Add(hash, snap)
+		if err := snap.store(p.db); err != nil {
+			return err
+		}
+		p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+	} else {
+		snap, ok := p.recentSnaps.Get(header.ParentHash)
+		if !ok {
+			return fmt.Errorf("can't found parent Snap, number = %d", number)
+		}
+		headers = append(headers, header)
+		if _, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps); err != nil {
+			return err
+		}
+		// If we've generated a new checkpoint snapshot, save to disk
+		if snap.Number%CheckpointInterval == 0 {
+			if err := snap.store(p.db); err != nil {
+				return err
+			}
+			p.logger.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 		}
 	}
 	return nil

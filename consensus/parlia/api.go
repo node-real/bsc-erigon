@@ -43,7 +43,7 @@ func (api *API) GetSnapshot(number *rpc.BlockNumber) (*Snapshot, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	return api.parlia.Snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	return api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
 }
 
 // GetSnapshotAtHash retrieves the state snapshot at a given block.
@@ -52,7 +52,7 @@ func (api *API) GetSnapshotAtHash(hash libcommon.Hash) (*Snapshot, error) {
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	return api.parlia.Snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	return api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
 }
 
 // GetValidators retrieves the list of validators at the specified block.
@@ -68,7 +68,7 @@ func (api *API) GetValidators(number *rpc.BlockNumber) ([]libcommon.Address, err
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	snap, err := api.parlia.Snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	snap, err := api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func (api *API) GetValidatorsAtHash(hash libcommon.Hash) ([]libcommon.Address, e
 	if header == nil {
 		return nil, errUnknownBlock
 	}
-	snap, err := api.parlia.Snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	snap, err := api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (api *API) GetTurnLength(number *rpc.BlockNumber) (uint8, error) {
 	if header == nil {
 		return 0, errUnknownBlock
 	}
-	snap, err := api.parlia.Snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
+	snap, err := api.parlia.snapshot(api.chain, header.Number.Uint64(), header.Hash(), nil, false /* verify */)
 	if err != nil || snap.TurnLength == 0 {
 		return 0, err
 	}

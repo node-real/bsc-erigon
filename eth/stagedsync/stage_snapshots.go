@@ -417,7 +417,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 				}
 				if isPoSa {
 					// Fill bsc consensus snapshots may have some conditions for validators snapshots
-					if _, err := posa.Snapshot(chainReader, header.Number.Uint64(), header.Hash(), nil, true); err != nil {
+					if err := posa.ResetSnapshot(chainReader, header); err != nil {
 						return err
 					}
 				}
