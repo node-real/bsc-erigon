@@ -418,7 +418,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 				}
 				if isPoSa {
 					bscProgress, err = posa.GetBscProgress()
-					if err == nil {
+					if err != nil {
 						return err
 					}
 					if blockNum > bscProgress {
