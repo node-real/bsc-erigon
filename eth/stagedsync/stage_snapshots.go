@@ -24,7 +24,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/erigontech/erigon/consensus"
-	"github.com/erigontech/erigon/consensus/parlia"
 	"io"
 	"io/fs"
 	"math/big"
@@ -385,6 +384,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			// for now easier just store them in db
 			td := big.NewInt(0)
 			blockNumBytes := make([]byte, 8)
+			posa, isPoSa := engine.(consensus.PoSA)
 			chainReader := &ChainReaderImpl{config: &chainConfig, tx: tx, blockReader: blockReader}
 			if err := blockReader.HeadersRange(ctx, func(header *types.Header) error {
 				blockNum, blockHash := header.Number.Uint64(), header.Hash()
@@ -415,13 +415,10 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 						}
 					}
 				}
-				if engine != nil && engine.Type() == chain.ParliaConsensus {
-					// consensus may have own database, let's fill it
-					// different consensuses may have some conditions for validators snapshots
-					if (blockNum-1)%parlia.CheckpointInterval == 0 {
-						if err := engine.VerifyHeader(chainReader, header, true /* seal */); err != nil {
-							return err
-						}
+				if isPoSa {
+					// Fill bsc consensus snapshots may have some conditions for validators snapshots
+					if _, err := posa.Snapshot(chainReader, header.Number.Uint64(), header.Hash(), nil, true); err != nil {
+						return err
 					}
 				}
 				select {

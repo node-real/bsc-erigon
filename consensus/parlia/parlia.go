@@ -467,7 +467,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	} else {
 		parents = nil
 	}
-	snap, err := p.snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
+	snap, err := p.Snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
 	if err != nil {
 		return err
 	}
@@ -637,7 +637,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 		return err
 	}
 
-	snap, err := p.snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
+	snap, err := p.Snapshot(chain, number-1, header.ParentHash, parents, true /* verify */)
 	if err != nil {
 		return err
 	}
@@ -728,7 +728,7 @@ func (p *Parlia) verifySeal(header *types.Header, snap *Snapshot) error {
 // !!! be careful
 // the block with `number` and `hash` is just the last element of `parents`,
 // unlike other interfaces such as verifyCascadingFields, `parents` are real parents
-func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*Snapshot, error) {
+func (p *Parlia) Snapshot(chain consensus.ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*Snapshot, error) {
 	// Search for a snapshot in memory or on disk for checkpoints
 	var (
 		headers []*types.Header
@@ -970,7 +970,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	curIndex := userTxs.Len()
 	// warn if not in majority fork
 	number := header.Number.Uint64()
-	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
+	snap, err := p.Snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1094,7 +1094,7 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 			continue
 		}
 
-		snap, err := p.snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
+		snap, err := p.Snapshot(chain, justifiedBlock.Number.Uint64()-1, justifiedBlock.ParentHash, nil, true)
 		if err != nil {
 			return true, err
 		}
@@ -1218,7 +1218,7 @@ func (p *Parlia) SealHash(header *types.Header) (hash libcommon.Hash) {
 // CalcDifficulty is the difficulty adjustment algorithm. It returns the difficulty
 // that a new block should have.
 func (p *Parlia) CalcDifficulty(chain consensus.ChainHeaderReader, time, parentTime uint64, parentDifficulty *big.Int, parentNumber uint64, parentHash, parentUncleHash libcommon.Hash, _ uint64) *big.Int {
-	snap, err := p.snapshot(chain, parentNumber, parentHash, nil, false /* verify */)
+	snap, err := p.Snapshot(chain, parentNumber, parentHash, nil, false /* verify */)
 	if err != nil {
 		return nil
 	}
@@ -1281,7 +1281,7 @@ func (p *Parlia) IsSystemContract(to *libcommon.Address) bool {
 }
 
 func (p *Parlia) EnoughDistance(chain consensus.ChainReader, header *types.Header) bool {
-	snap, err := p.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil, false /* verify */)
+	snap, err := p.Snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return true
 	}
@@ -1293,7 +1293,7 @@ func (p *Parlia) IsLocalBlock(header *types.Header) bool {
 }
 
 func (p *Parlia) AllowLightProcess(chain consensus.ChainReader, currentHeader *types.Header) bool {
-	snap, err := p.snapshot(chain, currentHeader.Number.Uint64()-1, currentHeader.ParentHash, nil, false /* verify */)
+	snap, err := p.Snapshot(chain, currentHeader.Number.Uint64()-1, currentHeader.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return true
 	}
@@ -1558,7 +1558,7 @@ func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, he
 	if chain == nil || header == nil {
 		return 0, libcommon.Hash{}, fmt.Errorf("illegal chain or header")
 	}
-	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
+	snap, err := p.Snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
 		p.logger.Error("GetJustifiedNumberAndHash snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())
@@ -1583,7 +1583,7 @@ func (p *Parlia) GetFinalizedHeader(chain consensus.ChainHeaderReader, header *t
 		return chain.GetHeaderByNumber(0)
 	}
 
-	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
+	snap, err := p.Snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
 		p.logger.Error("GetFinalizedHeader snapshot",
 			"error", err, "blockNumber", header.Number.Uint64(), "blockHash", header.Hash())

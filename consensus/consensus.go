@@ -23,6 +23,7 @@ package consensus
 import (
 	"context"
 	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"math/big"
 
 	"github.com/holiman/uint256"
@@ -225,6 +226,7 @@ type PoSA interface {
 	AllowLightProcess(chain ChainReader, currentHeader *types.Header) bool
 	GetJustifiedNumberAndHash(chain ChainHeaderReader, header *types.Header) (uint64, libcommon.Hash, error)
 	GetFinalizedHeader(chain ChainHeaderReader, header *types.Header) *types.Header
+	Snapshot(chain ChainHeaderReader, number uint64, hash libcommon.Hash, parents []*types.Header, verify bool) (*parlia.Snapshot, error)
 }
 
 type AsyncEngine interface {
