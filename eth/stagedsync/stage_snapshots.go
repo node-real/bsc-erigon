@@ -386,10 +386,10 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			td := big.NewInt(0)
 			blockNumBytes := make([]byte, 8)
 			posa, isPoSa := engine.(consensus.PoSA)
-			var bscProgress uint64
+			var snapshotProgress uint64
 			var headers []*types.Header
 			if isPoSa {
-				bscProgress, err = posa.GetBscProgress()
+				snapshotProgress, err = posa.GetLatestSnapshotHeight()
 				if err != nil {
 					return err
 				}
@@ -425,7 +425,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					}
 				}
 				if isPoSa {
-					if bscProgress == 0 || blockNum > bscProgress {
+					if snapshotProgress == 0 || blockNum > snapshotProgress {
 						headers = append(headers, header)
 						if blockNum%parlia.CheckpointInterval == 0 {
 							// Fill bsc consensus snapshots may have some conditions for validators snapshots
