@@ -421,7 +421,7 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					if err != nil {
 						return err
 					}
-					if blockNum > bscProgress {
+					if bscProgress == 0 || blockNum > bscProgress {
 						// Fill bsc consensus snapshots may have some conditions for validators snapshots
 						if err := posa.ResetSnapshot(chainReader, header); err != nil {
 							return err

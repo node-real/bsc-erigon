@@ -1556,7 +1556,7 @@ func (p *Parlia) systemCall(from, contract libcommon.Address, data []byte, ibs *
 // GetJustifiedNumberAndHash returns the highest justified block's number and hash on the branch including and before `header`
 func (p *Parlia) GetJustifiedNumberAndHash(chain consensus.ChainHeaderReader, header *types.Header) (uint64, libcommon.Hash, error) {
 	if chain == nil || header == nil {
-		return 0, libcommon.Hash{}, fmt.Errorf("illegal chain or header")
+		return 0, libcommon.Hash{}, errors.New("illegal chain or header")
 	}
 	snap, err := p.snapshot(chain, header.Number.Uint64(), header.Hash(), nil, true)
 	if err != nil {
@@ -1629,33 +1629,54 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.
 		headers []*types.Header
 		snap    *Snapshot
 	)
-	hash := header.Hash()
-	number := header.Number.Uint64()
 	headers = append(headers, header)
-
-	if s, ok := p.recentSnaps.Get(header.ParentHash); ok {
-		snap = s
-	}
-
-	// If we're at the genesis, snapshot the initial state.
-	if number == 0 {
-		// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
-		validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
-		if err != nil {
-			return err
+	for snap == nil {
+		hash := header.Hash()
+		number := header.Number.Uint64()
+		// If we're at the genesis, snapshot the initial state.
+		if number == 0 {
+			// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
+			validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
+			if err != nil {
+				return err
+			}
+			// new snapshot
+			snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
+			p.recentSnaps.Add(header.Hash(), snap)
+			if err := snap.store(p.db); err != nil {
+				return err
+			}
+			p.logger.Info("Stored checkpoint snapshot to disk", "number", header.Number.Uint64(), "hash", header.Hash())
+			break
 		}
-		// new snapshot
-		snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
-		p.recentSnaps.Add(hash, snap)
-		if err := snap.store(p.db); err != nil {
-			return err
+
+		if s, ok := p.recentSnaps.Get(header.ParentHash); ok {
+			snap = s
+			break
 		}
-		p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
+
+		if (header.Number.Uint64()-1)%CheckpointInterval == 0 {
+			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
+				p.logger.Debug("Loaded snapshot from disk", "number", number, "hash", hash)
+				snap = s
+				if snap != nil {
+					break
+				}
+			}
+		}
+
+		header = chain.GetHeaderByHash(header.ParentHash)
+		headers = append(headers, header)
 	}
 
 	// check if snapshot is nil
 	if snap == nil {
-		return fmt.Errorf("unknown error while retrieving snapshot at block number %v", number)
+		return fmt.Errorf("unknown error while retrieving snapshot at block number %v", header.Number)
+	}
+
+	// Previous snapshot found, apply any pending headers on top of it
+	for i := 0; i < len(headers)/2; i++ {
+		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 
 	snap, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps, true)
