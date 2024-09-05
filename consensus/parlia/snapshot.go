@@ -177,7 +177,7 @@ func (s *Snapshot) store(db kv.RwDB) error {
 		if err = tx.Put(kv.ParliaSnapshot, []byte(lastSnapshot), hexutility.EncodeTs(s.Number)); err != nil {
 			return err
 		}
-		return err
+		return nil
 	})
 }
 

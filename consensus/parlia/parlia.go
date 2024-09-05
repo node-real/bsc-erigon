@@ -1638,12 +1638,12 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, headers []*typ
 		}
 		// new snapshot
 		snap = newSnapshot(p.config, p.signatures, checkpoint.Number.Uint64(), checkpoint.Hash(), validators, voteAddrs)
-		p.recentSnaps.Add(checkpoint.Hash(), snap)
 		if err := snap.store(p.db); err != nil {
 			return err
 		}
+		p.recentSnaps.Add(checkpoint.Hash(), snap)
 		p.logger.Info("Stored checkpoint snapshot to disk", "number", checkpoint.Number.Uint64(), "hash", checkpoint.Hash())
-		return err
+		return nil
 	}
 
 	if s, ok := p.recentSnaps.Get(start.ParentHash); ok {
@@ -1671,5 +1671,5 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, headers []*typ
 		}
 		log.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 	}
-	return err
+	return nil
 }
