@@ -261,7 +261,7 @@ func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Co
 	}
 }
 
-func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, recentSnaps *lru.ARCCache[libcommon.Hash, *Snapshot], verify bool) (*Snapshot, error) {
+func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, recentSnaps *lru.ARCCache[libcommon.Hash, *Snapshot], verified bool) (*Snapshot, error) {
 	// Allow passing in no headers for cleaner code
 	if len(headers) == 0 {
 		return s, nil
@@ -298,7 +298,7 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		}
 		// Resolve the authorization key and check against signers
 		validator := header.Coinbase
-		if !verify {
+		if !verified {
 			v, err := ecrecover(header, s.sigCache, chainConfig.ChainID)
 			if err != nil {
 				return nil, err
