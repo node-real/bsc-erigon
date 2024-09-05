@@ -1647,7 +1647,7 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.
 				return err
 			}
 			p.logger.Info("Stored checkpoint snapshot to disk", "number", header.Number.Uint64(), "hash", header.Hash())
-			break
+			return err
 		}
 
 		if s, ok := p.recentSnaps.Get(header.ParentHash); ok {
