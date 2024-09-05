@@ -425,13 +425,15 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					}
 				}
 				if isPoSa {
-					headers = append(headers, header)
-					if (bscProgress == 0 || blockNum > bscProgress) && blockNum%parlia.CheckpointInterval == 0 {
-						// Fill bsc consensus snapshots may have some conditions for validators snapshots
-						if err := posa.ResetSnapshot(chainReader, headers); err != nil {
-							return err
+					if bscProgress == 0 || blockNum > bscProgress {
+						headers = append(headers, header)
+						if blockNum%parlia.CheckpointInterval == 0 {
+							// Fill bsc consensus snapshots may have some conditions for validators snapshots
+							if err := posa.ResetSnapshot(chainReader, headers); err != nil {
+								return err
+							}
+							headers = []*types.Header{}
 						}
-						headers = []*types.Header{}
 					}
 				}
 				select {
