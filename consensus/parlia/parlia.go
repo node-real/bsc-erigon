@@ -430,7 +430,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		return nil
 	}
 	if attestation.Data == nil {
-		return fmt.Errorf("invalid attestation, vote data is nil")
+		return errors.New("invalid attestation, vote data is nil")
 	}
 	if len(attestation.Extra) > types.MaxAttestationExtraLength {
 		return fmt.Errorf("invalid attestation, too large extra length: %d", len(attestation.Extra))
@@ -454,7 +454,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	sourceHash := attestation.Data.SourceHash
 	justifiedBlockNumber, justifiedBlockHash, err := p.GetJustifiedNumberAndHash(chain, parent)
 	if err != nil {
-		return fmt.Errorf("unexpected error when getting the highest justified number and hash")
+		return errors.New("unexpected error when getting the highest justified number and hash")
 	}
 	if sourceNumber != justifiedBlockNumber || sourceHash != justifiedBlockHash {
 		return fmt.Errorf("invalid attestation, source mismatch, expected block: %d, hash: %s; real block: %d, hash: %s",
@@ -476,7 +476,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	validators := snap.validators()
 	validatorsBitSet := bitset.From([]uint64{uint64(attestation.VoteAddressSet)})
 	if validatorsBitSet.Count() > uint(len(validators)) {
-		return fmt.Errorf("invalid attestation, vote number larger than validators number")
+		return errors.New("invalid attestation, vote number larger than validators number")
 	}
 	votedAddrs := make([]bls.PublicKey, 0, validatorsBitSet.Count())
 	for index, val := range validators {
@@ -801,7 +801,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 
-	snap, err := snap.apply(headers, chain, parents, p.chainConfig, p.recentSnaps, verify)
+	snap, err := snap.apply(headers, chain, parents, p.chainConfig, p.recentSnaps, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1618,8 +1618,8 @@ func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent 
 	return nil
 }
 
-func (p *Parlia) GetBscProgress() (uint64, error) {
-	return getLatest(p.db)
+func (p *Parlia) GetLatestSnapshotHeight() (uint64, error) {
+	return getLatestSnapshotHeight(p.db)
 }
 
 // ResetSnapshot  Fill consensus db from snapshot

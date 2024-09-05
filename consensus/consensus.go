@@ -226,7 +226,7 @@ type PoSA interface {
 	GetJustifiedNumberAndHash(chain ChainHeaderReader, header *types.Header) (uint64, libcommon.Hash, error)
 	GetFinalizedHeader(chain ChainHeaderReader, header *types.Header) *types.Header
 	ResetSnapshot(chain ChainHeaderReader, headers []*types.Header) error
-	GetBscProgress() (uint64, error)
+	GetLatestSnapshotHeight() (uint64, error)
 }
 
 type AsyncEngine interface {

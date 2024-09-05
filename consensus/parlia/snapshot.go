@@ -148,7 +148,7 @@ func loadSnapshot(config *chain.ParliaConfig, sigCache *lru.ARCCache[common.Hash
 }
 
 // getLatest getLatest snapshots number
-func getLatest(db kv.RwDB) (uint64, error) {
+func getLatestSnapshotHeight(db kv.RwDB) (uint64, error) {
 	tx, err := db.BeginRo(context.Background())
 	if err != nil {
 		return 0, err
