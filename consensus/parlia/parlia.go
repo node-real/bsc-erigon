@@ -801,7 +801,7 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
 	}
 
-	snap, err := snap.apply(headers, chain, parents, p.chainConfig, p.recentSnaps)
+	snap, err := snap.apply(headers, chain, parents, p.chainConfig, p.recentSnaps, verify)
 	if err != nil {
 		return nil, err
 	}
@@ -1631,41 +1631,26 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.
 	)
 	hash := header.Hash()
 	number := header.Number.Uint64()
+	headers = append(headers, header)
 
-	for snap == nil {
-		if s, ok := p.recentSnaps.Get(hash); ok {
-			snap = s
-			break
-		}
+	if s, ok := p.recentSnaps.Get(header.ParentHash); ok {
+		snap = s
+	}
 
-		// If an on-disk checkpoint snapshot can be found, use that
-		if number%CheckpointInterval == 0 {
-			if s, err := loadSnapshot(p.config, p.signatures, p.db, number, hash); err == nil {
-				log.Trace("Loaded snapshot from disk", "number", number, "hash", hash)
-				snap = s
-				break
-			}
+	// If we're at the genesis, snapshot the initial state.
+	if number == 0 {
+		// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
+		validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
+		if err != nil {
+			return err
 		}
-
-		// If we're at the genesis, snapshot the initial state.
-		if number == 0 {
-			// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
-			validators, voteAddrs, err := parseValidators(header, p.chainConfig, p.config)
-			if err != nil {
-				return err
-			}
-			// new snapshot
-			snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
-			p.recentSnaps.Add(hash, snap)
-			if err := snap.store(p.db); err != nil {
-				return err
-			}
-			p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
-			break
+		// new snapshot
+		snap = newSnapshot(p.config, p.signatures, number, hash, validators, voteAddrs)
+		p.recentSnaps.Add(hash, snap)
+		if err := snap.store(p.db); err != nil {
+			return err
 		}
-		headers = append(headers, header)
-		number, hash = number-1, header.ParentHash
-		header = chain.GetHeader(hash, number)
+		p.logger.Info("Stored checkpoint snapshot to disk", "number", number, "hash", hash)
 	}
 
 	// check if snapshot is nil
@@ -1673,11 +1658,7 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, header *types.
 		return fmt.Errorf("unknown error while retrieving snapshot at block number %v", number)
 	}
 
-	// Previous snapshot found, apply any pending headers on top of it
-	for i := 0; i < len(headers)/2; i++ {
-		headers[i], headers[len(headers)-1-i] = headers[len(headers)-1-i], headers[i]
-	}
-	snap, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps)
+	snap, err := snap.apply(headers, chain, nil, p.chainConfig, p.recentSnaps, true)
 	if err != nil {
 		return err
 	}
