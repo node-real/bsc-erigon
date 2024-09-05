@@ -225,7 +225,7 @@ type PoSA interface {
 	AllowLightProcess(chain ChainReader, currentHeader *types.Header) bool
 	GetJustifiedNumberAndHash(chain ChainHeaderReader, header *types.Header) (uint64, libcommon.Hash, error)
 	GetFinalizedHeader(chain ChainHeaderReader, header *types.Header) *types.Header
-	ResetSnapshot(chain ChainHeaderReader, header *types.Header) error
+	ResetSnapshot(chain ChainHeaderReader, headers []*types.Header) error
 	GetBscProgress() (uint64, error)
 }
 

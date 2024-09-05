@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"io"
 	"io/fs"
 	"math/big"
@@ -386,6 +387,13 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 			blockNumBytes := make([]byte, 8)
 			posa, isPoSa := engine.(consensus.PoSA)
 			var bscProgress uint64
+			var headers []*types.Header
+			if isPoSa {
+				bscProgress, err = posa.GetBscProgress()
+				if err != nil {
+					return err
+				}
+			}
 			chainReader := &ChainReaderImpl{config: &chainConfig, tx: tx, blockReader: blockReader}
 			if err := blockReader.HeadersRange(ctx, func(header *types.Header) error {
 				blockNum, blockHash := header.Number.Uint64(), header.Hash()
@@ -417,15 +425,13 @@ func FillDBFromSnapshots(logPrefix string, ctx context.Context, tx kv.RwTx, dirs
 					}
 				}
 				if isPoSa {
-					bscProgress, err = posa.GetBscProgress()
-					if err != nil {
-						return err
-					}
-					if bscProgress == 0 || blockNum > bscProgress {
+					headers = append(headers, header)
+					if (bscProgress == 0 || blockNum > bscProgress) && blockNum%parlia.CheckpointInterval == 0 {
 						// Fill bsc consensus snapshots may have some conditions for validators snapshots
-						if err := posa.ResetSnapshot(chainReader, header); err != nil {
+						if err := posa.ResetSnapshot(chainReader, headers); err != nil {
 							return err
 						}
+						headers = []*types.Header{}
 					}
 				}
 				select {
