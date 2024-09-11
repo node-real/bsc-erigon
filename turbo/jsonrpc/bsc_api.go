@@ -5,10 +5,12 @@ import (
 	"fmt"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
+	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/parlia"
 	"github.com/erigontech/erigon/core/rawdb"
 	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon/eth/consensuschain"
 	"github.com/erigontech/erigon/rpc"
 	"github.com/erigontech/erigon/turbo/adapter/ethapi"
 	"github.com/erigontech/erigon/turbo/rpchelper"
@@ -33,6 +35,8 @@ type BscAPI interface {
 	PendingTransactions() ([]*RPCTransaction, error)
 	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error)
 	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error)
+	GetFinalizedHeader(ctx context.Context, verifiedValidatorNum int64) (map[string]interface{}, error)
+	GetFinalizedBlock(ctx context.Context, verifiedValidatorNum int64, fullTx bool) (map[string]interface{}, error)
 }
 
 type BscImpl struct {
@@ -128,7 +132,7 @@ func (api *BscImpl) GetHeaderByNumber(ctx context.Context, number rpc.BlockNumbe
 		return nil, beginErr
 	}
 	defer tx.Rollback()
-	header, err := api.ethApi._blockReader.HeaderByNumber(ctx, tx, uint64(number.Int64()))
+	header, err := api.ethApi.headerByRPCNumber(ctx, number, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +278,73 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 		}
 	}
 	return nil, nil
+}
+
+func (api *BscImpl) GetFinalizedHeader(ctx context.Context, verifiedValidatorNum int64) (map[string]interface{}, error) {
+	finalizedBlockNumber, err := api.getFinalizedNumber(ctx, verifiedValidatorNum)
+	if err != nil { // impossible
+		return nil, err
+	}
+	return api.GetHeaderByNumber(ctx, rpc.BlockNumber(finalizedBlockNumber))
+}
+
+func (api *BscImpl) GetFinalizedBlock(ctx context.Context, verifiedValidatorNum int64, fullTx bool) (map[string]interface{}, error) {
+	finalizedBlockNumber, err := api.getFinalizedNumber(ctx, verifiedValidatorNum)
+	if err != nil { // impossible
+		return nil, err
+	}
+	return api.ethApi.GetBlockByNumber(ctx, rpc.BlockNumber(finalizedBlockNumber), fullTx)
+}
+
+func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum int64) (int64, error) {
+	tx, beginErr := api.ethApi.db.BeginRo(ctx)
+	if beginErr != nil {
+		return 0, beginErr
+	}
+
+	chainConfig, err := api.ethApi.chainConfig(ctx, tx)
+	// init consensus db
+	bsc, err := api.parlia()
+	if err != nil {
+		return 0, err
+	}
+	chain := consensuschain.NewReader(chainConfig, tx, api.ethApi._blockReader, nil)
+
+	// get validator set
+	service := bsc.APIs(chain)[0].Service
+	currentHead := rpc.LatestBlockNumber
+	curValidators, err := service.(*parlia.API).GetValidators(&currentHead)
+	if err != nil { // impossible
+		return 0, err
+	}
+	valLen := int64(len(curValidators))
+	if verifiedValidatorNum < 1 || verifiedValidatorNum > valLen {
+		return 0, fmt.Errorf("%d out of range [1,%d]", verifiedValidatorNum, valLen)
+	}
+
+	fastFinalizedHeader, err := api.ethApi.headerByRPCNumber(ctx, rpc.FinalizedBlockNumber, tx)
+	if err != nil { // impossible
+		return 0, err
+	}
+	latestHeader, err := api.ethApi.headerByRPCNumber(ctx, rpc.LatestBlockNumber, tx)
+	if err != nil { // impossible
+		return 0, err
+	}
+	lastHeader := latestHeader
+	confirmedValSet := make(map[libcommon.Address]struct{}, valLen)
+	confirmedValSet[lastHeader.Coinbase] = struct{}{}
+	for count := 1; int64(len(confirmedValSet)) < verifiedValidatorNum && count <= int(chainConfig.Parlia.Epoch) && lastHeader.Number.Int64() > max(fastFinalizedHeader.Number.Int64(), 1); count++ {
+		lastHeader, err = api.ethApi._blockReader.HeaderByHash(ctx, tx, lastHeader.ParentHash)
+		if err != nil { // impossible
+			return 0, err
+		}
+		confirmedValSet[lastHeader.Coinbase] = struct{}{}
+	}
+	finalizedBlockNumber := max(fastFinalizedHeader.Number.Int64(), lastHeader.Number.Int64())
+	log.Debug("getFinalizedNumber", "LatestBlockNumber", latestHeader.Number.Int64(), "fastFinalizedHeight", fastFinalizedHeader.Number.Int64(),
+		"lastHeader", lastHeader.Number.Int64(), "finalizedBlockNumber", finalizedBlockNumber, "len(confirmedValSet)", len(confirmedValSet))
+
+	return finalizedBlockNumber, nil
 }
 
 func marshalBlobSidecar(sidecar *types.BlobSidecar, fullBlob bool) map[string]interface{} {
