@@ -18,7 +18,6 @@ package rpchelper
 
 import (
 	"fmt"
-	"github.com/erigontech/erigon-lib/log/v3"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/kv"
@@ -43,7 +42,6 @@ func GetLatestBlockNumber(tx kv.Tx) (uint64, error) {
 	}
 
 	blockNum, err := stages.GetStageProgress(tx, stages.Execution)
-	log.Info("GetLatestBlockNumber", blockNum, "blockNum")
 	if err != nil {
 		return 0, fmt.Errorf("getting latest block number: %w", err)
 	}
