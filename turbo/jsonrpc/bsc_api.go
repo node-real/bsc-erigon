@@ -9,7 +9,6 @@ import (
 	"github.com/ledgerwatch/erigon/consensus/parlia"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/types"
-	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
 	"github.com/ledgerwatch/erigon/turbo/rpchelper"
@@ -312,7 +311,7 @@ func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum
 	if err != nil {
 		return 0, err
 	}
-	chain := stagedsync.NewChainReaderImpl(chainConfig, tx, api.ethApi._blockReader, nil)
+	chain := consensus.ChainReaderImpl{Cfg: *chainConfig, Db: tx, BlockReader: api.ethApi._blockReader}
 
 	// get validator set
 	service := bsc.APIs(chain)[0].Service
