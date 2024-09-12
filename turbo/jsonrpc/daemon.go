@@ -53,6 +53,9 @@ func APIList(db kv.RoDB, eth rpchelper.ApiBackend, txPool txpool.TxpoolClient, m
 		if _, ok := engine.Engine().(*bor.Bor); !engine.HasEngine() || ok {
 			borImpl = NewBorAPI(base, db)
 		}
+		if _, ok := engine.Engine().(*parlia.Parlia); !engine.HasEngine() || ok {
+			bscImpl = NewBscAPI(ethImpl)
+		}
 	}
 
 	otsImpl := NewOtterscanAPI(base, db, cfg.OtsMaxPageSize)
