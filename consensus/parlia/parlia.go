@@ -983,6 +983,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		if txIndex == len(txs)-1 {
 			if fs := finality.GetFinalizationService(); fs != nil {
 				if snap.Attestation != nil {
+					log.Info("UpdateFinality", "blockNum", number, "sourceHash", snap.Attestation.SourceHash)
 					fs.UpdateFinality(snap.Attestation.SourceHash, snap.Attestation.TargetHash)
 				}
 			}
