@@ -3,16 +3,17 @@ package jsonrpc
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	libcommon "github.com/ledgerwatch/erigon-lib/common"
 	"github.com/ledgerwatch/erigon-lib/common/hexutil"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/consensus/parlia"
 	"github.com/ledgerwatch/erigon/core/rawdb"
 	"github.com/ledgerwatch/erigon/core/types"
+	"github.com/ledgerwatch/erigon/eth/stagedsync"
 	"github.com/ledgerwatch/erigon/rpc"
 	"github.com/ledgerwatch/erigon/turbo/adapter/ethapi"
 	"github.com/ledgerwatch/erigon/turbo/rpchelper"
+	"github.com/ledgerwatch/log/v3"
 )
 
 // BscAPI is a collection of functions that are exposed in the
@@ -34,6 +35,8 @@ type BscAPI interface {
 	PendingTransactions() ([]*RPCTransaction, error)
 	GetBlobSidecars(ctx context.Context, numberOrHash rpc.BlockNumberOrHash, fullBlob *bool) ([]map[string]interface{}, error)
 	GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.Hash, fullBlob *bool) (map[string]interface{}, error)
+	GetFinalizedHeader(ctx context.Context, verifiedValidatorNum int64) (map[string]interface{}, error)
+	GetFinalizedBlock(ctx context.Context, verifiedValidatorNum int64, fullTx bool) (map[string]interface{}, error)
 }
 
 type BscImpl struct {
@@ -129,7 +132,7 @@ func (api *BscImpl) GetHeaderByNumber(ctx context.Context, number rpc.BlockNumbe
 		return nil, beginErr
 	}
 	defer tx.Rollback()
-	header, err := api.ethApi._blockReader.HeaderByNumber(ctx, tx, uint64(number.Int64()))
+	header, err := api.ethApi.headerByRPCNumber(ctx, number, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +221,7 @@ func (api *BscImpl) GetVerifyResult(ctx context.Context, blockNr rpc.BlockNumber
 
 // PendingTransactions returns the transactions that are in the transaction pool
 // and have a from address that is one of the accounts this node manages.
-func (s *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
+func (api *BscImpl) PendingTransactions() ([]*RPCTransaction, error) {
 	return nil, fmt.Errorf(NotImplemented, "eth_pendingTransactions")
 }
 
@@ -277,6 +280,77 @@ func (api *BscImpl) GetBlobSidecarByTxHash(ctx context.Context, hash libcommon.H
 	return nil, nil
 }
 
+func (api *BscImpl) GetFinalizedHeader(ctx context.Context, verifiedValidatorNum int64) (map[string]interface{}, error) {
+	finalizedBlockNumber, err := api.getFinalizedNumber(ctx, verifiedValidatorNum)
+	if err != nil { // impossible
+		return nil, err
+	}
+	return api.GetHeaderByNumber(ctx, rpc.BlockNumber(finalizedBlockNumber))
+}
+
+func (api *BscImpl) GetFinalizedBlock(ctx context.Context, verifiedValidatorNum int64, fullTx bool) (map[string]interface{}, error) {
+	finalizedBlockNumber, err := api.getFinalizedNumber(ctx, verifiedValidatorNum)
+	if err != nil { // impossible
+		return nil, err
+	}
+	return api.ethApi.GetBlockByNumber(ctx, rpc.BlockNumber(finalizedBlockNumber), fullTx)
+}
+
+func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum int64) (int64, error) {
+	tx, err := api.ethApi.db.BeginRo(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	chainConfig, err := api.ethApi.chainConfig(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+	// init consensus db
+	bsc, err := api.parlia()
+	if err != nil {
+		return 0, err
+	}
+	chain := stagedsync.NewChainReaderImpl(chainConfig, tx, api.ethApi._blockReader, nil)
+
+	// get validator set
+	service := bsc.APIs(chain)[0].Service
+	currentHead := rpc.LatestBlockNumber
+	curValidators, err := service.(*parlia.API).GetValidators(&currentHead)
+	if err != nil { // impossible
+		return 0, err
+	}
+	valLen := int64(len(curValidators))
+	if verifiedValidatorNum < 1 || verifiedValidatorNum > valLen {
+		return 0, fmt.Errorf("%d out of range [1,%d]", verifiedValidatorNum, valLen)
+	}
+
+	fastFinalizedHeader, err := api.ethApi.headerByRPCNumber(ctx, rpc.FinalizedBlockNumber, tx)
+	if err != nil { // impossible
+		return 0, err
+	}
+	latestHeader, err := api.ethApi.headerByRPCNumber(ctx, rpc.LatestBlockNumber, tx)
+	if err != nil { // impossible
+		return 0, err
+	}
+	lastHeader := latestHeader
+	confirmedValSet := make(map[libcommon.Address]struct{}, valLen)
+	confirmedValSet[lastHeader.Coinbase] = struct{}{}
+	for count := 1; int64(len(confirmedValSet)) < verifiedValidatorNum && count <= int(chainConfig.Parlia.Epoch) && lastHeader.Number.Int64() > max(fastFinalizedHeader.Number.Int64(), 1); count++ {
+		lastHeader, err = api.ethApi._blockReader.HeaderByHash(ctx, tx, lastHeader.ParentHash)
+		if err != nil { // impossible
+			return 0, err
+		}
+		confirmedValSet[lastHeader.Coinbase] = struct{}{}
+	}
+	finalizedBlockNumber := max(fastFinalizedHeader.Number.Int64(), lastHeader.Number.Int64())
+	log.Debug("getFinalizedNumber", "LatestBlockNumber", latestHeader.Number.Int64(), "fastFinalizedHeight", fastFinalizedHeader.Number.Int64(),
+		"lastHeader", lastHeader.Number.Int64(), "finalizedBlockNumber", finalizedBlockNumber, "len(confirmedValSet)", len(confirmedValSet))
+
+	return finalizedBlockNumber, nil
+}
+
 func marshalBlobSidecar(sidecar *types.BlobSidecar, fullBlob bool) map[string]interface{} {
 	fields := map[string]interface{}{
 		"blockHash":   sidecar.BlockHash,
@@ -295,9 +369,9 @@ func marshalBlob(blobTxSidecar types.BlobTxSidecar, fullBlob bool) map[string]in
 		"proofs":      blobTxSidecar.Proofs,
 	}
 	if !fullBlob {
-		var blobs []common.Hash
+		var blobs []libcommon.Hash
 		for _, blob := range blobTxSidecar.Blobs {
-			var value common.Hash
+			var value libcommon.Hash
 			copy(value[:], blob[:32])
 			blobs = append(blobs, value)
 		}
