@@ -297,12 +297,17 @@ func (api *BscImpl) GetFinalizedBlock(ctx context.Context, verifiedValidatorNum 
 }
 
 func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum int64) (int64, error) {
-	tx, beginErr := api.ethApi.db.BeginRo(ctx)
-	if beginErr != nil {
-		return 0, beginErr
+	tx, err := api.ethApi.db.BeginRo(ctx)
+	if err != nil {
+		return 0, err
 	}
+	defer tx.Rollback()
 
 	chainConfig, err := api.ethApi.chainConfig(ctx, tx)
+	if err != nil {
+		return 0, err
+	}
+
 	// init consensus db
 	bsc, err := api.parlia()
 	if err != nil {
