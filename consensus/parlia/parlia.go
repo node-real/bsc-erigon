@@ -1106,8 +1106,9 @@ func (p *Parlia) finalize(header *types.Header, state *state.IntraBlockState, tx
 	slices.SortFunc(receipts, func(a, b *types.Receipt) int { return cmp.Compare(a.TransactionIndex, b.TransactionIndex) })
 
 	if fs := finality.GetFinalizationService(); fs != nil {
-		if snap.Attestation != nil {
-			fs.UpdateFinality(snap.Attestation.SourceHash, snap.Attestation.TargetHash)
+		curSnap, _ := p.snapshot(chain, number, header.Hash(), nil, true)
+		if curSnap.Attestation != nil {
+			fs.UpdateFinality(curSnap.Attestation.SourceHash, curSnap.Attestation.TargetHash)
 		}
 	}
 	return txs, receipts, nil
