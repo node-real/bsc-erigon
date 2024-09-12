@@ -21,6 +21,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"github.com/erigontech/erigon/core/blob_storage"
 	"github.com/spf13/afero"
 	"math"
@@ -532,6 +533,17 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 				}
 				// Skip the compatibility check, until we have a schema in erigon-lib
 				engine = bor.NewRo(cc, borKv, blockReader, logger)
+			case cc.Parlia != nil:
+				var bscKv kv.RoDB
+
+				// bsc (consensus) specific db
+				bscDbPath := filepath.Join(cfg.DataDir, "parlia")
+				logger.Warn("[rpc] Opening Bsc db", "path", bscDbPath)
+				bscKv, err = kv2.NewMDBX(logger).Path(bscDbPath).Label(kv.ConsensusDB).Accede().Open(ctx)
+				if err != nil {
+					return nil, nil, nil, nil, nil, nil, nil, ff, err
+				}
+				engine = parlia.NewRo(cc, bscKv, blockReader, logger)
 			default:
 				engine = ethash.NewFaker()
 			}
@@ -951,6 +963,12 @@ func (e *remoteConsensusEngine) init(db kv.RoDB, blockReader services.FullBlockR
 		}
 
 		e.engine = bor.NewRo(cc, borKv, blockReader, logger)
+	} else if cc.Parlia != nil {
+		bscKv, err := remotedb.NewRemote(gointerfaces.VersionFromProto(remotedbserver.KvServiceAPIVersion), logger, remoteKV).Open()
+		if err != nil {
+			return false
+		}
+		e.engine = parlia.NewRo(cc, bscKv, blockReader, logger)
 	} else {
 		e.engine = ethash.NewFaker()
 	}

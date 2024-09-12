@@ -2,6 +2,7 @@ package parlia
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -1672,4 +1673,77 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, headers []*typ
 		log.Trace("Stored snapshot to disk", "number", snap.Number, "hash", snap.Hash)
 	}
 	return nil
+}
+
+type rwWrapper struct {
+	kv.RoDB
+}
+
+func (w rwWrapper) Update(ctx context.Context, f func(tx kv.RwTx) error) error {
+	return errors.New("Update not implemented")
+}
+
+func (w rwWrapper) UpdateNosync(ctx context.Context, f func(tx kv.RwTx) error) error {
+	return errors.New("UpdateNosync not implemented")
+}
+
+func (w rwWrapper) BeginRw(ctx context.Context) (kv.RwTx, error) {
+	return nil, errors.New("BeginRw not implemented")
+}
+
+func (w rwWrapper) BeginRwNosync(ctx context.Context) (kv.RwTx, error) {
+	return nil, errors.New("BeginRwNosync not implemented")
+}
+
+// NewRo is used by the rpcdaemon and tests which need read only access to the provided data services
+func NewRo(chainConfig *chain.Config, db kv.RoDB, blockReader services.FullBlockReader, logger log.Logger) *Parlia {
+	// get bor config
+	parliaConfig := chainConfig.Parlia
+
+	// Set any missing consensus parameters to their defaults
+	if parliaConfig != nil && parliaConfig.Epoch == 0 {
+		parliaConfig.Epoch = defaultEpochLength
+	}
+
+	// Allocate the snapshot caches and create the engine
+	recentSnaps, err := lru.NewARC[libcommon.Hash, *Snapshot](inMemorySnapshots)
+	if err != nil {
+		panic(err)
+	}
+	signatures, err := lru.NewARC[libcommon.Hash, libcommon.Address](inMemorySignatures)
+	if err != nil {
+		panic(err)
+	}
+	vABIBeforeLuban, err := abi.JSON(strings.NewReader(validatorSetABIBeforeLuban))
+	if err != nil {
+		panic(err)
+	}
+	vABI, err := abi.JSON(strings.NewReader(validatorSetABI))
+	if err != nil {
+		panic(err)
+	}
+	sABI, err := abi.JSON(strings.NewReader(slashABI))
+	if err != nil {
+		panic(err)
+	}
+	stABI, err := abi.JSON(strings.NewReader(stakeABI))
+	if err != nil {
+		panic(err)
+	}
+
+	return &Parlia{
+		chainConfig:                chainConfig,
+		config:                     parliaConfig,
+		db:                         rwWrapper{db},
+		BlobStore:                  nil,
+		recentSnaps:                recentSnaps,
+		signatures:                 signatures,
+		validatorSetABIBeforeLuban: vABIBeforeLuban,
+		validatorSetABI:            vABI,
+		slashABI:                   sABI,
+		stakeHubABI:                stABI,
+		signer:                     types.LatestSigner(chainConfig),
+		blockReader:                blockReader,
+		logger:                     logger,
+	}
 }
