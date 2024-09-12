@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus/parlia/finality"
 	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"io"
@@ -34,7 +35,6 @@ import (
 	"github.com/erigontech/erigon/common/u256"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/misc"
-	"github.com/erigontech/erigon/consensus/parlia/finality"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/forkid"
 	"github.com/erigontech/erigon/core/state"
@@ -979,6 +979,16 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
+	defer func() {
+		if txIndex == len(txs)-1 {
+			if fs := finality.GetFinalizationService(); fs != nil {
+				if snap.Attestation != nil {
+					fs.UpdateFinality(snap.Attestation.SourceHash, snap.Attestation.TargetHash)
+				}
+			}
+		}
+	}()
+
 	if curIndex == txIndex {
 		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
 			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
@@ -1054,12 +1064,6 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			} else if finish {
 				return nil, nil, nil, nil
 			}
-		}
-	}
-
-	if fs := finality.GetFinalizationService(); fs != nil {
-		if snap.Attestation != nil {
-			fs.UpdateFinality(snap.Attestation.SourceHash, snap.Attestation.TargetHash)
 		}
 	}
 	return nil, nil, nil, nil
