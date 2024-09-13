@@ -979,8 +979,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
+	var finish bool
 	defer func() {
-		if txIndex == len(txs)-1 {
+		if txIndex == len(txs)-1 && finish {
 			if fs := finality.GetFinalizationService(); fs != nil {
 				curSnap, _ := p.snapshot(chain, number, header.Hash(), nil, true)
 				if curSnap.Attestation != nil {
@@ -997,7 +998,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	}
 
 	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
-		finish, err := p.initializeFeynmanContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
+		finish, err = p.initializeFeynmanContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
 			log.Error("init feynman contract failed", "error", err)
 			return nil, nil, nil, fmt.Errorf("init feynman contract failed: %v", err)
@@ -1007,7 +1008,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	}
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
 	if number == 1 {
-		finish, err := p.initContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
+		finish, err = p.initContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
 			p.logger.Error("[parlia] init contract failed", "err", err)
 			return nil, nil, nil, fmt.Errorf("init contract failed: %v", err)
@@ -1032,7 +1033,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		}
 		if !signedRecently {
 			//log.Trace("slash validator", "block hash", header.Hash(), "address", spoiledVal)
-			finish, err := p.slash(spoiledVal, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
+			finish, err = p.slash(spoiledVal, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 			if err != nil {
 				// it is possible that slash validator failed because of the slash channel is disabled.
 				p.logger.Error("slash validator failed", "block hash", header.Hash(), "address", spoiledVal, "error", err)
@@ -1041,14 +1042,14 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
-	finish, err := p.distributeIncoming(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
+	finish, err = p.distributeIncoming(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 	if err != nil || finish {
 		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
 		return nil, nil, nil, err
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
-		finish, err := p.distributeFinalityReward(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
+		finish, err = p.distributeFinalityReward(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
 			return nil, nil, nil, err
 		} else if finish {
@@ -1059,7 +1060,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
 		// we should avoid update validators in the Feynman upgrade block
 		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
-			finish, err := p.updateValidatorSetV2(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex, tx)
+			finish, err = p.updateValidatorSetV2(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex, tx)
 			if err != nil {
 				return nil, nil, nil, err
 			} else if finish {
