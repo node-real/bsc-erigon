@@ -306,15 +306,18 @@ func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.
 	if err != nil {
 		utils.Fatalf(fmt.Sprintf("error while parsing mode: %v", err))
 	}
+
 	// Full mode prunes all but the latest state
 	if ctx.String(PruneModeFlag.Name) == "full" {
-		mode.Blocks = prune.Distance(math.MaxUint64)
-		mode.History = prune.Distance(0)
+		mode.SetPruneMode(math.MaxUint64, 0)
 	}
 	// Minimal mode prunes all but the latest state including blocks
 	if ctx.String(PruneModeFlag.Name) == "minimal" {
-		mode.Blocks = prune.Distance(2048) // 2048 is just some blocks to allow reorgs
-		mode.History = prune.Distance(0)
+		if chainId == 56 {
+			mode.SetPruneMode(90_000, 90_000) // 90_000 about 3 day
+		} else {
+			mode.SetPruneMode(2048, 0) // 2048 is just some blocks to allow reorgs
+		}
 	}
 
 	cfg.BlobPrune = ctx.Bool(PruneBscBlobSidecarsFlag.Name)

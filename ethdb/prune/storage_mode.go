@@ -85,6 +85,11 @@ type Mode struct {
 	Experiments Experiments
 }
 
+func (m *Mode) SetPruneMode(blocks, history uint64) {
+	m.Blocks = Distance(blocks)
+	m.History = Distance(history)
+}
+
 type BlockAmount interface {
 	PruneTo(stageHead uint64) uint64
 	Enabled() bool
