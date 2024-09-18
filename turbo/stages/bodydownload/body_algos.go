@@ -219,8 +219,12 @@ func (bd *BodyDownload) checkPrefetchedBlock(hash libcommon.Hash, tx kv.RwTx, bl
 
 	if header.BlobGasUsed != nil {
 		want := *header.BlobGasUsed / params.BlobTxBlobGasPerBlob
-		if want != uint64(len(body.Sidecars)) {
-			bd.logger.Debug("Prefetched Block Error", "Number", header.Number.Uint64(), "Hash", header.Hash(), "want", want, "actual", len(body.Sidecars))
+		actual := 0
+		for _, BlobSidecar := range body.Sidecars {
+			actual += len(BlobSidecar.Blobs)
+		}
+		if want != uint64(actual) {
+			bd.logger.Debug("Prefetched Block Error", "Number", header.Number.Uint64(), "Hash", header.Hash(), "want", want, "actual", actual)
 			return false
 		}
 	}
