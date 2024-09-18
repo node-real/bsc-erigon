@@ -47,9 +47,5 @@ jobs:
       - run: sudo apt update && sudo apt install build-essential
       - run: make downloader
       - run: echo $ModModified
-      - run: ./build/bin/downloader manifest-verify --chain mainnet
-      - run: ./build/bin/downloader manifest-verify --chain bor-mainnet
-      - run: ./build/bin/downloader manifest-verify --chain gnosis
-      - run: ./build/bin/downloader manifest-verify --chain chiado
-      - run: ./build/bin/downloader manifest-verify --chain sepolia
-      - run: ./build/bin/downloader manifest-verify --chain amoy
+      - run: ./build/bin/downloader manifest-verify --chain bsc
+      - run: ./build/bin/downloader manifest-verify --chain chapel

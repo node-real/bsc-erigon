@@ -3,12 +3,12 @@ on:
   push:
     branches:
       - main
-      - erigon3
+      - erigon2
       - 'release/**'
   pull_request:
     branches:
       - main
-      - erigon3
+      - erigon2
       - 'release/**'
     types:
       - opened
