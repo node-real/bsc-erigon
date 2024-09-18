@@ -860,6 +860,23 @@ du -hsc /erigon/snapshots/*
 4.1T	/erigon/snapshots
 ```
 
+```
+# bsc-mainnet - archive - Sep 2024
+
+du -hsc /erigon/* 
+327M	/erigon/parlia
+5.1G 	/erigon/chaindata
+4.2T	/erigon/snapshots
+4.2T	total
+
+du -hsc /erigon/snapshots/* 
+332G	/erigon-data/snapshots/accessor
+562G	/erigon-data/snapshots/domain
+882G	/erigon-data/snapshots/history
+1.3T	/erigon-data/snapshots/idx
+4.4T	/erigon/snapshots
+```
+
 ### E3 other perf trics
 
 - `--sync.loop.block.limit=10_000 --batchSize=2g` - likely will help for sync speed.
