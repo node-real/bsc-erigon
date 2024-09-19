@@ -202,7 +202,10 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 	rules := txTask.Rules
 	var err error
 	header := txTask.Header
-	lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
+	var lastBlockTime uint64
+	if rw.isPoSA {
+		lastBlockTime = header.Time - rw.chainConfig.Parlia.Period
+	}
 	//fmt.Printf("txNum=%d blockNum=%d history=%t\n", txTask.TxNum, txTask.BlockNum, txTask.HistoryExecution)
 
 	switch {
