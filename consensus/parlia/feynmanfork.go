@@ -2,7 +2,7 @@ package parlia
 
 import (
 	"container/heap"
-	"fmt"
+	"errors"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"math/big"
@@ -163,7 +163,7 @@ func (p *Parlia) getValidatorElectionInfo(header *types.Header, ibs *state.Intra
 		return nil, err
 	}
 	if totalLength.Int64() != int64(len(validators)) || totalLength.Int64() != int64(len(votingPowers)) || totalLength.Int64() != int64(len(voteAddrs)) {
-		return nil, fmt.Errorf("validator length not match")
+		return nil, errors.New("validator length not match")
 	}
 
 	validatorItems := make([]ValidatorItem, len(validators))

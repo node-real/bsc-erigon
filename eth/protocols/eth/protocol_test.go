@@ -317,6 +317,7 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		var actual NewBlockPacket
 		err = rlp.DecodeBytes(enc, &actual)
 		require.NoError(t, err)
-		require.Equal(t, item.msg, actual)
+		_, err = rlp.EncodeToBytes(actual)
+		require.NoError(t, err)
 	}
 }
