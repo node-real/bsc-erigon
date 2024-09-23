@@ -583,7 +583,7 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 	// Verify the existence / non-existence of excessBlobGas
 	cancun := chain.Config().IsCancun(header.Number.Uint64(), header.Time)
 	if !cancun {
-		if err := misc.VerifyAbsenceOfCancunHeaderFields(header); err != nil {
+		if err := misc.VerifyBscAbsenceOfCancunHeaderFields(header); err != nil {
 			return err
 		}
 	} else {
