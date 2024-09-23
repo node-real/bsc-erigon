@@ -122,7 +122,6 @@ jobs:
         env:
           BUILD_VERSION: ${{ inputs.release_version }}
           DOCKER_URL: ghcr.io/${{github.repository}}
-          DOCKER_PUBLISH_LATEST_CONDITION: ${{ inputs.publish_latest_tag && format('--tag {0}:latest ',env.DOCKERHUB_REPOSITORY) || '' }}
         run: |
           docker buildx build \
           --file ${{ env.DOCKERFILE_PATH }} \
@@ -131,7 +130,6 @@ jobs:
           --build-arg APPLICATION=${{ env.APPLICATION }} \
           --tag ${{ env.DOCKER_URL }}:${{ env.BUILD_VERSION }} \
           --target release \
-          ${{ env.DOCKER_PUBLISH_LATEST_CONDITION }} \
           --label org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
           --label org.opencontainers.image.authors="https://github.com/erigontech/erigon/graphs/contributors" \
           --label org.opencontainers.image.url="https://github.com/erigontech/erigon/blob/main/Dockerfile" \
