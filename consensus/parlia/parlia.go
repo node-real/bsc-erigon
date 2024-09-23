@@ -494,7 +494,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 
 	// The valid voted validators should be no less than 2/3 validators.
 	if len(votedAddrs) < math.CeilDiv(len(snap.Validators)*2, 3) {
-		return fmt.Errorf("invalid attestation, not enough validators voted")
+		return errors.New("invalid attestation, not enough validators voted")
 	}
 
 	// Verify the aggregated signature.
@@ -503,7 +503,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		return fmt.Errorf("BLS signature converts failed: %v", err)
 	}
 	if !aggSig.FastAggregateVerify(votedAddrs, attestation.Data.Hash()) {
-		return fmt.Errorf("invalid attestation, signature verify failed")
+		return errors.New("invalid attestation, signature verify failed")
 	}
 
 	return nil
@@ -1491,10 +1491,10 @@ func (p *Parlia) applyTransaction(from libcommon.Address, to libcommon.Address, 
 	expectedTx := types.Transaction(types.NewTransaction(actualTx.GetNonce(), to, value, math.MaxUint64/2, u256.Num0, data))
 	expectedHash := expectedTx.SigningHash(p.chainConfig.ChainID)
 	if len(*systemTxs) == 0 {
-		return false, fmt.Errorf("supposed to get a actual transaction, but get none")
+		return false, errors.New("supposed to get a actual transaction, but get none")
 	}
 	if actualTx == nil {
-		return false, fmt.Errorf("supposed to get a actual transaction, but get nil")
+		return false, errors.New("supposed to get a actual transaction, but get nil")
 	}
 	actualHash := actualTx.SigningHash(p.chainConfig.ChainID)
 	if !bytes.Equal(actualHash.Bytes(), expectedHash.Bytes()) {

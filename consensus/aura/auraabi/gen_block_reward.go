@@ -4,6 +4,7 @@
 package auraabi
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 
@@ -206,7 +207,7 @@ type RewardParams struct {
 // Solidity: function reward(address[] benefactors, uint16[] kind) returns(address[], uint256[])
 func ParseReward(calldata []byte) (*RewardParams, error) {
 	if len(calldata) <= 4 {
-		return nil, fmt.Errorf("invalid calldata input")
+		return nil, errors.New("invalid calldata input")
 	}
 
 	_abi, err := abi.JSON(strings.NewReader(BlockRewardABI))
@@ -223,7 +224,7 @@ func ParseReward(calldata []byte) (*RewardParams, error) {
 	value := reflect.ValueOf(paramsResult).Elem()
 
 	if value.NumField() != len(out) {
-		return nil, fmt.Errorf("failed to match calldata with param field number")
+		return nil, errors.New("failed to match calldata with param field number")
 	}
 
 	out0 := *abi.ConvertType(out[0], new([]libcommon.Address)).(*[]libcommon.Address)
