@@ -310,17 +310,13 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		}},
 	}
 
-	for i, item := range tests {
+	for _, item := range tests {
 		item.msg.Block.Size()
 		enc, err := rlp.EncodeToBytes(item.msg)
 		require.NoError(t, err)
 		var actual NewBlockPacket
 		err = rlp.DecodeBytes(enc, &actual)
 		require.NoError(t, err)
-		res, err := rlp.EncodeToBytes(actual)
-		require.NoError(t, err)
-		if !bytes.Equal(res, enc) {
-			t.Errorf("test %d, type %T, have\n\t%x\nwant\n\t%x", i, item.msg, res, enc)
-		}
+		require.DeepEqual(t, item.msg, actual)
 	}
 }
