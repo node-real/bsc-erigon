@@ -593,7 +593,7 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 				return err
 			}
 		} else {
-			if err := misc.VerifyPresenceOfCancunHeaderFields(header); err != nil {
+			if err := misc.VerifyBscPresenceOfCancunHeaderFields(header); err != nil {
 				return err
 			}
 		}

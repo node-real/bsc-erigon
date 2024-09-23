@@ -84,6 +84,20 @@ func VerifyPresenceOfCancunHeaderFields(header *types.Header) error {
 	if header.ExcessBlobGas == nil {
 		return errors.New("header is missing excessBlobGas")
 	}
+	if header.ParentBeaconBlockRoot == nil {
+		return errors.New("header is missing parentBeaconBlockRoot")
+	}
+	return nil
+}
+
+// VerifyBscPresenceOfCancunHeaderFields checks that the fields introduced in Cancun (EIP-4844, EIP-4788) are present.
+func VerifyBscPresenceOfCancunHeaderFields(header *types.Header) error {
+	if header.BlobGasUsed == nil {
+		return errors.New("header is missing blobGasUsed")
+	}
+	if header.ExcessBlobGas == nil {
+		return errors.New("header is missing excessBlobGas")
+	}
 	if header.ParentBeaconBlockRoot != nil {
 		return errors.New("header has no nil ParentBeaconBlockRoot")
 	}
