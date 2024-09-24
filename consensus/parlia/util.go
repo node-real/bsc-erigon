@@ -20,7 +20,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 			// reverse the key/value of snap.Recents to get recentsMap
 			counts := snap.countRecents()
 			for addr, seenTimes := range counts {
-				log.Debug("backOffTime", "blockNumber", header.Number, "validator", addr, "seenTimes", seenTimes)
+				log.Trace("backOffTime", "blockNumber", header.Number, "validator", addr, "seenTimes", seenTimes)
 			}
 
 			// The backOffTime does not matter when a validator has signed recently.
@@ -30,7 +30,7 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 
 			inTurnAddr := snap.inturnValidator()
 			if snap.signRecentlyByCounts(inTurnAddr, counts) {
-				log.Debug("in turn validator has recently signed, skip initialBackOffTime",
+				log.Trace("in turn validator has recently signed, skip initialBackOffTime",
 					"inTurnAddr", inTurnAddr)
 				delay = 0
 			}
