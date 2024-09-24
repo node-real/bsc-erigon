@@ -402,13 +402,13 @@ func init() {
 		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
 	}
 	for k := range PrecompiledContractsCancunForBsc {
-		PrecompiledAddressesCancun = append(PrecompiledAddressesCancunForBSC, k)
+		PrecompiledAddressesCancunForBSC = append(PrecompiledAddressesCancunForBSC, k)
 	}
 	for k := range PrecompiledContractsHaber {
 		PrecompiledAddressesHaber = append(PrecompiledAddressesHaber, k)
 	}
 	for k := range PrecompiledContractsNapoli {
-		PrecompiledAddressesPrague = append(PrecompiledAddressesNapoli, k)
+		PrecompiledAddressesNapoli = append(PrecompiledAddressesNapoli, k)
 	}
 	for k := range PrecompiledContractsPrague {
 		PrecompiledAddressesPrague = append(PrecompiledAddressesPrague, k)
@@ -425,6 +425,9 @@ func ActivePrecompiles(rules *chain.Rules) []libcommon.Address {
 	case rules.IsHaber:
 		return PrecompiledAddressesHaber
 	case rules.IsCancun:
+		if rules.IsParlia {
+			return PrecompiledAddressesCancunForBSC
+		}
 		return PrecompiledAddressesCancun
 	case rules.IsFeynman:
 		return PrecompiledAddressesFeynman
