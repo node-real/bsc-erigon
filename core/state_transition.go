@@ -505,6 +505,13 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	} else {
 		st.state.AddBalance(coinbase, amount, tracing.BalanceIncreaseRewardTransactionFee)
 	}
+	if !msg.IsFree() && rules.IsLondon {
+		burntContractAddress := st.evm.ChainConfig().GetBurntContract(st.evm.Context.BlockNumber)
+		if burntContractAddress != nil {
+			burnAmount := new(uint256.Int).Mul(new(uint256.Int).SetUint64(st.gasUsed()), st.evm.Context.BaseFee)
+			st.state.AddBalance(*burntContractAddress, burnAmount, tracing.BalanceChangeUnspecified)
+		}
+	}
 
 	result := &evmtypes.ExecutionResult{
 		UsedGas:             st.gasUsed(),
