@@ -169,6 +169,19 @@ var PrecompiledContractsCancun = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
 	libcommon.BytesToAddress([]byte{0x09}): &blake2F{},
 	libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
+}
+
+var PrecompiledContractsCancunForBsc = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{0x01}): &ecrecover{},
+	libcommon.BytesToAddress([]byte{0x02}): &sha256hash{},
+	libcommon.BytesToAddress([]byte{0x03}): &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{0x04}): &dataCopy{},
+	libcommon.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{0x09}): &blake2F{},
+	libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
 
 	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
 	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlato{},
@@ -340,6 +353,7 @@ var (
 	PrecompiledAddressesPrague         []libcommon.Address
 	PrecompiledAddressesNapoli         []libcommon.Address
 	PrecompiledAddressesCancun         []libcommon.Address
+	PrecompiledAddressesCancunForBSC   []libcommon.Address
 	PrecompiledAddressesBerlin         []libcommon.Address
 	PrecompiledAddressesIstanbul       []libcommon.Address
 	PrecompiledAddressesIstanbulForBSC []libcommon.Address
@@ -386,6 +400,9 @@ func init() {
 	}
 	for k := range PrecompiledContractsCancun {
 		PrecompiledAddressesCancun = append(PrecompiledAddressesCancun, k)
+	}
+	for k := range PrecompiledContractsCancunForBsc {
+		PrecompiledAddressesCancun = append(PrecompiledAddressesCancunForBSC, k)
 	}
 	for k := range PrecompiledContractsHaber {
 		PrecompiledAddressesHaber = append(PrecompiledAddressesHaber, k)

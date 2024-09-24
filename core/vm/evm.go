@@ -47,7 +47,11 @@ func (evm *EVM) precompile(addr libcommon.Address) (PrecompiledContract, bool) {
 	case evm.chainRules.IsHaber:
 		precompiles = PrecompiledContractsHaber
 	case evm.chainRules.IsCancun:
-		precompiles = PrecompiledContractsCancun
+		if evm.chainRules.IsParlia {
+			precompiles = PrecompiledContractsCancunForBsc
+		} else {
+			precompiles = PrecompiledContractsCancun
+		}
 	case evm.chainRules.IsFeynman:
 		precompiles = PrecompiledContractsFeynman
 	case evm.chainRules.IsHertz:

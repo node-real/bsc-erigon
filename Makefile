@@ -166,7 +166,6 @@ db-tools:
 	@echo "Run \"$(GOBIN)/mdbx_stat -h\" to get info about mdbx db file."
 
 test-erigon-lib:
-	@git apply tests/0001-diff-go-ethereum.patch
 	@cd erigon-lib && $(MAKE) test
 
 test-erigon-ext:
