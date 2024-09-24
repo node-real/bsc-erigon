@@ -588,7 +588,6 @@ func MakeEmptyHeader(parent *types.Header, chainConfig *chain.Config, timestamp 
 		header.BaseFee = misc.CalcBaseFee(chainConfig, parent)
 		if chainConfig.Parlia == nil && !chainConfig.IsLondon(parent.Number.Uint64()) {
 			parentGasLimit = parent.GasLimit * params.ElasticityMultiplier
-			parentGasLimit = CalcGasLimit(parentGasLimit, parentGasLimit)
 		}
 	}
 	if targetGasLimit != nil {
