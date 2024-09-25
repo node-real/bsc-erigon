@@ -802,7 +802,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsBohr:             c.IsBohr(num, time),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
-		IsParlia:           true,
+		IsParlia:           c.Parlia != nil,
 	}
 }
 
