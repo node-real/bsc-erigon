@@ -401,7 +401,7 @@ func GenerateChain(config *chain.Config, parent *types.Block, engine consensus.E
 
 			// Recreating block to make sure Root makes it into the header
 			block := types.NewBlockForAsembling(b.header, b.txs, b.uncles, b.receipts, nil /* withdrawals */, nil /*requests*/)
-			if config.Parlia != nil && config.IsCancun(block.Number().Uint64(), block.Time()) {
+			if config.IsCancun(block.Number().Uint64(), block.Time()) {
 				block = block.WithSidecars(b.sidecars)
 			}
 			return block, b.receipts, nil
