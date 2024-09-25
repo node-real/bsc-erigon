@@ -1,8 +1,8 @@
 name: Kurtosis Assertoor GitHub Action
 
 on:
-  schedule:
-    - cron: "0 2,14 * * *" # runs at 2am and 2pm UTC
+#  schedule:
+#    - cron: "0 2,14 * * *" # runs at 2am and 2pm UTC
   workflow_dispatch:
   # pull_request:
   #   branches:

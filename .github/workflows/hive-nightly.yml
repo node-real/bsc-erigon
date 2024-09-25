@@ -1,8 +1,8 @@
 name: Hive (Nightly)
 
 on:
-  schedule:
-    - cron: "0 01 * * *" # run at 1 am UTC every day
+#  schedule:
+#    - cron: "0 01 * * *" # run at 1 am UTC every day
   workflow_dispatch:
   
 jobs:
