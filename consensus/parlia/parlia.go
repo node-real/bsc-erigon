@@ -1269,13 +1269,13 @@ func (p *Parlia) IsSystemTransaction(tx types.Transaction, header *types.Header)
 	if err != nil {
 		return false, errors.New("UnAuthorized transaction")
 	}
-	if sender == header.Coinbase && isToSystemContract(*tx.GetTo()) && tx.GetPrice().IsZero() {
+	if sender == header.Coinbase && IsToSystemContract(*tx.GetTo()) && tx.GetPrice().IsZero() {
 		return true, nil
 	}
 	return false, nil
 }
 
-func isToSystemContract(to libcommon.Address) bool {
+func IsToSystemContract(to libcommon.Address) bool {
 	_, ok := systemContracts[to]
 	return ok
 }
@@ -1284,7 +1284,7 @@ func (p *Parlia) IsSystemContract(to *libcommon.Address) bool {
 	if to == nil {
 		return false
 	}
-	return isToSystemContract(*to)
+	return IsToSystemContract(*to)
 }
 
 func (p *Parlia) EnoughDistance(chain consensus.ChainReader, header *types.Header) bool {

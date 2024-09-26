@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/consensus/parlia"
 	"math"
 	"slices"
 
@@ -335,7 +336,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	// BSC always gave gas bailout due to system transactions that set 2^256/2 gas limit and
 	// So when trace systemTx, skip PreCheck
 	var skipCheck bool
-	if st.isParlia && st.evm.Config().Debug && st.msg.Gas() == math.MaxUint64/2 {
+	if st.isParlia && st.msg.Gas() == math.MaxUint64/2 && st.gasPrice == uint256.NewInt(0) && parlia.IsToSystemContract(*st.msg.To()) {
 		skipCheck = true
 	}
 
