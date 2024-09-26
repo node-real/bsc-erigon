@@ -24,8 +24,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"github.com/erigontech/erigon-lib/log/v3"
 	"math/big"
+
+	"github.com/erigontech/erigon-lib/log/v3"
 
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/secp256k1"
@@ -227,6 +228,37 @@ var PrecompiledContractsPrague = map[libcommon.Address]PrecompiledContract{
 	libcommon.BytesToAddress([]byte{0x13}): &bls12381MapFp2ToG2{},
 }
 
+var PrecompiledContractsPragueForBSC = map[libcommon.Address]PrecompiledContract{
+	libcommon.BytesToAddress([]byte{0x01}): &ecrecover{},
+	libcommon.BytesToAddress([]byte{0x02}): &sha256hash{},
+	libcommon.BytesToAddress([]byte{0x03}): &ripemd160hash{},
+	libcommon.BytesToAddress([]byte{0x04}): &dataCopy{},
+	libcommon.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
+	libcommon.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
+	libcommon.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
+	libcommon.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
+	libcommon.BytesToAddress([]byte{0x09}): &blake2F{},
+	libcommon.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
+	libcommon.BytesToAddress([]byte{0x0b}): &bls12381G1Add{},
+	libcommon.BytesToAddress([]byte{0x0c}): &bls12381G1Mul{},
+	libcommon.BytesToAddress([]byte{0x0d}): &bls12381G1MultiExp{},
+	libcommon.BytesToAddress([]byte{0x0e}): &bls12381G2Add{},
+	libcommon.BytesToAddress([]byte{0x0f}): &bls12381G2Mul{},
+	libcommon.BytesToAddress([]byte{0x10}): &bls12381G2MultiExp{},
+	libcommon.BytesToAddress([]byte{0x11}): &bls12381Pairing{},
+	libcommon.BytesToAddress([]byte{0x12}): &bls12381MapFpToG1{},
+	libcommon.BytesToAddress([]byte{0x13}): &bls12381MapFp2ToG2{},
+
+	libcommon.BytesToAddress([]byte{100}): &tmHeaderValidate{},
+	libcommon.BytesToAddress([]byte{101}): &iavlMerkleProofValidatePlato{},
+	libcommon.BytesToAddress([]byte{102}): &blsSignatureVerify{},
+	libcommon.BytesToAddress([]byte{103}): &cometBFTLightBlockValidateHertz{},
+	libcommon.BytesToAddress([]byte{104}): &verifyDoubleSignEvidence{},
+	libcommon.BytesToAddress([]byte{105}): &secp256k1SignatureRecover{},
+
+	libcommon.BytesToAddress([]byte{0x01, 0x00}): &p256Verify{},
+}
+
 // PrecompiledContractsHaber contains the default set of pre-compiled Ethereum
 // contracts used in the Haber release.
 var PrecompiledContractsHaber = map[libcommon.Address]PrecompiledContract{
@@ -352,6 +384,7 @@ var (
 	PrecompiledAddressesMoran          []libcommon.Address
 	PrecompiledAddressesNano           []libcommon.Address
 	PrecompiledAddressesPrague         []libcommon.Address
+	PrecompiledAddressesPragueForBSC   []libcommon.Address
 	PrecompiledAddressesNapoli         []libcommon.Address
 	PrecompiledAddressesCancun         []libcommon.Address
 	PrecompiledAddressesCancunForBSC   []libcommon.Address
@@ -414,12 +447,18 @@ func init() {
 	for k := range PrecompiledContractsPrague {
 		PrecompiledAddressesPrague = append(PrecompiledAddressesPrague, k)
 	}
+	for k := range PrecompiledContractsPragueForBSC {
+		PrecompiledAddressesPragueForBSC = append(PrecompiledAddressesPragueForBSC, k)
+	}
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
 func ActivePrecompiles(rules *chain.Rules) []libcommon.Address {
 	switch {
 	case rules.IsPrague:
+		if rules.IsParlia {
+			return PrecompiledAddressesPragueForBSC
+		}
 		return PrecompiledAddressesPrague
 	case rules.IsNapoli:
 		return PrecompiledAddressesNapoli
