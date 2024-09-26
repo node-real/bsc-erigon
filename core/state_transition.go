@@ -229,7 +229,9 @@ func (st *StateTransition) buyGas(gasBailout bool) error {
 	}
 
 	if err := st.gp.SubGas(st.msg.Gas()); err != nil {
-		return err
+		if !gasBailout {
+			return err
+		}
 	}
 	st.gasRemaining += st.msg.Gas()
 	st.initialGas = st.msg.Gas()
