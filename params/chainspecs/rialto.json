@@ -35,6 +35,8 @@
   "haberTime": 0,
   "haberFixTime": 0,
   "bohrTime": 0,
+  "pragueTime": 0,
+  "pascalTime": 0,
   "parlia": {
     "DBPath": "",
     "InMemory": false,
