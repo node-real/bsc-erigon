@@ -72,6 +72,7 @@ type Config struct {
 	HaberTime      *big.Int `json:"haberTime,omitempty"`
 	HaberFixTime   *big.Int `json:"haberFixTime,omitempty"`
 	BohrTime       *big.Int `json:"bohrTime,omitempty"`
+	PascalTime     *big.Int `json:"pascalTime,omitempty"`
 	PragueTime     *big.Int `json:"pragueTime,omitempty"`
 	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
 
@@ -126,7 +127,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v Ramanujan: %v, Niels: %v, MirrorSync: %v, Bruno: %v, Euler: %v, Gibbs: %v, Nano: %v, Moran: %v, Planck: %v, Luban: %v, Plato: %v, Hertz: %v, Hertzfix: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, c.PascalTime %v, c.PragueTime %v, Engine: %v}",
 			c.ChainID,
 			c.RamanujanBlock,
 			c.NielsBlock,
@@ -149,6 +150,8 @@ func (c *Config) String() string {
 			c.HaberTime,
 			c.HaberFixTime,
 			c.BohrTime,
+			c.PascalTime,
+			c.PragueTime,
 			engine,
 		)
 	}
@@ -524,6 +527,20 @@ func (c *Config) IsOnBohr(currentBlockNumber *big.Int, lastBlockTime uint64, cur
 	return !c.IsBohr(lastBlockNumber.Uint64(), lastBlockTime) && c.IsBohr(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
+// IsPascal returns whether time is either equal to the Haber fork time or greater.
+func (c *Config) IsPascal(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.PascalTime, time)
+}
+
+// IsOnPascal returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+func (c *Config) IsOnPascal(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsPascal(lastBlockNumber.Uint64(), lastBlockTime) && c.IsPascal(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *Config) CheckCompatible(newcfg *Config, height uint64) *ConfigCompatError {
@@ -763,7 +780,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli                       bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber, IsBohr                                               bool
+	IsHaber, IsBohr, IsPascal                                     bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -800,6 +817,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsCancun:           c.IsCancun(num, time),
 		IsHaber:            c.IsHaber(num, time),
 		IsBohr:             c.IsBohr(num, time),
+		IsPascal:           c.IsPascal(num, time),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
 		IsParlia:           c.Parlia != nil,
