@@ -24,10 +24,11 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"github.com/erigontech/erigon/core/systemcontracts"
 	"reflect"
 	"slices"
 	"time"
+
+	"github.com/erigontech/erigon/core/systemcontracts"
 
 	"golang.org/x/crypto/sha3"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/erigontech/erigon/common/math"
 	"github.com/erigontech/erigon/common/u256"
 	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/consensus/misc"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/types"
@@ -508,6 +510,12 @@ func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHead
 	}, logger, tracer)
 	if !cc.IsFeynman(header.Number.Uint64(), header.Time) {
 		systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
+	}
+
+	if cc.IsPrague(header.Time) {
+		//TODO: find better way to init?
+		misc.InitializeBlockHashesEip2935(ibs)
+		misc.StoreBlockHashesEip2935(header, ibs, cc, chain)
 	}
 
 	noop := state.NewNoopWriter()
