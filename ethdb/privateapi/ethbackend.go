@@ -23,14 +23,13 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/erigontech/erigon-lib/log/v3"
-
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/direct"
 	"github.com/erigontech/erigon-lib/gointerfaces"
 	remote "github.com/erigontech/erigon-lib/gointerfaces/remoteproto"
 	types2 "github.com/erigontech/erigon-lib/gointerfaces/typesproto"
 	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon-lib/log/v3"
 
 	"github.com/erigontech/erigon/common"
 	"github.com/erigontech/erigon/params"
@@ -76,7 +75,12 @@ type EthBackend interface {
 func NewEthBackendServer(ctx context.Context, eth EthBackend, db kv.RwDB, events *shards.Events, blockReader services.FullBlockReader,
 	logger log.Logger, latestBlockBuiltStore *builder.LatestBlockBuiltStore,
 ) *EthBackendServer {
-	s := &EthBackendServer{ctx: ctx, eth: eth, events: events, db: db, blockReader: blockReader,
+	s := &EthBackendServer{
+		ctx:                   ctx,
+		eth:                   eth,
+		events:                events,
+		db:                    db,
+		blockReader:           blockReader,
 		logsFilter:            NewLogsFilterAggregator(events),
 		logger:                logger,
 		latestBlockBuiltStore: latestBlockBuiltStore,
@@ -280,9 +284,12 @@ func (s *EthBackendServer) CanonicalHash(ctx context.Context, req *remote.Canoni
 	}
 	defer tx.Rollback()
 
-	hash, err := s.blockReader.CanonicalHash(ctx, tx, req.BlockNumber)
+	hash, ok, err := s.blockReader.CanonicalHash(ctx, tx, req.BlockNumber)
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return nil, nil
 	}
 	return &remote.CanonicalHashReply{Hash: gointerfaces.ConvertHashToH256(hash)}, nil
 }
@@ -358,8 +365,8 @@ func (s *EthBackendServer) BorEvents(ctx context.Context, req *remote.BorEventsR
 	}
 
 	eventsRaw := make([][]byte, len(events))
-	for i, e := range events {
-		eventsRaw[i] = e
+	for i, event := range events {
+		eventsRaw[i] = event
 	}
 
 	return &remote.BorEventsReply{

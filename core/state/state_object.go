@@ -166,26 +166,32 @@ func (so *stateObject) GetState(key *libcommon.Hash, out *uint256.Int) {
 }
 
 type HotFixPattern struct {
-	txHash libcommon.Hash
-	addr   libcommon.Address
-	kvList Storage
+	blockNumber uint64
+	txIndex     int
+	txHash      libcommon.Hash
+	addr        libcommon.Address
+	kvList      Storage
 }
 
 func (so *stateObject) patchGethHotFixMainnet1() {
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 33851236, txIndex 89
 	patch1 := HotFixPattern{
-		txHash: libcommon.HexToHash("0x7eba4edc7c1806d6ee1691d43513838931de5c94f9da56ec865721b402f775b0"),
-		addr:   libcommon.HexToAddress("0x00000000001f8b68515EfB546542397d3293CCfd"),
-		kvList: make(Storage),
+		blockNumber: 33851236,
+		txIndex:     89,
+		txHash:      libcommon.HexToHash("0x7eba4edc7c1806d6ee1691d43513838931de5c94f9da56ec865721b402f775b0"),
+		addr:        libcommon.HexToAddress("0x00000000001f8b68515EfB546542397d3293CCfd"),
+		kvList:      make(Storage),
 	}
 	// patch 2: BlockNum 33851236, txIndex 90
 	patch2 := HotFixPattern{
-		txHash: libcommon.HexToHash("0x5217324f0711af744fe8e12d73f13fdb11805c8e29c0c095ac747b7e4563e935"),
-		addr:   libcommon.HexToAddress("0x00000000001f8b68515EfB546542397d3293CCfd"),
-		kvList: make(Storage),
+		blockNumber: 33851236,
+		txIndex:     90,
+		txHash:      libcommon.HexToHash("0x5217324f0711af744fe8e12d73f13fdb11805c8e29c0c095ac747b7e4563e935"),
+		addr:        libcommon.HexToAddress("0x00000000001f8b68515EfB546542397d3293CCfd"),
+		kvList:      make(Storage),
 	}
-	if so.db.thash != patch1.txHash || so.db.thash != patch2.txHash {
+	if so.db.blockNum != patch1.blockNumber {
 		return
 	}
 
@@ -238,7 +244,7 @@ func (so *stateObject) patchGethHotFixMainnet1() {
 
 	// apply the patches
 	for _, patch := range totalPatches {
-		if so.db.thash != patch.txHash {
+		if so.db.txIndex != patch.txIndex {
 			continue
 		}
 		if so.address != patch.addr {
@@ -254,11 +260,13 @@ func (so *stateObject) patchGethHotFixChapel1() {
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 35547779, txIndex 196
 	patch1 := HotFixPattern{
-		txHash: libcommon.HexToHash("0x7ce9a3cf77108fcc85c1e84e88e363e3335eca515dfcf2feb2011729878b13a7"),
-		addr:   libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
-		kvList: make(Storage),
+		blockNumber: 35547779,
+		txIndex:     196,
+		txHash:      libcommon.HexToHash("0x7ce9a3cf77108fcc85c1e84e88e363e3335eca515dfcf2feb2011729878b13a7"),
+		addr:        libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
+		kvList:      make(Storage),
 	}
-	if so.db.thash != patch1.txHash {
+	if so.db.blockNum != patch1.blockNumber && so.db.txIndex != patch1.txIndex {
 		return
 	}
 	patch1KVs := map[string]string{
@@ -271,7 +279,7 @@ func (so *stateObject) patchGethHotFixChapel1() {
 
 	// apply the patches
 	for _, patch := range totalPatches {
-		if so.db.thash != patch.txHash {
+		if so.db.txIndex != patch.txIndex {
 			continue
 		}
 		if so.address != patch.addr {
@@ -287,12 +295,14 @@ func (so *stateObject) patchGethHotFixChapel2() {
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 35548081, txIndex 486
 	patch1 := HotFixPattern{
-		txHash: libcommon.HexToHash("0xe3895eb95605d6b43ceec7876e6ff5d1c903e572bf83a08675cb684c047a695c"),
-		addr:   libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
-		kvList: make(Storage),
+		blockNumber: 35548081,
+		txIndex:     486,
+		txHash:      libcommon.HexToHash("0xe3895eb95605d6b43ceec7876e6ff5d1c903e572bf83a08675cb684c047a695c"),
+		addr:        libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
+		kvList:      make(Storage),
 	}
 
-	if so.db.thash != patch1.txHash {
+	if so.db.blockNum != patch1.blockNumber && so.db.txIndex != patch1.txIndex {
 		return
 	}
 
@@ -306,7 +316,7 @@ func (so *stateObject) patchGethHotFixChapel2() {
 
 	// apply the patches
 	for _, patch := range totalPatches {
-		if so.db.thash != patch.txHash {
+		if so.db.blockNum != patch.blockNumber {
 			continue
 		}
 		if so.address != patch.addr {

@@ -34,6 +34,7 @@ import (
 	"github.com/erigontech/erigon/cl/gossip"
 	"github.com/erigontech/erigon/cl/phase1/core/state"
 	"github.com/erigontech/erigon/cl/phase1/network/subnets"
+	"github.com/erigontech/erigon/cl/utils"
 	"github.com/erigontech/erigon/cl/utils/eth_clock"
 )
 
@@ -88,9 +89,8 @@ func NewCommitteeSubscribeManagement(
 }
 
 type validatorSub struct {
-	subnetId         uint64
-	aggregate        bool
-	latestTargetSlot uint64
+	aggregate         bool
+	largestTargetSlot uint64
 }
 
 func (c *CommitteeSubscribeMgmt) AddAttestationSubscription(ctx context.Context, p *cltypes.BeaconCommitteeSubscription) error {
@@ -111,25 +111,24 @@ func (c *CommitteeSubscribeMgmt) AddAttestationSubscription(ctx context.Context,
 
 	if _, ok := c.validatorSubs[cIndex]; !ok {
 		c.validatorSubs[cIndex] = &validatorSub{
-			subnetId:         subnetId,
-			aggregate:        p.IsAggregator,
-			latestTargetSlot: slot,
+			aggregate:         p.IsAggregator,
+			largestTargetSlot: slot,
 		}
 	} else {
 		// set aggregator to true if any validator in the committee is an aggregator
 		c.validatorSubs[cIndex].aggregate = (c.validatorSubs[cIndex].aggregate || p.IsAggregator)
 		// update latest target slot
-		if c.validatorSubs[cIndex].latestTargetSlot < slot {
-			c.validatorSubs[cIndex].latestTargetSlot = slot
+		if c.validatorSubs[cIndex].largestTargetSlot < slot {
+			c.validatorSubs[cIndex].largestTargetSlot = slot
 		}
 	}
-
 	c.validatorSubsMutex.Unlock()
 
+	epochDuration := time.Duration(c.beaconConfig.SlotsPerEpoch) * time.Duration(c.beaconConfig.SecondsPerSlot) * time.Second
 	// set sentinel gossip expiration by subnet id
 	request := sentinel.RequestSubscribeExpiry{
 		Topic:          gossip.TopicNameBeaconAttestation(subnetId),
-		ExpiryUnixSecs: uint64(time.Now().Add(30 * time.Minute).Unix()), // temporarily set to 30 minutes
+		ExpiryUnixSecs: uint64(time.Now().Add(epochDuration).Unix()), // expire after epoch
 	}
 	if _, err := c.sentinel.SetSubscribeExpiry(ctx, &request); err != nil {
 		return err
@@ -137,7 +136,7 @@ func (c *CommitteeSubscribeMgmt) AddAttestationSubscription(ctx context.Context,
 	return nil
 }
 
-func (c *CommitteeSubscribeMgmt) CheckAggregateAttestation(att *solid.Attestation) error {
+func (c *CommitteeSubscribeMgmt) AggregateAttestation(att *solid.Attestation) error {
 	committeeIndex := att.AttestantionData().CommitteeIndex()
 	c.validatorSubsMutex.RLock()
 	defer c.validatorSubsMutex.RUnlock()
@@ -150,6 +149,29 @@ func (c *CommitteeSubscribeMgmt) CheckAggregateAttestation(att *solid.Attestatio
 	return nil
 }
 
+func (c *CommitteeSubscribeMgmt) NeedToAggregate(att *solid.Attestation) bool {
+	var (
+		committeeIndex = att.AttestantionData().CommitteeIndex()
+	)
+
+	c.validatorSubsMutex.RLock()
+	defer c.validatorSubsMutex.RUnlock()
+	if sub, ok := c.validatorSubs[committeeIndex]; ok && sub.aggregate {
+		root, err := att.AttestantionData().HashSSZ()
+		if err != nil {
+			log.Warn("failed to hash attestation data", "err", err)
+			return false
+		}
+		aggregation := c.aggregationPool.GetAggregatationByRoot(root)
+		if aggregation == nil ||
+			!utils.IsNonStrictSupersetBitlist(aggregation.AggregationBits(), att.AggregationBits()) {
+			// the on bit is not set. need to aggregate
+			return true
+		}
+	}
+	return false
+}
+
 func (c *CommitteeSubscribeMgmt) sweepByStaleSlots(ctx context.Context) {
 	slotIsStale := func(curSlot, targetSlot uint64) bool {
 		if curSlot <= targetSlot {
@@ -158,8 +180,8 @@ func (c *CommitteeSubscribeMgmt) sweepByStaleSlots(ctx context.Context) {
 		}
 		return curSlot-targetSlot > c.netConfig.AttestationPropagationSlotRange
 	}
-	// sweep every minute
-	ticker := time.NewTicker(time.Duration(c.beaconConfig.SecondsPerSlot) * time.Second)
+	// sweep every 3 seconds
+	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -170,11 +192,11 @@ func (c *CommitteeSubscribeMgmt) sweepByStaleSlots(ctx context.Context) {
 			toRemoves := make([]uint64, 0)
 			c.validatorSubsMutex.Lock()
 			for committeeIdx, sub := range c.validatorSubs {
-				if slotIsStale(curSlot, sub.latestTargetSlot) {
+				if slotIsStale(curSlot, sub.largestTargetSlot) {
 					toRemoves = append(toRemoves, committeeIdx)
 				}
 				// try remove aggregator flag to avoid unnecessary aggregation
-				if curSlot > sub.latestTargetSlot {
+				if curSlot > sub.largestTargetSlot {
 					sub.aggregate = false
 				}
 			}

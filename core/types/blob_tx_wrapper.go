@@ -19,8 +19,8 @@ package types
 import (
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/common/hexutility"
 	rlp2 "github.com/erigontech/erigon-lib/rlp"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"io"
 	"math/big"
 	"math/bits"
@@ -58,32 +58,32 @@ var (
 
 // UnmarshalJSON parses a blob in hex syntax.
 func (b *Blob) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSON(blobT, input, b[:])
+	return hexutility.UnmarshalFixedJSON(blobT, input, b[:])
 }
 
 // MarshalText returns the hex representation of b.
 func (b *Blob) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(b[:]).MarshalText()
+	return hexutility.Bytes(b[:]).MarshalText()
 }
 
 // UnmarshalJSON parses a commitment in hex syntax.
 func (c *KZGCommitment) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSON(commitmentT, input, c[:])
+	return hexutility.UnmarshalFixedJSON(commitmentT, input, c[:])
 }
 
 // MarshalText returns the hex representation of c.
 func (c KZGCommitment) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(c[:]).MarshalText()
+	return hexutility.Bytes(c[:]).MarshalText()
 }
 
 // UnmarshalJSON parses a proof in hex syntax.
 func (p *KZGProof) UnmarshalJSON(input []byte) error {
-	return hexutil.UnmarshalFixedJSON(proofT, input, p[:])
+	return hexutility.UnmarshalFixedJSON(proofT, input, p[:])
 }
 
 // MarshalText returns the hex representation of p.
 func (p KZGProof) MarshalText() ([]byte, error) {
-	return hexutil.Bytes(p[:]).MarshalText()
+	return hexutility.Bytes(p[:]).MarshalText()
 }
 
 // BlobTxSidecar contains the blobs of a blob transaction.

@@ -29,13 +29,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/erigontech/erigon/eth/ethconfig/estimate"
-
 	"github.com/c2h5oh/datasize"
+	"github.com/erigontech/erigon/core/rawdb/rawtemporaldb"
 	"github.com/erigontech/mdbx-go/mdbx"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/erigontech/erigon-lib/log/v3"
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
@@ -49,6 +46,7 @@ import (
 	"github.com/erigontech/erigon-lib/kv"
 	kv2 "github.com/erigontech/erigon-lib/kv/mdbx"
 	"github.com/erigontech/erigon-lib/kv/rawdbv3"
+	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/metrics"
 	state2 "github.com/erigontech/erigon-lib/state"
 	"github.com/erigontech/erigon-lib/wrap"
@@ -61,6 +59,7 @@ import (
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/types/accounts"
+	"github.com/erigontech/erigon/eth/ethconfig/estimate"
 	"github.com/erigontech/erigon/eth/stagedsync/stages"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/shards"
@@ -77,8 +76,7 @@ var (
 )
 
 const (
-	changesetBlockRange = 1_000 // Generate changeset only if execution of blocks <= changesetBlockRange
-	changesetSafeRange  = 32    // Safety net for long-sync, keep last 32 changesets
+	changesetSafeRange = 32 // Safety net for long-sync, keep last 32 changesets
 )
 
 func NewProgress(prevOutputBlockNum, commitThreshold uint64, workersCount int, updateMetrics bool, logPrefix string, logger log.Logger) *Progress {
@@ -120,11 +118,12 @@ func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetr
 
 	gasSec := uint64(float64(gas-p.prevGasUsed) / interval.Seconds())
 	txSec := uint64(float64(txCount-p.prevTxCount) / interval.Seconds())
+	diffBlocks := max(int(outputBlockNum)-int(p.prevOutputBlockNum)+1, 0)
 
 	p.logger.Info(fmt.Sprintf("[%s]"+suffix, p.logPrefix),
 		"blk", outputBlockNum,
-		"blks", outputBlockNum-p.prevOutputBlockNum+1,
-		"blk/s", fmt.Sprintf("%.1f", float64(outputBlockNum-p.prevOutputBlockNum+1)/interval.Seconds()),
+		"blks", diffBlocks,
+		"blk/s", fmt.Sprintf("%.1f", float64(diffBlocks)/interval.Seconds()),
 		"txs", txCount-p.prevTxCount,
 		"tx/s", common.PrettyCounter(txSec),
 		"gas/s", common.PrettyCounter(gasSec),
@@ -215,7 +214,6 @@ func ExecV3(ctx context.Context,
 			}()
 		}
 	}
-
 	agg := cfg.db.(state2.HasAgg).Agg().(*state2.Aggregator)
 	if initialCycle {
 		agg.SetCollateAndBuildWorkers(min(2, estimate.StateV3Collate.Workers()))
@@ -281,7 +279,9 @@ func ExecV3(ctx context.Context,
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("seems broken TxNums index not filled. can't find blockNum of txNum=%d", inputTxNum)
+			_lb, _lt, _ := txNumsReader.Last(applyTx)
+			_fb, _ft, _ := txNumsReader.First(applyTx)
+			return fmt.Errorf("seems broken TxNums index not filled. can't find blockNum of txNum=%d; in db: (%d-%d, %d-%d)", inputTxNum, _fb, _lb, _ft, _lt)
 		}
 		{
 			_max, _ := txNumsReader.Max(applyTx, _blockNum)
@@ -342,12 +342,16 @@ func ExecV3(ctx context.Context,
 	blockNum = doms.BlockNum()
 	outputTxNum.Store(doms.TxNum())
 
-	shouldGenerateChangesets := maxBlockNum-blockNum <= changesetBlockRange
+	if maxBlockNum < blockNum {
+		return nil
+	}
+
+	shouldGenerateChangesets := maxBlockNum-blockNum <= changesetSafeRange || cfg.keepAllChangesets
 	if blockNum < cfg.blockReader.FrozenBlocks() {
 		shouldGenerateChangesets = false
 	}
 
-	if maxBlockNum-blockNum > 16 {
+	if maxBlockNum > blockNum+16 {
 		log.Info(fmt.Sprintf("[%s] starting", execStage.LogPrefix()),
 			"from", blockNum, "to", maxBlockNum, "fromTxNum", doms.TxNum(), "offsetFromBlockBeginning", offsetFromBlockBeginning, "initialCycle", initialCycle, "useExternalTx", useExternalTx)
 	}
@@ -359,10 +363,10 @@ func ExecV3(ctx context.Context,
 	var count uint64
 	var lock sync.RWMutex
 
-	shouldReportToTxPool := maxBlockNum-blockNum <= 64
+	shouldReportToTxPool := cfg.notifications != nil && !isMining && maxBlockNum <= blockNum+64
 	var accumulator *shards.Accumulator
 	if shouldReportToTxPool {
-		accumulator = cfg.accumulator
+		accumulator = cfg.notifications.Accumulator
 		if accumulator == nil {
 			accumulator = shards.NewAccumulator()
 		}
@@ -522,7 +526,7 @@ func ExecV3(ctx context.Context,
 					if err := func() error {
 						//Drain results (and process) channel because read sets do not carry over
 						for !blockComplete.Load() {
-							rws.DrainNonBlocking()
+							rws.DrainNonBlocking(ctx)
 							applyWorker.ResetTx(tx)
 
 							processedTxNum, conflicts, triggers, processedBlockNum, stoppedAtBlockEnd, err := processResultQueue(ctx, in, rws, outputTxNum.Load(), rs, agg, tx, nil, applyWorker, false, true, isMining)
@@ -550,7 +554,7 @@ func ExecV3(ctx context.Context,
 						}
 
 						// Drain results channel because read sets do not carry over
-						rws.DropResults(func(txTask *state.TxTask) {
+						rws.DropResults(ctx, func(txTask *state.TxTask) {
 							rs.ReTry(txTask, in)
 						})
 
@@ -667,20 +671,24 @@ func ExecV3(ctx context.Context,
 		// snapshots are often stored on chaper drives. don't expect low-read-latency and manually read-ahead.
 		// can't use OS-level ReadAhead - because Data >> RAM
 		// it also warmsup state a bit - by touching senders/coninbase accounts and code
-		var clean func()
-		readAhead, clean = blocksReadAhead(ctx, &cfg, 4, true)
-		defer clean()
+		if !execStage.CurrentSyncCycle.IsInitialCycle {
+			var clean func()
+
+			readAhead, clean = blocksReadAhead(ctx, &cfg, 4, true)
+			defer clean()
+		}
 	}
 
-	//fmt.Printf("exec blocks: %d -> %d\n", blockNum, maxBlockNum)
-
 	var b *types.Block
+
+	// Only needed by bor chains
+	shouldGenerateChangesetsForLastBlocks := cfg.chainConfig.Bor != nil
 
 Loop:
 	for ; blockNum <= maxBlockNum; blockNum++ {
 		// set shouldGenerateChangesets=true if we are at last n blocks from maxBlockNum. this is as a safety net in chains
 		// where during initial sync we can expect bogus blocks to be imported.
-		if !shouldGenerateChangesets && blockNum > cfg.blockReader.FrozenBlocks() && blockNum+changesetSafeRange >= maxBlockNum {
+		if !shouldGenerateChangesets && shouldGenerateChangesetsForLastBlocks && blockNum > cfg.blockReader.FrozenBlocks() && blockNum+changesetSafeRange >= maxBlockNum {
 			aggTx := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
@@ -767,7 +775,7 @@ Loop:
 		}
 
 		rules := chainConfig.Rules(blockNum, b.Time())
-		var receipts types.Receipts
+		blockReceipts := make(types.Receipts, len(txs))
 		// During the first block execution, we may have half-block data in the snapshots.
 		// Thus, we need to skip the first txs in the block, however, this causes the GasUsed to be incorrect.
 		// So we skip that check for the first block, if we find half-executed data.
@@ -798,9 +806,15 @@ Loop:
 				// use history reader instead of state reader to catch up to the tx where we left off
 				HistoryExecution: offsetFromBlockBeginning > 0 && txIndex < int(offsetFromBlockBeginning),
 
-				BlockReceipts: receipts,
+				BlockReceipts: blockReceipts,
 
 				Config: chainConfig,
+			}
+			if txTask.HistoryExecution && usedGas == 0 {
+				usedGas, blobGasUsed, _, err = rawtemporaldb.ReceiptAsOf(applyTx.(kv.TemporalTx), txTask.TxNum)
+				if err != nil {
+					return err
+				}
 			}
 
 			if txIndex >= 0 && !txTask.Final && isPoSa {
@@ -823,9 +837,6 @@ Loop:
 			doms.SetTxNum(txTask.TxNum)
 			doms.SetBlockNum(txTask.BlockNum)
 
-			//if txTask.HistoryExecution { // nolint
-			//	fmt.Printf("[dbg] txNum: %d, hist=%t\n", txTask.TxNum, txTask.HistoryExecution)
-			//}
 			if txIndex >= 0 && txIndex < len(txs) {
 				txTask.Tx = txs[txIndex]
 				txTask.TxAsMessage, err = txTask.Tx.AsMessage(signer, header.BaseFee, txTask.Rules)
@@ -880,17 +891,20 @@ Loop:
 				if txTask.Tx != nil {
 					blobGasUsed += txTask.Tx.GetBlobGas()
 				}
+
+				txTask.CreateReceipt(applyTx)
+
 				if txTask.Final {
-					checkReceipts := !cfg.vmConfig.StatelessExec && chainConfig.IsByzantium(txTask.BlockNum) && !cfg.vmConfig.NoReceipts
+					if !isMining && !inMemExec && !execStage.CurrentSyncCycle.IsInitialCycle {
+						cfg.notifications.RecentLogs.Add(blockReceipts)
+					}
+					checkReceipts := !cfg.vmConfig.StatelessExec && chainConfig.IsByzantium(txTask.BlockNum) && !cfg.vmConfig.NoReceipts && !isMining
 					if txTask.BlockNum > 0 && !skipPostEvaluation { //Disable check for genesis. Maybe need somehow improve it in future - to satisfy TestExecutionSpec
-						if err := core.BlockPostValidation(usedGas, blobGasUsed, checkReceipts, receipts, txTask.Header, isMining); err != nil {
+						if err := core.BlockPostValidation(usedGas, blobGasUsed, checkReceipts, txTask.BlockReceipts, txTask.Header, isMining); err != nil {
 							return fmt.Errorf("%w, txnIdx=%d, %v", consensus.ErrInvalidBlock, txTask.TxIndex, err) //same as in stage_exec.go
 						}
 					}
 					usedGas, blobGasUsed = 0, 0
-					receipts = receipts[:0]
-				} else if txTask.TxIndex >= 0 {
-					receipts = append(receipts, txTask.CreateReceipt(usedGas))
 				}
 				return nil
 			}(); err != nil {
@@ -920,7 +934,18 @@ Loop:
 				break Loop
 			}
 
-			if err = rs.ApplyState4(ctx, txTask); err != nil {
+			if !txTask.Final {
+				var receipt *types.Receipt
+				if txTask.TxIndex >= 0 && !txTask.Final {
+					receipt = txTask.BlockReceipts[txTask.TxIndex]
+				}
+				if err := rawtemporaldb.AppendReceipt(doms, receipt, blobGasUsed); err != nil {
+					return err
+				}
+			}
+
+			// MA applystate
+			if err := rs.ApplyState4(ctx, txTask); err != nil {
 				return err
 			}
 

@@ -6,12 +6,12 @@ DOCKER := $(shell command -v docker 2> /dev/null)
 
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
-GIT_TAG    ?= $(shell git describe --tags '--match=v*' --dirty)
+GIT_TAG    ?= $(shell git describe --tags '--match=*.*.*' --abbrev=7 --dirty)
 ERIGON_USER ?= erigon
 # if using volume-mounting data dir, then must exist on host OS
 DOCKER_UID ?= $(shell id -u)
 DOCKER_GID ?= $(shell id -g)
-DOCKER_TAG ?= thorax/erigon:latest
+DOCKER_TAG ?= erigontech/erigon:latest
 
 # Variables below for building on host OS, and are ignored for docker
 #
@@ -55,7 +55,7 @@ GOPRIVATE = github.com/erigontech/silkworm-go
 
 PACKAGE = github.com/node-real/bsc-erigon
 
-GO_FLAGS += -trimpath -tags $(BUILD_TAGS) -buildvcs=false
+GO_FLAGS += -trimpath -tags $(BUILD_TAGS) -buildvcs=false 
 GO_FLAGS += -ldflags "-X ${PACKAGE}/params.GitCommit=${GIT_COMMIT} -X ${PACKAGE}/params.GitBranch=${GIT_BRANCH} -X ${PACKAGE}/params.GitTag=${GIT_TAG}"
 
 GOBUILD = CGO_CFLAGS="$(CGO_CFLAGS)" CGO_LDFLAGS="$(CGO_LDFLAGS)" GOPRIVATE="$(GOPRIVATE)" $(GO) build $(GO_FLAGS)
@@ -66,8 +66,8 @@ default: all
 
 ## go-version:                        print and verify go version
 go-version:
-	@if [ $(shell $(GO) version | cut -c 16-17) -lt 21 ]; then \
-		echo "minimum required Golang version is 1.21"; \
+	@if [ $(shell $(GO) version | cut -c 16-17) -lt 20 ]; then \
+		echo "minimum required Golang version is 1.20"; \
 		exit 1 ;\
 	fi
 
@@ -293,20 +293,6 @@ release-dry-run: git-submodules
 		-w /go/src/$(PACKAGE_NAME) \
 		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
 		--clean --skip=validate --skip=publish
-
-.PHONY: release
-release: git-submodules
-	@docker run \
-		--rm \
-		--privileged \
-		-e CGO_ENABLED=1 \
-		-e GITHUB_TOKEN \
-		-v /var/run/docker.sock:/var/run/docker.sock \
-		-v `pwd`:/go/src/$(PACKAGE_NAME) \
-		-w /go/src/$(PACKAGE_NAME) \
-		ghcr.io/goreleaser/goreleaser-cross:${GOLANG_CROSS_VERSION} \
-		--clean --skip=validate
-
 # since DOCKER_UID, DOCKER_GID are default initialized to the current user uid/gid,
 # we need separate envvars to facilitate creation of the erigon user on the host OS.
 ERIGON_USER_UID ?= 3473
@@ -335,13 +321,6 @@ user_macos:
 	sudo dscl . -create /Users/$(ERIGON_USER) NFSHomeDirectory /Users/$(ERIGON_USER)
 	sudo dscl . -append /Groups/admin GroupMembership $(ERIGON_USER)
 	sudo -u $(ERIGON_USER) mkdir -p /Users/$(ERIGON_USER)/.local/share
-
-## hive:                              run hive test suite locally using docker e.g. OUTPUT_DIR=~/results/hive SIM=ethereum/engine make hive
-.PHONY: hive
-hive:
-	DOCKER_TAG=thorax/erigon:ci-local make docker
-	docker pull thorax/hive:latest
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v $(OUTPUT_DIR):/work thorax/hive:latest --sim $(SIM) --results-root=/work/results --client erigon_ci-local # run erigon
 
 ## automated-tests                    run automated tests (BUILD_ERIGON=0 to prevent erigon build with local image tag)
 .PHONY: automated-tests

@@ -229,6 +229,5 @@ var DefaultFlags = []cli.Flag{
 
 	&SyncLoopBlockLimitFlag,
 	&SyncLoopBreakAfterFlag,
-	&SyncLoopPruneLimitFlag,
 	&SyncParallelStateFlushing,
 }

@@ -34,6 +34,8 @@ import (
 )
 
 func Test_BtreeIndex_Init2(t *testing.T) {
+	t.Parallel()
+
 	//mainnet: storage.128-160.kv  110mil keys, 100mb bloomfilter of 0.01 (1%) miss-probability
 	//no much reason to merge bloomfilter - can merge them on startup
 	//1B keys: 1Gb
@@ -51,6 +53,8 @@ func Test_BtreeIndex_Init2(t *testing.T) {
 
 }
 func Test_BtreeIndex_Init(t *testing.T) {
+	t.Parallel()
+
 	logger := log.New()
 	tmp := t.TempDir()
 
@@ -70,6 +74,8 @@ func Test_BtreeIndex_Init(t *testing.T) {
 }
 
 func Test_BtreeIndex_Seek(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	logger := log.New()
 	keyCount, M := 120, 30
@@ -104,14 +110,14 @@ func Test_BtreeIndex_Seek(t *testing.T) {
 	getter := seg.NewReader(kv.MakeGetter(), compressFlags)
 
 	t.Run("seek beyond the last key", func(t *testing.T) {
-		_, _, err := bt.dataLookup(bt.ef.Count()+1, getter)
+		_, _, _, err := bt.dataLookup(bt.ef.Count()+1, getter)
 		require.ErrorIs(t, err, ErrBtIndexLookupBounds)
 
-		_, _, err = bt.dataLookup(bt.ef.Count(), getter)
+		_, _, _, err = bt.dataLookup(bt.ef.Count(), getter)
 		require.ErrorIs(t, err, ErrBtIndexLookupBounds)
 		require.Error(t, err)
 
-		_, _, err = bt.dataLookup(bt.ef.Count()-1, getter)
+		_, _, _, err = bt.dataLookup(bt.ef.Count()-1, getter)
 		require.NoError(t, err)
 
 		cur, err := bt.Seek(getter, common.FromHex("0xffffffffffffff")) //seek beyeon the last key
@@ -152,6 +158,8 @@ func Test_BtreeIndex_Seek(t *testing.T) {
 }
 
 func Test_BtreeIndex_Build(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	logger := log.New()
 	keyCount, M := 20000, 510
@@ -202,6 +210,8 @@ func buildBtreeIndex(tb testing.TB, dataPath, indexPath string, compressed seg.F
 }
 
 func Test_BtreeIndex_Seek2(t *testing.T) {
+	t.Parallel()
+
 	tmp := t.TempDir()
 	logger := log.New()
 	keyCount, M := 1_200_000, 1024
@@ -224,14 +234,14 @@ func Test_BtreeIndex_Seek2(t *testing.T) {
 	getter := seg.NewReader(kv.MakeGetter(), compressFlags)
 
 	t.Run("seek beyond the last key", func(t *testing.T) {
-		_, _, err := bt.dataLookup(bt.ef.Count()+1, getter)
+		_, _, _, err := bt.dataLookup(bt.ef.Count()+1, getter)
 		require.ErrorIs(t, err, ErrBtIndexLookupBounds)
 
-		_, _, err = bt.dataLookup(bt.ef.Count(), getter)
+		_, _, _, err = bt.dataLookup(bt.ef.Count(), getter)
 		require.ErrorIs(t, err, ErrBtIndexLookupBounds)
 		require.Error(t, err)
 
-		_, _, err = bt.dataLookup(bt.ef.Count()-1, getter)
+		_, _, _, err = bt.dataLookup(bt.ef.Count()-1, getter)
 		require.NoError(t, err)
 
 		cur, err := bt.Seek(getter, common.FromHex("0xffffffffffffff")) //seek beyeon the last key
@@ -271,6 +281,8 @@ func Test_BtreeIndex_Seek2(t *testing.T) {
 }
 
 func TestBpsTree_Seek(t *testing.T) {
+	t.Parallel()
+
 	keyCount, M := 48, 4
 	tmp := t.TempDir()
 
@@ -337,23 +349,23 @@ type mockIndexReader struct {
 	ef *eliasfano32.EliasFano
 }
 
-func (b *mockIndexReader) dataLookup(di uint64, g *seg.Reader) ([]byte, []byte, error) {
+func (b *mockIndexReader) dataLookup(di uint64, g *seg.Reader) (k, v []byte, offset uint64, err error) {
 	if di >= b.ef.Count() {
-		return nil, nil, fmt.Errorf("%w: keyCount=%d, but key %d requested. file: %s", ErrBtIndexLookupBounds, b.ef.Count(), di, g.FileName())
+		return nil, nil, 0, fmt.Errorf("%w: keyCount=%d, but key %d requested. file: %s", ErrBtIndexLookupBounds, b.ef.Count(), di, g.FileName())
 	}
 
-	offset := b.ef.Get(di)
+	offset = b.ef.Get(di)
 	g.Reset(offset)
 	if !g.HasNext() {
-		return nil, nil, fmt.Errorf("pair %d/%d key not found, file: %s", di, b.ef.Count(), g.FileName())
+		return nil, nil, 0, fmt.Errorf("pair %d/%d key not found, file: %s", di, b.ef.Count(), g.FileName())
 	}
 
-	k, _ := g.Next(nil)
+	k, _ = g.Next(nil)
 	if !g.HasNext() {
-		return nil, nil, fmt.Errorf("pair %d/%d value not found, file: %s", di, b.ef.Count(), g.FileName())
+		return nil, nil, 0, fmt.Errorf("pair %d/%d value not found, file: %s", di, b.ef.Count(), g.FileName())
 	}
-	v, _ := g.Next(nil)
-	return k, v, nil
+	v, _ = g.Next(nil)
+	return k, v, offset, nil
 }
 
 // comparing `k` with item of index `di`. using buffer `kBuf` to avoid allocations

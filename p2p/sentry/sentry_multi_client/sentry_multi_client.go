@@ -29,6 +29,7 @@ import (
 
 	"github.com/c2h5oh/datasize"
 	"golang.org/x/sync/semaphore"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
@@ -414,7 +415,7 @@ func (cs *MultiClient) newBlock66(ctx context.Context, inreq *proto_sentry.Inbou
 	if err := request.SanityCheck(); err != nil {
 		return fmt.Errorf("newBlock66: %w", err)
 	}
-	if err := request.Block.HashCheck(); err != nil {
+	if err := request.Block.HashCheck(true); err != nil {
 		return fmt.Errorf("newBlock66: %w", err)
 	}
 

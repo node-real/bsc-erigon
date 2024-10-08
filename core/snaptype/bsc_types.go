@@ -46,9 +46,6 @@ var (
 					LessFalsePositives: true,
 				}
 				if err := snaptype.BuildIndex(ctx, info, cfg, log.LvlDebug, p, func(idx *recsplit.RecSplit, i, offset uint64, word []byte) error {
-					if i%20_000 == 0 {
-						logger.Log(lvl, "Generating idx for %s", info.Type.Name(), "progress", i)
-					}
 					p.Processed.Add(1)
 					n := binary.PutUvarint(num, i)
 					if err := idx.AddKey(num[:n], offset); err != nil {

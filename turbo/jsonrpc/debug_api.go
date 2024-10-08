@@ -139,7 +139,7 @@ func (api *PrivateDebugAPIImpl) AccountRange(ctx context.Context, blockNrOrHash 
 				if header == nil {
 					return state.IteratorDump{}, nil
 				}
-				canonicalHash, _ := api._blockReader.CanonicalHash(ctx, tx, headerNumber)
+				canonicalHash, _, _ := api._blockReader.CanonicalHash(ctx, tx, headerNumber)
 				isCanonical := canonicalHash == header.Hash()
 				if !isCanonical {
 					return state.IteratorDump{}, errors.New("block hash is not canonical")
@@ -161,7 +161,7 @@ func (api *PrivateDebugAPIImpl) AccountRange(ctx context.Context, blockNrOrHash 
 				if header == nil {
 					return state.IteratorDump{}, nil
 				}
-				canonicalHash, _ := api._blockReader.CanonicalHash(ctx, tx, headerNumber)
+				canonicalHash, _, _ := api._blockReader.CanonicalHash(ctx, tx, headerNumber)
 				isCanonical := canonicalHash == header.Hash()
 				if !isCanonical {
 					return state.IteratorDump{}, errors.New("block hash is not canonical")
@@ -362,7 +362,13 @@ func (api *PrivateDebugAPIImpl) AccountAt(ctx context.Context, blockHash common.
 	if number == nil {
 		return nil, nil // not error, see https://github.com/erigontech/erigon/issues/1645
 	}
-	canonicalHash, _ := api._blockReader.CanonicalHash(ctx, tx, *number)
+	canonicalHash, ok, err := api._blockReader.CanonicalHash(ctx, tx, *number)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("canonical hash not found %d", *number)
+	}
 	isCanonical := canonicalHash == blockHash
 	if !isCanonical {
 		return nil, errors.New("block hash is not canonical")

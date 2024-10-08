@@ -31,6 +31,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/erigontech/erigon-lib/chain/networkid"
+
 	"github.com/c2h5oh/datasize"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -1053,7 +1055,7 @@ var (
 	DiagEndpointPortFlag = cli.UintFlag{
 		Name:  "diagnostics.endpoint.port",
 		Usage: "Diagnostics HTTP server listening port",
-		Value: 6060,
+		Value: 6062,
 	}
 	DiagSpeedTestFlag = cli.BoolFlag{
 		Name:  "diagnostics.speedtest",
@@ -1803,7 +1805,13 @@ func SetEthConfig(ctx *cli.Context, nodeConfig *nodecfg.Config, cfg *ethconfig.C
 	if ctx.IsSet(NetworkIdFlag.Name) {
 		cfg.NetworkID = ctx.Uint64(NetworkIdFlag.Name)
 		if cfg.NetworkID != 1 && !ctx.IsSet(ChainFlag.Name) {
-			chain = "" // don't default to mainnet if NetworkID != 1
+			chainName, ok := networkid.NetworkNameByID[cfg.NetworkID]
+			if !ok {
+				chain = "" // don't default to mainnet if NetworkID != 1 and it's devchain or smth
+			} else {
+				chain = chainName // fetch network name from id if name wasn't provided
+			}
+
 		}
 	} else {
 		cfg.NetworkID = params.NetworkIDByChainName(chain)

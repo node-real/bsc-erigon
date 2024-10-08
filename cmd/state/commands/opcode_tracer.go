@@ -730,7 +730,7 @@ func runBlock(engine consensus.Engine, ibs *state.IntraBlockState, txnWriter sta
 	core.InitializeBlockExecution(engine, nil, header, parent, chainConfig, ibs, logger, nil)
 	rules := chainConfig.Rules(block.NumberU64(), block.Time())
 	for i, txn := range block.Transactions() {
-		ibs.SetTxContext(txn.Hash(), i)
+		ibs.SetTxContext(i, block.NumberU64())
 		receipt, _, err := core.ApplyTransaction(chainConfig, core.GetHashFn(header, getHeader), engine, nil, gp, ibs, txnWriter, header, txn, usedGas, usedBlobGas, vmConfig)
 		if err != nil {
 			return nil, fmt.Errorf("could not apply txn %d [%x] failed: %w", i, txn.Hash(), err)

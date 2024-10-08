@@ -100,11 +100,11 @@ func (api *OtterscanAPIImpl) buildSearchResults(ctx context.Context, tx kv.Tempo
 			log.Warn("[rpc] txn not found", "blockNum", blockNum, "txIndex", txIndex)
 			continue
 		}
-		res, err := exec.ExecTxn(txNum, txIndex, txn)
+		res, err := exec.ExecTxn(txNum, blockNum, txIndex, txn, true)
 		if err != nil {
 			return nil, nil, false, err
 		}
-		rawLogs := exec.GetLogs(txIndex, txn)
+		rawLogs := exec.GetLogs(txIndex, txn.Hash(), blockNum, blockHash)
 		rpcTx := NewRPCTransaction(txn, blockHash, blockNum, uint64(txIndex), header.BaseFee)
 		txs = append(txs, rpcTx)
 		receipt := &types.Receipt{
