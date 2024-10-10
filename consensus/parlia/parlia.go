@@ -1042,6 +1042,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
+	if header.Number.Uint64() == 54423 {
+		log.Info("")
+	}
 	finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 	if err != nil || finish {
 		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
@@ -1434,6 +1437,7 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlo
 					txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 			}
 		}
+		return false, nil
 	}
 	*curIndex++
 	return false, nil
