@@ -373,7 +373,7 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 					return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
 				}
 
-				systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+				systemCall := func(ibs *state.IntraBlockState) ([]byte, bool, error) {
 					vmConfig := vm.Config{NoReceipts: true, SkipAnalysis: txTask.SkipAnalysis}
 					msg := txTask.TxAsMessage
 					ibs.SetTxContext(txTask.TxIndex, txTask.BlockNum)

@@ -202,7 +202,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, false /* constCall */)
 		}
 
-		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+		systemCall := func(ibs *state.IntraBlockState) ([]byte, bool, error) {
 
 			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.execArgs.ChainConfig.GetMaxBlobGasPerBlock())
 			if tracer := rw.consumer.NewTracer(); tracer != nil {

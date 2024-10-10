@@ -275,7 +275,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, false /* constCall */)
 		}
 
-		systemCall := func(ibs *state.IntraBlockState, index int) ([]byte, bool, error) {
+		systemCall := func(ibs *state.IntraBlockState) ([]byte, bool, error) {
 			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.chainConfig.GetMaxBlobGasPerBlock())
 			rw.callTracer.Reset()
 			rw.vmCfg.SkipAnalysis = txTask.SkipAnalysis

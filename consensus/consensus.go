@@ -92,7 +92,7 @@ type ChainReader interface {
 
 type SystemCall func(contract libcommon.Address, data []byte) ([]byte, error)
 
-type SystemTxCall func(ibs *state.IntraBlockState, index int) ([]byte, bool, error)
+type SystemTxCall func(ibs *state.IntraBlockState) ([]byte, bool, error)
 
 // Use more options to call contract
 type SysCallCustom func(contract libcommon.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error)
