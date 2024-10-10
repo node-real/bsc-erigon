@@ -99,7 +99,6 @@ var (
 
 	validatorItemsCache       []ValidatorItem
 	maxElectedValidatorsCache = big.NewInt(0)
-	doDistributeSysReward     = false
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -1425,7 +1424,7 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlo
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
-		doDistributeSysReward = !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
+		doDistributeSysReward := !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
 			state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
