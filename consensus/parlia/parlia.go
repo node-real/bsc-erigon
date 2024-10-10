@@ -1417,11 +1417,11 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
-	balance := state.GetBalance(consensus.SystemAddress).Clone()
-	if balance.Cmp(u256.Num0) <= 0 {
-		return false, nil
-	}
 	if *curIndex == *txIndex {
+		balance := state.GetBalance(consensus.SystemAddress).Clone()
+		if balance.Cmp(u256.Num0) <= 0 {
+			return false, nil
+		}
 		doDistributeSysReward = !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
 			state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 		if doDistributeSysReward {
@@ -1444,11 +1444,11 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, state *state.Intra
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 
-	balance := state.GetBalance(consensus.SystemAddress)
-	if balance.Cmp(u256.Num0) <= 0 {
-		return false, nil
-	}
 	if *curIndex == *txIndex {
+		balance := state.GetBalance(consensus.SystemAddress)
+		if balance.Cmp(u256.Num0) <= 0 {
+			return false, nil
+		}
 		state.SetBalance(consensus.SystemAddress, u256.Num0, tracing.BalanceDecreaseGasBuy)
 		state.AddBalance(val, balance, tracing.BalanceDecreaseGasBuy)
 		// method
