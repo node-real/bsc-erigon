@@ -1445,7 +1445,7 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, state *state.Intra
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 
 	if *curIndex == *txIndex {
-		balance := state.GetBalance(consensus.SystemAddress)
+		balance := state.GetBalance(consensus.SystemAddress).Clone()
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
