@@ -1413,29 +1413,26 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 	return false, nil
 }
 
-func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlockState, header *types.Header,
+func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 	if *curIndex == *txIndex {
-		balance := state.GetBalance(consensus.SystemAddress).Clone()
-		if header.Number.Uint64() == 66 {
-			log.Info("balance", "bal", balance.Uint64())
-		}
+		balance := ibs.GetBalance(consensus.SystemAddress).Clone()
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
 		doDistributeSysReward := !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
-			state.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
+			ibs.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
 			rewards = rewards.Rsh(balance, systemRewardPercent)
-			if header.Number.Uint64() == 66 {
-				log.Info("rewards", "rew", rewards.Uint64())
+			if _, ok := ibs.StateReader.(*state.HistoryReaderV3); ok {
+				rewards = (*txs)[*curIndex].GetValue()
 			}
-			state.SetBalance(consensus.SystemAddress, balance.Sub(balance, rewards), tracing.BalanceDecreaseGasBuy)
-			state.AddBalance(val, rewards, tracing.BalanceDecreaseGasBuy)
+			ibs.SetBalance(consensus.SystemAddress, balance.Sub(balance, rewards), tracing.BalanceDecreaseGasBuy)
+			ibs.AddBalance(val, rewards, tracing.BalanceDecreaseGasBuy)
 			if rewards.Cmp(u256.Num0) > 0 {
-				return p.applyTransaction(val, systemcontracts.SystemRewardContract, rewards, nil, state, header,
+				return p.applyTransaction(val, systemcontracts.SystemRewardContract, rewards, nil, ibs, header,
 					txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 			}
 		}
@@ -1446,20 +1443,20 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlo
 }
 
 // distributeToValidator deposits validator reward to validator contract
-func (p *Parlia) distributeToValidator(val libcommon.Address, state *state.IntraBlockState, header *types.Header,
+func (p *Parlia) distributeToValidator(val libcommon.Address, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 
 	if *curIndex == *txIndex {
-		balance := state.GetBalance(consensus.SystemAddress).Clone()
-		if header.Number.Uint64() == 66 {
-			log.Info("balance", "bal", balance.Uint64())
+		balance := ibs.GetBalance(consensus.SystemAddress).Clone()
+		if _, ok := ibs.StateReader.(*state.HistoryReaderV3); ok {
+			balance = (*txs)[*curIndex].GetValue()
 		}
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
-		state.SetBalance(consensus.SystemAddress, u256.Num0, tracing.BalanceDecreaseGasBuy)
-		state.AddBalance(val, balance, tracing.BalanceDecreaseGasBuy)
+		ibs.SetBalance(consensus.SystemAddress, u256.Num0, tracing.BalanceDecreaseGasBuy)
+		ibs.AddBalance(val, balance, tracing.BalanceDecreaseGasBuy)
 		// method
 		method := "deposit"
 
@@ -1472,7 +1469,7 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, state *state.Intra
 			return true, err
 		}
 		// apply message
-		return p.applyTransaction(val, systemcontracts.ValidatorContract, balance, data, state, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
+		return p.applyTransaction(val, systemcontracts.ValidatorContract, balance, data, ibs, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 	}
 	*curIndex++
 	return false, nil
