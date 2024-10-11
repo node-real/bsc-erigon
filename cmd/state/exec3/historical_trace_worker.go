@@ -204,7 +204,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 
 		systemCall := func(ibs *state.IntraBlockState) ([]byte, bool, error) {
 
-			rw.taskGasPool.Reset(txTask.Tx.GetGas(), rw.execArgs.ChainConfig.GetMaxBlobGasPerBlock())
+			rw.taskGasPool.Reset(txTask.Tx.GetGas(), txTask.Tx.GetBlobGas())
 			if tracer := rw.consumer.NewTracer(); tracer != nil {
 				rw.vmConfig.Debug = true
 				rw.vmConfig.Tracer = tracer
@@ -212,9 +212,15 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 			rw.vmConfig.SkipAnalysis = txTask.SkipAnalysis
 			msg := txTask.TxAsMessage
 			ibs.SetTxContext(txTask.TxIndex, txTask.BlockNum)
+			msg.SetCheckNonce(!rw.vmConfig.StatelessExec)
 			if rw.execArgs.ChainConfig.IsCancun(header.Number.Uint64(), header.Time) {
 				rules := rw.execArgs.ChainConfig.Rules(header.Number.Uint64(), header.Time)
 				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
+			}
+
+			txContext := core.NewEVMTxContext(msg)
+			if rw.vmConfig.TraceJumpDest {
+				txContext.TxHash = txTask.Tx.Hash()
 			}
 			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, *rw.vmConfig, rules)
 			// Increment the nonce for the next transaction
