@@ -242,6 +242,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 
 		_, _, _, err := rw.execArgs.Engine.Finalize(rw.execArgs.ChainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, txTask.Requests, rw.chain, syscall, systemCall, txTask.TxIndex, rw.chainTx, rw.logger)
 		if err != nil {
+			log.Error("run system tx err", "block Number", rw.blockNum, "txIndex", txTask.TxIndex, "err", err)
 			txTask.Error = err
 		}
 	default:
@@ -271,6 +272,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		// MA applytx
 		applyRes, err := core.ApplyMessage(rw.evm, msg, rw.taskGasPool, true /* refunds */, false /* gasBailout */)
 		if err != nil {
+			log.Error("run tx err", "block Number", rw.blockNum, "txIndex", txTask.TxIndex, "err", err)
 			txTask.Error = err
 		} else {
 			txTask.Failed = applyRes.Failed()
