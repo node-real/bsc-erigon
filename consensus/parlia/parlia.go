@@ -1041,7 +1041,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
-	if header.Number.Uint64() == 54423 {
+	if header.Number.Uint64() == 66 {
 		log.Info("")
 	}
 	finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
