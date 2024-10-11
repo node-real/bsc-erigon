@@ -1452,6 +1452,9 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, state *state.Intra
 
 	if *curIndex == *txIndex {
 		balance := state.GetBalance(consensus.SystemAddress).Clone()
+		if header.Number.Uint64() == 66 {
+			log.Info("balance", "bal", balance.Uint64())
+		}
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
