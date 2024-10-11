@@ -273,6 +273,9 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		if rw.vmConfig.TraceJumpDest {
 			txContext.TxHash = txTask.Tx.Hash()
 		}
+		if txTask.BlockNum == 66 {
+			log.Info("balance", "balance", ibs.GetBalance(consensus.SystemAddress).Uint64(), "txNumber", txTask.TxIndex)
+		}
 		rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, txContext, ibs, *rw.vmConfig, rules)
 
 		// MA applytx
