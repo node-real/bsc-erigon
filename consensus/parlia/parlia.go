@@ -891,7 +891,7 @@ func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *typ
 			return err
 		}
 		if turnLength != nil && *turnLength == *turnLengthFromHeader {
-			log.Debug("verifyTurnLength", "turnLength", *turnLength)
+			log.Trace("verifyTurnLength", "turnLength", *turnLength)
 			return nil
 		}
 	}

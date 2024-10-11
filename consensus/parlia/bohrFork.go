@@ -32,7 +32,7 @@ func (p *Parlia) getTurnLength(chain consensus.ChainHeaderReader, header *types.
 	} else {
 		turnLength = defaultTurnLength
 	}
-	log.Debug("getTurnLength", "turnLength", turnLength)
+	log.Trace("getTurnLength", "turnLength", turnLength)
 
 	return &turnLength, nil
 }
