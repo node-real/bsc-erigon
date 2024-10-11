@@ -1417,10 +1417,10 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlo
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 	if *curIndex == *txIndex {
-		if header.Number.Uint64() == 66 {
-			log.Info("")
-		}
 		balance := state.GetBalance(consensus.SystemAddress).Clone()
+		if header.Number.Uint64() == 66 {
+			log.Info("balance", balance.Uint64())
+		}
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
@@ -1429,6 +1429,9 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, state *state.IntraBlo
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
 			rewards = rewards.Rsh(balance, systemRewardPercent)
+			if header.Number.Uint64() == 66 {
+				log.Info("rewards", rewards.Uint64())
+			}
 			state.SetBalance(consensus.SystemAddress, balance.Sub(balance, rewards), tracing.BalanceDecreaseGasBuy)
 			state.AddBalance(val, rewards, tracing.BalanceDecreaseGasBuy)
 			if rewards.Cmp(u256.Num0) > 0 {
