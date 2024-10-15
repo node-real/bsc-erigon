@@ -339,6 +339,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	var skipCheck bool
 	if st.isParlia && st.msg.Gas() == math.MaxUint64/2 && st.gasPrice.IsZero() {
 		skipCheck = true
+		st.state.AddBalance(coinbase, st.state.GetBalance(consensus.SystemAddress), tracing.BalanceChangeUnspecified)
 	}
 
 	// Check clauses 1-3 and 6, buy gas if everything is correct
@@ -456,7 +457,9 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	if st.gasRemaining < gas {
 		return nil, fmt.Errorf("%w: have %d, want %d", ErrIntrinsicGas, st.gasRemaining, gas)
 	}
-	st.gasRemaining -= gas
+	if !skipCheck {
+		st.gasRemaining -= gas
+	}
 
 	var bailout bool
 	// Gas bailout (for trace_call) should only be applied if there is not sufficient balance to perform value transfer
