@@ -138,11 +138,11 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 	rw.stateReader.SetTxNum(txTask.TxNum)
 	rw.stateReader.ResetReadSet()
 	rw.stateWriter = state.NewNoopWriter()
-	rw.stateReader.SetTrace(true)
+	//rw.stateReader.SetTrace(true)
 
 	rw.ibs.Reset()
 	ibs := rw.ibs
-	ibs.SetTrace(true)
+	//ibs.SetTrace(true)
 
 	rules := txTask.Rules
 	var err error
@@ -274,9 +274,6 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		txContext := core.NewEVMTxContext(msg)
 		if rw.vmConfig.TraceJumpDest {
 			txContext.TxHash = txTask.Tx.Hash()
-		}
-		if txTask.BlockNum == 66 {
-			log.Info("balance", "balance", ibs.GetBalance(consensus.SystemAddress).Uint64(), "txNumber", txTask.TxIndex)
 		}
 		rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, txContext, ibs, *rw.vmConfig, rules)
 

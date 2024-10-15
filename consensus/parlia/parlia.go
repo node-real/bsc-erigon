@@ -1425,9 +1425,7 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlock
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
 			rewards = rewards.Rsh(balance, systemRewardPercent)
-			if _, ok := ibs.StateReader.(*state.HistoryReaderV3); ok {
-				rewards = (*txs)[*curIndex].GetValue()
-			}
+
 			ibs.SetBalance(consensus.SystemAddress, balance.Sub(balance, rewards), tracing.BalanceDecreaseGasBuy)
 			ibs.AddBalance(val, rewards, tracing.BalanceDecreaseGasBuy)
 			if rewards.Cmp(u256.Num0) > 0 {
@@ -1448,9 +1446,7 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, ibs *state.IntraBl
 
 	if *curIndex == *txIndex {
 		balance := ibs.GetBalance(consensus.SystemAddress).Clone()
-		if _, ok := ibs.StateReader.(*state.HistoryReaderV3); ok {
-			balance = (*txs)[*curIndex].GetValue()
-		}
+
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
