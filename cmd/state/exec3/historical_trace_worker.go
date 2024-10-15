@@ -224,7 +224,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 			if rw.vmConfig.TraceJumpDest {
 				txContext.TxHash = txTask.Tx.Hash()
 			}
-			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, *rw.vmConfig, rules)
+			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, txContext, ibs, *rw.vmConfig, rules)
 			// Increment the nonce for the next transaction
 			ibs.SetNonce(msg.From(), ibs.GetNonce(msg.From())+1)
 			ret, leftOverGas, err := rw.evm.Call(
