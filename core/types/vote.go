@@ -3,9 +3,9 @@ package types
 import (
 	"sync/atomic"
 
+	"github.com/Giulio2002/bls"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/pkg/errors"
-	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 )
 
 const (
@@ -72,18 +72,18 @@ func (b BLSPublicKey) Bytes() []byte { return b[:] }
 
 // Verify vote using BLS.
 func (vote *VoteEnvelope) Verify() error {
-	blsPubKey, err := bls.PublicKeyFromBytes(vote.VoteAddress[:])
+	blsPubKey, err := bls.NewPublicKeyFromBytes(vote.VoteAddress[:])
 	if err != nil {
 		return errors.Wrap(err, "convert public key from bytes to bls failed")
 	}
 
-	sig, err := bls.SignatureFromBytes(vote.Signature[:])
+	sig, err := bls.NewSignatureFromBytes(vote.Signature[:])
 	if err != nil {
 		return errors.Wrap(err, "invalid signature")
 	}
 
 	voteDataHash := vote.Data.Hash()
-	if !sig.Verify(blsPubKey, voteDataHash[:]) {
+	if !sig.Verify(voteDataHash[:], blsPubKey) {
 		return errors.New("verify bls signature failed.")
 	}
 	return nil

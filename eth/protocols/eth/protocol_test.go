@@ -24,7 +24,7 @@ import (
 	types2 "github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/params"
 	"github.com/holiman/uint256"
-	"github.com/prysmaticlabs/prysm/v5/testing/require"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
@@ -317,6 +317,6 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		var actual NewBlockPacket
 		err = rlp.DecodeBytes(enc, &actual)
 		require.NoError(t, err)
-		require.DeepEqual(t, item.msg, actual)
+		require.Equal(t, item.msg, actual)
 	}
 }

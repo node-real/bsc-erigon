@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/cometbft/cometbft/crypto/ed25519"
-	"github.com/cometbft/cometbft/light"
+	cmtmath "github.com/cometbft/cometbft/libs/math"
 	tmproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cometbft/cometbft/types"
 )
@@ -103,7 +103,7 @@ func (cs *ConsensusState) ApplyLightBlock(block *types.LightBlock, isHertz bool)
 		}
 	} else {
 		// Ensure that +`trustLevel` (default 1/3) or more of last trusted validators signed correctly.
-		err := cs.ValidatorSet.VerifyCommitLightTrusting(cs.ChainID, block.Commit, light.DefaultTrustLevel)
+		err := cs.ValidatorSet.VerifyCommitLightTrusting(cs.ChainID, block.Commit, cmtmath.Fraction{Numerator: 1, Denominator: 3})
 		if err != nil {
 			return false, err
 		}

@@ -30,8 +30,8 @@ import (
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/secp256k1"
 
+	"github.com/Giulio2002/bls"
 	"github.com/erigontech/erigon/rlp"
-	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	bls12381 "github.com/consensys/gnark-crypto/ecc/bls12-381"
@@ -1485,7 +1485,7 @@ func (c *blsSignatureVerify) Run(input []byte) ([]byte, error) {
 	copy(msg[:], msgBytes)
 
 	signatureBytes := getData(input, msgHashLength, signatureLength)
-	sig, err := bls.SignatureFromBytes(signatureBytes)
+	sig, err := bls.NewSignatureFromBytes(signatureBytes)
 	if err != nil {
 		log.Debug("blsSignatureVerify invalid signature", "err", err)
 		return nil, ErrExecutionReverted
@@ -1495,7 +1495,7 @@ func (c *blsSignatureVerify) Run(input []byte) ([]byte, error) {
 	pubKeys := make([]bls.PublicKey, pubKeyNumber)
 	for i := uint64(0); i < pubKeyNumber; i++ {
 		pubKeyBytes := getData(input, msgAndSigLength+i*singleBlsPubkeyLength, singleBlsPubkeyLength)
-		pubKey, err := bls.PublicKeyFromBytes(pubKeyBytes)
+		pubKey, err := bls.NewPublicKeyFromBytes(pubKeyBytes)
 		if err != nil {
 			log.Debug("blsSignatureVerify invalid pubKey", "err", err)
 			return nil, ErrExecutionReverted
@@ -1504,11 +1504,11 @@ func (c *blsSignatureVerify) Run(input []byte) ([]byte, error) {
 	}
 
 	if pubKeyNumber > 1 {
-		if !sig.FastAggregateVerify(pubKeys, msg) {
+		if !sig.VerifyAggregate(msgBytes, pubKeys) {
 			return big0.Bytes(), nil
 		}
 	} else {
-		if !sig.Verify(pubKeys[0], msgBytes) {
+		if !sig.Verify(msgBytes, pubKeys[0]) {
 			return big0.Bytes(), nil
 		}
 	}

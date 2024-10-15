@@ -19,13 +19,13 @@ import (
 	"github.com/erigontech/erigon/crypto/cryptopool"
 	"github.com/erigontech/erigon/turbo/services"
 
+	"github.com/Giulio2002/bls"
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/length"
 	"github.com/erigontech/erigon/common"
 	"github.com/erigontech/erigon/common/math"
 	lru "github.com/hashicorp/golang-lru/arc/v2"
-	"github.com/prysmaticlabs/prysm/v5/crypto/bls"
 	"github.com/willf/bitset"
 
 	"github.com/erigontech/erigon-lib/common/hexutility"
@@ -484,7 +484,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 			continue
 		}
 
-		voteAddr, err := bls.PublicKeyFromBytes(snap.Validators[val].VoteAddress[:])
+		voteAddr, err := bls.NewPublicKeyFromBytes(snap.Validators[val].VoteAddress[:])
 		if err != nil {
 			return fmt.Errorf("BLS public key converts failed: %v", err)
 		}
@@ -496,12 +496,11 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		return errors.New("invalid attestation, not enough validators voted")
 	}
 
-	// Verify the aggregated signature.
-	aggSig, err := bls.SignatureFromBytes(attestation.AggSignature[:])
+	aggSig, err := bls.NewSignatureFromBytes(attestation.AggSignature[:])
 	if err != nil {
 		return fmt.Errorf("BLS signature converts failed: %v", err)
 	}
-	if !aggSig.FastAggregateVerify(votedAddrs, attestation.Data.Hash()) {
+	if !aggSig.VerifyAggregate(attestation.Data.Hash().Bytes(), votedAddrs) {
 		return errors.New("invalid attestation, signature verify failed")
 	}
 
