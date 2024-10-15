@@ -308,19 +308,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 				txTask.TraceFroms = rw.callTracer.Froms()
 				txTask.TraceTos = rw.callTracer.Tos()
 			}
-
-			if txTask.Error == nil {
-				txTask.BalanceIncreaseSet = ibs.BalanceIncreaseSet()
-				//for addr, bal := range txTask.BalanceIncreaseSet {
-				//	fmt.Printf("BalanceIncreaseSet [%x]=>[%d]\n", addr, &bal)
-				//}
-				if err = ibs.MakeWriteSet(rules, rw.stateWriter); err != nil {
-					panic(err)
-				}
-				txTask.ReadLists = rw.stateReader.ReadSet()
-				txTask.WriteLists = rw.stateWriter.WriteSet()
-				txTask.AccountPrevs, txTask.AccountDels, txTask.StoragePrevs, txTask.CodePrevs = rw.stateWriter.PrevAndDels()
-			}
 			return ret, true, nil
 		}
 

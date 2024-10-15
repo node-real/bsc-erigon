@@ -138,9 +138,11 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 	rw.stateReader.SetTxNum(txTask.TxNum)
 	rw.stateReader.ResetReadSet()
 	rw.stateWriter = state.NewNoopWriter()
+	rw.stateReader.SetTrace(true)
 
 	rw.ibs.Reset()
 	ibs := rw.ibs
+	ibs.SetTrace(true)
 
 	rules := txTask.Rules
 	var err error
