@@ -118,12 +118,6 @@ func (t *muxTracer) CaptureTxEnd(restGas uint64) {
 	}
 }
 
-func (t *muxTracer) CaptureSystemTxEnd(intrinsicGas uint64) {
-	for _, t := range t.tracers {
-		t.CaptureSystemTxEnd(intrinsicGas)
-	}
-}
-
 // GetResult returns an empty json object.
 func (t *muxTracer) GetResult() (json.RawMessage, error) {
 	resObject := make(map[string]json.RawMessage)

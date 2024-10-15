@@ -22,8 +22,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/erigontech/erigon/consensus"
-
 	"github.com/holiman/uint256"
 	jsoniter "github.com/json-iterator/go"
 
@@ -193,13 +191,7 @@ func (api *PrivateDebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rp
 				api.evmCallTimeout,
 			)
 		} else {
-			var intrinsicGas uint64
-			if posa, ok := api.engine().(consensus.PoSA); ok {
-				if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
-					intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false, 0)
-				}
-			}
-			err = transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout, intrinsicGas)
+			err = transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout)
 		}
 		if err == nil {
 			err = ibs.FinalizeTx(rules, state.NewNoopWriter())
@@ -336,14 +328,8 @@ func (api *PrivateDebugAPIImpl) TraceTransaction(ctx context.Context, hash commo
 			api.evmCallTimeout,
 		)
 	}
-	var intrinsicGas uint64
-	if posa, ok := api.engine().(consensus.PoSA); ok {
-		if isSystem, _ := posa.IsSystemTransaction(txn, block.Header()); isSystem {
-			intrinsicGas, _ = core.IntrinsicGas(msg.Data(), msg.AccessList(), false, true, true, false, 0)
-		}
-	}
 	// Trace the transaction and return
-	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout, intrinsicGas)
+	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout)
 }
 
 // TraceCall implements debug_traceCall. Returns Geth style call traces.
@@ -411,7 +397,7 @@ func (api *PrivateDebugAPIImpl) TraceCall(ctx context.Context, args ethapi.CallA
 	blockCtx := transactions.NewEVMBlockContext(engine, header, blockNrOrHash.RequireCanonical, dbtx, api._blockReader, chainConfig)
 	txCtx := core.NewEVMTxContext(msg)
 	// Trace the transaction and return
-	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout, 0)
+	return transactions.TraceTx(ctx, msg, blockCtx, txCtx, ibs, config, chainConfig, stream, api.evmCallTimeout)
 }
 
 func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bundle, simulateContext StateContext, config *tracersConfig.TraceConfig, stream *jsoniter.Stream) error {
@@ -574,7 +560,7 @@ func (api *PrivateDebugAPIImpl) TraceCallMany(ctx context.Context, bundles []Bun
 			txCtx = core.NewEVMTxContext(msg)
 			ibs := evm.IntraBlockState().(*state.IntraBlockState)
 			ibs.SetTxContext(txnIndex, blockCtx.BlockNumber)
-			err = transactions.TraceTx(ctx, msg, blockCtx, txCtx, evm.IntraBlockState(), config, chainConfig, stream, api.evmCallTimeout, 0)
+			err = transactions.TraceTx(ctx, msg, blockCtx, txCtx, evm.IntraBlockState(), config, chainConfig, stream, api.evmCallTimeout)
 			if err != nil {
 				stream.WriteArrayEnd()
 				stream.WriteArrayEnd()

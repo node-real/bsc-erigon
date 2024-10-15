@@ -283,8 +283,6 @@ func (ot *OeTracer) CaptureTxStart(gasLimit uint64) {}
 
 func (ot *OeTracer) CaptureTxEnd(restGas uint64) {}
 
-func (ot *OeTracer) CaptureSystemTxEnd(intrinsicGas uint64) {}
-
 func (ot *OeTracer) captureStartOrEnter(deep bool, typ vm.OpCode, from libcommon.Address, to libcommon.Address, precompile bool, create bool, input []byte, gas uint64, value *uint256.Int, code []byte) {
 	//fmt.Printf("captureStartOrEnter deep %t, typ %s, from %x, to %x, create %t, input %x, gas %d, value %d, precompile %t\n", deep, typ.String(), from, to, create, input, gas, value, precompile)
 	if ot.r.VmTrace != nil {

@@ -185,8 +185,6 @@ func (ot *opcodeTracer) CaptureTxStart(gasLimit uint64) {}
 
 func (ot *opcodeTracer) CaptureTxEnd(restGas uint64) {}
 
-func (ot *opcodeTracer) CaptureSystemTxEnd(restGas uint64) {}
-
 func (ot *opcodeTracer) captureStartOrEnter(from, to libcommon.Address, create bool, input []byte) {
 	//fmt.Fprint(ot.summary, ot.lastLine)
 

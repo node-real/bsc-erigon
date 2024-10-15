@@ -227,8 +227,6 @@ func (t *jsTracer) CaptureTxEnd(restGas uint64) {
 	t.ctx["gasUsed"] = t.vm.ToValue(t.gasLimit - restGas)
 }
 
-func (t *jsTracer) CaptureSystemTxEnd(intrinsicGas uint64) {}
-
 // CaptureStart implements the Tracer interface to initialize the tracing operation.
 func (t *jsTracer) CaptureStart(env *vm.EVM, from libcommon.Address, to libcommon.Address, precompile bool, create bool, input []byte, gas uint64, value *uint256.Int, code []byte) {
 	t.env = env

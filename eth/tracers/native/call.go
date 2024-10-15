@@ -300,10 +300,6 @@ func (t *callTracer) CaptureTxEnd(restGas uint64) {
 	t.logGaps = nil
 }
 
-func (t *callTracer) CaptureSystemTxEnd(intrinsicGas uint64) {
-	t.callstack[0].GasUsed -= intrinsicGas
-}
-
 // GetResult returns the json-encoded nested list of call traces, and any
 // error arising from the encoding or forceful termination (via `Stop`).
 func (t *callTracer) GetResult() (json.RawMessage, error) {
