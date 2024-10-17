@@ -80,23 +80,6 @@ var (
 	// 100 native token
 	maxSystemBalance = new(uint256.Int).Mul(uint256.NewInt(100), uint256.NewInt(params.Ether))
 
-	systemContracts = map[libcommon.Address]struct{}{
-		systemcontracts.ValidatorContract:          {},
-		systemcontracts.SlashContract:              {},
-		systemcontracts.SystemRewardContract:       {},
-		systemcontracts.LightClientContract:        {},
-		systemcontracts.RelayerHubContract:         {},
-		systemcontracts.GovHubContract:             {},
-		systemcontracts.TokenHubContract:           {},
-		systemcontracts.RelayerIncentivizeContract: {},
-		systemcontracts.CrossChainContract:         {},
-		systemcontracts.StakeHubContract:           {},
-		systemcontracts.GovernorContract:           {},
-		systemcontracts.GovTokenContract:           {},
-		systemcontracts.TimelockContract:           {},
-		systemcontracts.TokenRecoverPortalContract: {},
-	}
-
 	validatorItemsCache       []ValidatorItem
 	maxElectedValidatorsCache = big.NewInt(0)
 )
@@ -1273,22 +1256,17 @@ func (p *Parlia) IsSystemTransaction(tx types.Transaction, header *types.Header)
 	if err != nil {
 		return false, errors.New("UnAuthorized transaction")
 	}
-	if sender == header.Coinbase && isToSystemContract(*tx.GetTo()) && tx.GetPrice().IsZero() {
+	if sender == header.Coinbase && core.IsToSystemContract(*tx.GetTo()) && tx.GetPrice().IsZero() {
 		return true, nil
 	}
 	return false, nil
-}
-
-func isToSystemContract(to libcommon.Address) bool {
-	_, ok := systemContracts[to]
-	return ok
 }
 
 func (p *Parlia) IsSystemContract(to *libcommon.Address) bool {
 	if to == nil {
 		return false
 	}
-	return isToSystemContract(*to)
+	return core.IsToSystemContract(*to)
 }
 
 func (p *Parlia) EnoughDistance(chain consensus.ChainReader, header *types.Header) bool {

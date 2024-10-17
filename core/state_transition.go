@@ -337,9 +337,9 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 	// BSC always gave gas bailout due to system transactions that set 2^256/2 gas limit and
 	// So when trace systemTx, skip PreCheck
 	var skipCheck bool
-	if st.isParlia && st.msg.Gas() == math.MaxUint64/2 && st.gasPrice.IsZero() {
+	if st.isParlia && st.msg.Gas() == math.MaxUint64/2 && IsToSystemContract(*st.msg.To()) && st.msg.From() == coinbase {
 		skipCheck = true
-		st.state.AddBalance(coinbase, st.state.GetBalance(consensus.SystemAddress), tracing.BalanceChangeUnspecified)
+		st.state.AddBalance(coinbase, st.msg.Value(), tracing.BalanceChangeUnspecified)
 	}
 
 	// Check clauses 1-3 and 6, buy gas if everything is correct

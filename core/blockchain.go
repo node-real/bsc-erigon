@@ -546,3 +546,25 @@ func BlockPostValidation(gasUsed, blobGasUsed uint64, checkReceipts bool, receip
 	}
 	return nil
 }
+
+var systemContracts = map[libcommon.Address]struct{}{
+	systemcontracts.ValidatorContract:          {},
+	systemcontracts.SlashContract:              {},
+	systemcontracts.SystemRewardContract:       {},
+	systemcontracts.LightClientContract:        {},
+	systemcontracts.RelayerHubContract:         {},
+	systemcontracts.GovHubContract:             {},
+	systemcontracts.TokenHubContract:           {},
+	systemcontracts.RelayerIncentivizeContract: {},
+	systemcontracts.CrossChainContract:         {},
+	systemcontracts.StakeHubContract:           {},
+	systemcontracts.GovernorContract:           {},
+	systemcontracts.GovTokenContract:           {},
+	systemcontracts.TimelockContract:           {},
+	systemcontracts.TokenRecoverPortalContract: {},
+}
+
+func IsToSystemContract(to libcommon.Address) bool {
+	_, ok := systemContracts[to]
+	return ok
+}
