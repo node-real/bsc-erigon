@@ -26,7 +26,7 @@ package secp256k1
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/btcsuite/btcd/btcec/v2"
 	fuzz "github.com/google/gofuzz"
 
 	"github.com/erigontech/secp256k1"
