@@ -1415,8 +1415,7 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlock
 					txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 			}
 		}
-	}
-	if *(*txs)[*curIndex].GetTo() == systemcontracts.SystemRewardContract || *(*txs)[*curIndex-1].GetTo() == systemcontracts.SystemRewardContract {
+	} else if *(*txs)[*curIndex].GetTo() == systemcontracts.SystemRewardContract || (*(*txs)[*curIndex-1].GetTo() == systemcontracts.SystemRewardContract && (*txs)[*curIndex-1].GetPrice().IsZero()) {
 		*curIndex++
 	}
 	return false, nil
