@@ -1395,8 +1395,8 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
-	balance := ibs.GetBalance(consensus.SystemAddress).Clone()
 	if *curIndex == *txIndex {
+		balance := ibs.GetBalance(consensus.SystemAddress).Clone()
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
