@@ -1416,8 +1416,7 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlock
 			}
 		}
 	}
-	// doDistributeSysReward in before tx
-	if ibs.GetBalance(val).Cmp(u256.Num0) > 0 && balance.Cmp(u256.Num0) > 0 {
+	if *(*txs)[*curIndex].GetTo() == systemcontracts.SystemRewardContract || *(*txs)[*curIndex-1].GetTo() == systemcontracts.SystemRewardContract {
 		*curIndex++
 	}
 	return false, nil
