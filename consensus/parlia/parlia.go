@@ -960,6 +960,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
+	if number == 40741000 && txIndex == 12 {
+		log.Info("bad tx")
+	}
 	var finish bool
 	defer func() {
 		if txIndex == len(txs)-1 && finish {
