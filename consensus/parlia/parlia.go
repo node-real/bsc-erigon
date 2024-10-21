@@ -1026,10 +1026,12 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
-	finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
-	if err != nil || finish {
-		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
-		return nil, nil, nil, err
+	if !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) {
+		finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
+		if err != nil || finish {
+			//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
+			return nil, nil, nil, err
+		}
 	}
 
 	finish, err = p.distributeToValidator(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
@@ -1384,7 +1386,7 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 		return false, err
 	}
 	for _, c := range contracts {
-		p.logger.Info("Init contracts", "len(systemTxs)", len(*systemTxs), "len(txs)", len(*txs))
+		// p.logger.Info("Init contracts", "len(systemTxs)", len(*systemTxs), "len(txs)", len(*txs))
 		if *curIndex == *txIndex {
 			return p.applyTransaction(header.Coinbase, c, u256.Num0, data, state, header, txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 		}
@@ -1396,13 +1398,12 @@ func (p *Parlia) initContract(state *state.IntraBlockState, header *types.Header
 func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
+	balance := ibs.GetBalance(consensus.SystemAddress).Clone()
 	if *curIndex == *txIndex {
-		balance := ibs.GetBalance(consensus.SystemAddress).Clone()
 		if balance.Cmp(u256.Num0) <= 0 {
 			return false, nil
 		}
-		doDistributeSysReward := !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) &&
-			ibs.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
+		doDistributeSysReward := ibs.GetBalance(systemcontracts.SystemRewardContract).Cmp(maxSystemBalance) < 0
 		if doDistributeSysReward {
 			rewards := new(uint256.Int)
 			rewards = rewards.Rsh(balance, systemRewardPercent)
@@ -1414,9 +1415,11 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlock
 					txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
 			}
 		}
-		return false, nil
 	}
-	*curIndex++
+	// doDistributeSysReward in before tx
+	if ibs.GetBalance(val).Cmp(u256.Num0) > 0 && balance.Cmp(u256.Num0) > 0 {
+		*curIndex++
+	}
 	return false, nil
 }
 
