@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon/eth/consensuschain"
 
 	"github.com/erigontech/erigon/turbo/shards"
 	jsoniter "github.com/json-iterator/go"
@@ -767,9 +769,9 @@ func (api *TraceAPIImpl) callManyTransactions(
 	}
 
 	engine := api.engine()
-	//consensusHeaderReader := consensuschain.NewReader(cfg, dbtx, api._blockReader, nil)
-	//logger := log.New("trace_filtering")
-	//err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), cfg, initialState, logger, nil)
+	consensusHeaderReader := consensuschain.NewReader(cfg, dbtx, api._blockReader, nil)
+	logger := log.New("trace_filtering")
+	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), cfg, initialState, logger, nil)
 	if err != nil {
 		return nil, nil, err
 	}
