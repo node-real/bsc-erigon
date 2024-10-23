@@ -107,8 +107,7 @@ func ExecuteBlockEphemerallyForBSC(
 		receipts    types.Receipts
 	)
 
-	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger, nil); err != nil {
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), chainConfig, ibs, logger, nil); err != nil {
 		return nil, err
 	}
 
@@ -246,8 +245,7 @@ func ExecuteBlockEphemerally(
 	gp.AddGas(block.GasLimit()).AddBlobGas(chainConfig.GetMaxBlobGasPerBlock())
 
 	// TODO: send the new tracer once we switch to the tracing.Hook
-	parent := chainReader.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if err := InitializeBlockExecution(engine, chainReader, block.Header(), parent, chainConfig, ibs, logger, nil); err != nil {
+	if err := InitializeBlockExecution(engine, chainReader, block.Header(), chainConfig, ibs, logger, nil); err != nil {
 		return nil, err
 	}
 
@@ -500,15 +498,12 @@ func FinalizeBlockExecution(
 	return newBlock, newTxs, newReceipt, nil
 }
 
-func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header, parent *types.Header,
+func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header *types.Header,
 	cc *chain.Config, ibs *state.IntraBlockState, logger log.Logger, tracer *tracing.Hooks,
 ) error {
 	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
 	}, logger, tracer)
-	//if !cc.IsFeynman(header.Number.Uint64(), header.Time) {
-	//	systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
-	//}
 
 	noop := state.NewNoopWriter()
 	ibs.FinalizeTx(cc.Rules(header.Number.Uint64(), header.Time), noop)

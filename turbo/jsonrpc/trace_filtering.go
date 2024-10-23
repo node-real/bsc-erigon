@@ -31,7 +31,6 @@ import (
 	"github.com/erigontech/erigon-lib/kv/order"
 	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"github.com/erigontech/erigon-lib/kv/stream"
-	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/ethash"
 	"github.com/erigontech/erigon/core"
@@ -40,7 +39,6 @@ import (
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
-	"github.com/erigontech/erigon/eth/consensuschain"
 	"github.com/erigontech/erigon/eth/tracers/config"
 	"github.com/erigontech/erigon/ethdb"
 	bortypes "github.com/erigontech/erigon/polygon/bor/types"
@@ -769,13 +767,9 @@ func (api *TraceAPIImpl) callManyTransactions(
 	}
 
 	engine := api.engine()
-	consensusHeaderReader := consensuschain.NewReader(cfg, dbtx, api._blockReader, nil)
-	logger := log.New("trace_filtering")
-	parent, err := api._blockReader.HeaderByHash(ctx, dbtx, block.ParentHash())
-	if err != nil {
-		return nil, nil, err
-	}
-	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), parent, cfg, initialState, logger, nil)
+	//consensusHeaderReader := consensuschain.NewReader(cfg, dbtx, api._blockReader, nil)
+	//logger := log.New("trace_filtering")
+	//err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), cfg, initialState, logger, nil)
 	if err != nil {
 		return nil, nil, err
 	}

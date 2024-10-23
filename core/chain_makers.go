@@ -364,7 +364,7 @@ func GenerateChain(config *chain.Config, parent *types.Block, engine consensus.E
 			}
 		}
 		if b.engine != nil {
-			err := InitializeBlockExecution(b.engine, nil, b.header, b.parent.Header(), config, ibs, logger, nil)
+			err := InitializeBlockExecution(b.engine, nil, b.header, config, ibs, logger, nil)
 			if err != nil {
 				return nil, nil, fmt.Errorf("call to InitializeBlockExecution: %w", err)
 			}
