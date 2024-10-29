@@ -2,21 +2,21 @@ name: QA - RPC Integration Tests
 
 on:
   workflow_dispatch:     # Run manually
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-    types:
-      - opened
-      - reopened
-      - synchronize
-      - ready_for_review
+#  push:
+#    branches:
+#      - main
+#  pull_request:
+#    branches:
+#      - main
+#    types:
+#      - opened
+#      - reopened
+#      - synchronize
+#      - ready_for_review
 
 jobs:
   integration-test-suite:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Erigon3]
     env:
       ERIGON_REFERENCE_DATA_DIR: /opt/erigon-versions/reference-version/datadir
       ERIGON_TESTBED_DATA_DIR: /opt/erigon-testbed/datadir
