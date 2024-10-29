@@ -59,25 +59,25 @@ builds:
       - -s -w
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: darwin-amd64-devnet
-    main: ./cmd/devnet
-    binary: devnet
-    goos: [ darwin ]
-    goarch: [ amd64 ]
-    goamd64:
-      - v2
-    env:
-      - CC=o64-clang
-      - CXX=o64-clang++
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: darwin-amd64-devnet
+#    main: ./cmd/devnet
+#    binary: devnet
+#    goos: [ darwin ]
+#    goarch: [ amd64 ]
+#    goamd64:
+#      - v2
+#    env:
+#      - CC=o64-clang
+#      - CXX=o64-clang++
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: darwin-amd64-evm
     main: ./cmd/evm
@@ -99,25 +99,25 @@ builds:
       - -s -w
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: darwin-amd64-caplin
-    main: ./cmd/caplin
-    binary: caplin
-    goos: [ darwin ]
-    goarch: [ amd64 ]
-    goamd64:
-      - v2
-    env:
-      - CC=o64-clang
-      - CXX=o64-clang++
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: darwin-amd64-caplin
+#    main: ./cmd/caplin
+#    binary: caplin
+#    goos: [ darwin ]
+#    goarch: [ amd64 ]
+#    goamd64:
+#      - v2
+#    env:
+#      - CC=o64-clang
+#      - CXX=o64-clang++
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: darwin-amd64-diag
     main: ./cmd/diag
@@ -258,23 +258,23 @@ builds:
       - -s -w
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: darwin-arm64-devnet
-    main: ./cmd/devnet
-    binary: devnet
-    goos: [ darwin ]
-    goarch: [ arm64 ]
-    env:
-      - CC=oa64-clang
-      - CXX=oa64-clang++
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: darwin-arm64-devnet
+#    main: ./cmd/devnet
+#    binary: devnet
+#    goos: [ darwin ]
+#    goarch: [ arm64 ]
+#    env:
+#      - CC=oa64-clang
+#      - CXX=oa64-clang++
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: darwin-arm64-evm
     main: ./cmd/evm
@@ -294,23 +294,23 @@ builds:
       - -s -w
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: darwin-arm64-caplin
-    main: ./cmd/caplin
-    binary: caplin
-    goos: [ darwin ]
-    goarch: [ arm64 ]
-    env:
-      - CC=oa64-clang
-      - CXX=oa64-clang++
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: darwin-arm64-caplin
+#    main: ./cmd/caplin
+#    binary: caplin
+#    goos: [ darwin ]
+#    goarch: [ arm64 ]
+#    env:
+#      - CC=oa64-clang
+#      - CXX=oa64-clang++
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: darwin-arm64-diag
     main: ./cmd/diag
@@ -447,26 +447,26 @@ builds:
       - -s -w -extldflags "-static"
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: linux-amd64-devnet
-    main: ./cmd/devnet
-    binary: devnet
-    goos: [ linux ]
-    goarch: [ amd64 ]
-    goamd64:
-      - v1
-      - v2
-    env:
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -extldflags "-static"
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: linux-amd64-devnet
+#    main: ./cmd/devnet
+#    binary: devnet
+#    goos: [ linux ]
+#    goarch: [ amd64 ]
+#    goamd64:
+#      - v1
+#      - v2
+#    env:
+#      - CC=x86_64-linux-gnu-gcc
+#      - CXX=x86_64-linux-gnu-g++
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w -extldflags "-static"
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: linux-amd64-evm
     main: ./cmd/evm
@@ -489,26 +489,26 @@ builds:
       - -s -w -extldflags "-static"
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: linux-amd64-caplin
-    main: ./cmd/caplin
-    binary: caplin
-    goos: [ linux ]
-    goarch: [ amd64 ]
-    goamd64:
-      - v1
-      - v2
-    env:
-      - CC=x86_64-linux-gnu-gcc
-      - CXX=x86_64-linux-gnu-g++
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -extldflags "-static"
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: linux-amd64-caplin
+#    main: ./cmd/caplin
+#    binary: caplin
+#    goos: [ linux ]
+#    goarch: [ amd64 ]
+#    goamd64:
+#      - v1
+#      - v2
+#    env:
+#      - CC=x86_64-linux-gnu-gcc
+#      - CXX=x86_64-linux-gnu-g++
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w -extldflags "-static"
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: linux-amd64-diag
     main: ./cmd/diag
@@ -654,23 +654,23 @@ builds:
       - -s -w -extldflags "-static"
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: linux-arm64-devnet
-    main: ./cmd/devnet
-    binary: devnet
-    goos: [ linux ]
-    goarch: [ arm64 ]
-    env:
-      - CC=aarch64-linux-gnu-gcc
-      - CXX=aarch64-linux-gnu-g++
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -extldflags "-static"
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: linux-arm64-devnet
+#    main: ./cmd/devnet
+#    binary: devnet
+#    goos: [ linux ]
+#    goarch: [ arm64 ]
+#    env:
+#      - CC=aarch64-linux-gnu-gcc
+#      - CXX=aarch64-linux-gnu-g++
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w -extldflags "-static"
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: linux-arm64-evm
     main: ./cmd/evm
@@ -690,23 +690,23 @@ builds:
       - -s -w -extldflags "-static"
       - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
-  - id: linux-arm64-caplin
-    main: ./cmd/caplin
-    binary: caplin
-    goos: [ linux ]
-    goarch: [ arm64 ]
-    env:
-      - CC=aarch64-linux-gnu-gcc
-      - CXX=aarch64-linux-gnu-g++
-      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
-    flags:
-      - -trimpath
-      - -buildvcs=false
-    ldflags:
-      - -s -w -extldflags "-static"
-      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
+#  - id: linux-arm64-caplin
+#    main: ./cmd/caplin
+#    binary: caplin
+#    goos: [ linux ]
+#    goarch: [ arm64 ]
+#    env:
+#      - CC=aarch64-linux-gnu-gcc
+#      - CXX=aarch64-linux-gnu-g++
+#      - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
+#      - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
+#    tags: [ nosqlite, noboltdb, nosilkworm ]
+#    flags:
+#      - -trimpath
+#      - -buildvcs=false
+#    ldflags:
+#      - -s -w -extldflags "-static"
+#      - -X {{ .Env.PACKAGE }}/params.GitCommit={{ .Env.GIT_COMMIT }} -X {{ .Env.PACKAGE }}/params.GitBranch={{ .Env.GIT_BRANCH }} -X {{ .Env.PACKAGE }}/params.GitTag={{ .Env.GIT_TAG }}
 
   - id: linux-arm64-diag
     main: ./cmd/diag
@@ -805,9 +805,9 @@ archives:
     builds:
       - linux-arm64-erigon
       - linux-arm64-downloader
-      - linux-arm64-devnet
+#      - linux-arm64-devnet
       - linux-arm64-evm
-      - linux-arm64-caplin
+#      - linux-arm64-caplin
       - linux-arm64-diag
       - linux-arm64-integration
       - linux-arm64-rpcdaemon
@@ -821,9 +821,9 @@ archives:
     builds:
       - linux-amd64-erigon
       - linux-amd64-downloader
-      - linux-amd64-devnet
+#      - linux-amd64-devnet
       - linux-amd64-evm
-      - linux-amd64-caplin
+#      - linux-amd64-caplin
       - linux-amd64-diag
       - linux-amd64-integration
       - linux-amd64-rpcdaemon
@@ -837,9 +837,9 @@ archives:
     builds:
       - darwin-amd64-erigon
       - darwin-amd64-downloader
-      - darwin-amd64-devnet
+#      - darwin-amd64-devnet
       - darwin-amd64-evm
-      - darwin-amd64-caplin
+#      - darwin-amd64-caplin
       - darwin-amd64-diag
       - darwin-amd64-integration
       - darwin-amd64-rpcdaemon
@@ -853,9 +853,9 @@ archives:
     builds:
       - darwin-arm64-erigon
       - darwin-arm64-downloader
-      - darwin-arm64-devnet
+#      - darwin-arm64-devnet
       - darwin-arm64-evm
-      - darwin-arm64-caplin
+#      - darwin-arm64-caplin
       - darwin-arm64-diag
       - darwin-arm64-integration
       - darwin-arm64-rpcdaemon
