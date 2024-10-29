@@ -1,11 +1,11 @@
 name: Release
 
 env:
-  APPLICATION: "erigon"
+  APPLICATION: "bsc-erigon"
   BUILDER_IMAGE: "ghcr.io/goreleaser/goreleaser-cross:v1.22.7"
   DOCKER_BASE_IMAGE: "alpine:3.20.3"
   APP_REPO: "node-real/bsc-erigon"
-  PACKAGE: "github.com/node-real/bsc-erigon"
+  PACKAGE: "github.com/erigontech/erigon"
   DOCKERHUB_REPOSITORY: "node-real/bsc-erigon"
   DOCKERFILE_PATH: "./Dockerfile.release"
   GITHUB_AUTOMATION_EMAIL: "github-automation@erigon.tech"

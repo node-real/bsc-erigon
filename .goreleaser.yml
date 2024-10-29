@@ -1,4 +1,6 @@
-project_name: bsc-erigon
+#version: 2
+
+project_name: erigon
 
 release:
   disable: true
