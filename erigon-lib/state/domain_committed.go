@@ -165,7 +165,7 @@ func (dt *DomainRoTx) lookupVisibleFileByItsRange(txFrom uint64, txTo uint64) *f
 		for _, f := range dt.files {
 			visibleFiles += fmt.Sprintf("%d-%d;", f.startTxNum/dt.d.aggregationStep, f.endTxNum/dt.d.aggregationStep)
 		}
-		dt.d.logger.Warn("[agg] lookupVisibleFileByItsRange: file not found",
+		dt.d.logger.Trace("[agg] lookupVisibleFileByItsRange: file not found",
 			"stepFrom", txFrom/dt.d.aggregationStep, "stepTo", txTo/dt.d.aggregationStep,
 			"_visible", visibleFiles, "visibleFilesCount", len(dt.files))
 
@@ -197,7 +197,7 @@ func (dt *DomainRoTx) lookupDirtyFileByItsRange(txFrom uint64, txTo uint64) *fil
 		for _, item := range dt.d.dirtyFiles.Items() {
 			fileStepsss += fmt.Sprintf("%d-%d;", item.startTxNum/dt.d.aggregationStep, item.endTxNum/dt.d.aggregationStep)
 		}
-		dt.d.logger.Warn("[agg] lookupDirtyFileByItsRange: file not found",
+		dt.d.logger.Trace("[agg] lookupDirtyFileByItsRange: file not found",
 			"stepFrom", txFrom/dt.d.aggregationStep, "stepTo", txTo/dt.d.aggregationStep,
 			"files", fileStepsss, "filesCount", dt.d.dirtyFiles.Len())
 

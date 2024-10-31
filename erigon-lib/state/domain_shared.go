@@ -483,7 +483,7 @@ func (sd *SharedDomains) replaceShortenedKeysInBranch(prefix []byte, branch comm
 	acc := sd.aggTx.d[kv.AccountsDomain]
 	storageItem := sto.lookupVisibleFileByItsRange(fStartTxNum, fEndTxNum)
 	if storageItem == nil {
-		sd.logger.Warn(fmt.Sprintf("visible storage file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
+		sd.logger.Trace(fmt.Sprintf("visible storage file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
 		storageItem = sto.lookupDirtyFileByItsRange(fStartTxNum, fEndTxNum)
 		if storageItem == nil {
 			sd.logger.Crit(fmt.Sprintf("dirty storage file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
@@ -492,7 +492,7 @@ func (sd *SharedDomains) replaceShortenedKeysInBranch(prefix []byte, branch comm
 	}
 	accountItem := acc.lookupVisibleFileByItsRange(fStartTxNum, fEndTxNum)
 	if accountItem == nil {
-		sd.logger.Warn(fmt.Sprintf("visible account file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
+		sd.logger.Trace(fmt.Sprintf("visible account file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
 		accountItem = acc.lookupDirtyFileByItsRange(fStartTxNum, fEndTxNum)
 		if accountItem == nil {
 			sd.logger.Crit(fmt.Sprintf("dirty account file of steps %d-%d not found\n", fStartTxNum/sd.aggTx.a.aggregationStep, fEndTxNum/sd.aggTx.a.aggregationStep))
