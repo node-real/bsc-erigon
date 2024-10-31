@@ -31,7 +31,7 @@ builds:
       - CXX=o64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -51,7 +51,7 @@ builds:
       - CXX=o64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -151,7 +151,7 @@ builds:
       - CXX=o64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -232,7 +232,7 @@ builds:
       - CXX=oa64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -250,7 +250,7 @@ builds:
       - CXX=oa64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -340,7 +340,7 @@ builds:
       - CXX=oa64-clang++
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT_DARWIN }}
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -418,7 +418,7 @@ builds:
       - CXX=x86_64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -439,7 +439,7 @@ builds:
       - CXX=x86_64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -544,7 +544,7 @@ builds:
       - CXX=x86_64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }}
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -628,7 +628,7 @@ builds:
       - CXX=aarch64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -646,7 +646,7 @@ builds:
       - CXX=aarch64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
@@ -736,7 +736,7 @@ builds:
       - CXX=aarch64-linux-gnu-g++
       - CGO_CFLAGS={{ .Env.CGO_CFLAGS_DEFAULT }} -D__BLST_PORTABLE__
       - CGO_LDFLAGS={{ .Env.CGO_LDFLAGS_DEFAULT }}
-    tags: [ nosqlite, noboltdb, nosilkworm ]
+    tags: [ nosqlite, noboltdb, nosilkworm, netgo ]
     flags:
       - -trimpath
       - -buildvcs=false
