@@ -3,7 +3,7 @@ name: Docker tags
 on:
   push:
     tags:
-      - '*.*.*'
+      - 'y*.*.*'
   workflow_dispatch:
 
 jobs:
