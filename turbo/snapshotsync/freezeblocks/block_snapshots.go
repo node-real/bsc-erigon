@@ -115,7 +115,9 @@ func (s Segment) FileInfo(dir string) snaptype.FileInfo {
 }
 
 func (s *Segment) reopenSeg(dir string) (err error) {
-	s.closeSeg()
+	if s.Decompressor != nil {
+		return nil
+	}
 	s.Decompressor, err = seg.NewDecompressor(filepath.Join(dir, s.FileName()))
 	if err != nil {
 		return fmt.Errorf("%w, fileName: %s", err, s.FileName())
@@ -160,12 +162,7 @@ func (s *Segment) openFiles() []string {
 }
 
 func (s *Segment) reopenIdxIfNeed(dir string, optimistic bool) (err error) {
-	if len(s.Type().IdxFileNames(s.version, s.from, s.to)) == 0 {
-		return nil
-	}
-
 	err = s.reopenIdx(dir)
-
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			if optimistic {
@@ -180,19 +177,25 @@ func (s *Segment) reopenIdxIfNeed(dir string, optimistic bool) (err error) {
 }
 
 func (s *Segment) reopenIdx(dir string) (err error) {
-	s.closeIdx()
 	if s.Decompressor == nil {
 		return nil
 	}
+	for len(s.indexes) < len(s.Type().Indexes()) {
+		s.indexes = append(s.indexes, nil)
+	}
 
-	for _, fileName := range s.Type().IdxFileNames(s.version, s.from, s.to) {
+	for i, fileName := range s.Type().IdxFileNames(s.version, s.from, s.to) {
+		if s.indexes[i] != nil {
+			continue
+		}
+
 		index, err := recsplit.OpenIndex(filepath.Join(dir, fileName))
 
 		if err != nil {
 			return fmt.Errorf("%w, fileName: %s", err, fileName)
 		}
 
-		s.indexes = append(s.indexes, index)
+		s.indexes[i] = index
 	}
 
 	return nil
@@ -894,11 +897,18 @@ func buildIdx(ctx context.Context, sn snaptype.FileInfo, chainConfig *chain.Conf
 }
 
 func notifySegmentIndexingFinished(name string) {
-	diagnostics.Send(
-		diagnostics.SnapshotSegmentIndexingFinishedUpdate{
+	dts := []diagnostics.SnapshotSegmentIndexingStatistics{
+		{
 			SegmentName: name,
+			Percent:     100,
+			Alloc:       0,
+			Sys:         0,
 		},
-	)
+	}
+	diagnostics.Send(diagnostics.SnapshotIndexingStatistics{
+		Segments:    dts,
+		TimeElapsed: -1,
+	})
 }
 
 func sendDiagnostics(startIndexingTime time.Time, indexPercent map[string]int, alloc uint64, sys uint64) {
@@ -1099,7 +1109,7 @@ func chooseSegmentEnd(from, to uint64, snapType snaptype.Enum, chainConfig *chai
 	if chainConfig != nil {
 		chainName = chainConfig.ChainName
 	}
-	blocksPerFile := snapcfg.MergeLimit(chainName, snapType, from)
+	blocksPerFile := snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(chainName), snapType, from)
 
 	next := (from/blocksPerFile + 1) * blocksPerFile
 	to = cmp.Min(next, to)
@@ -1179,7 +1189,7 @@ func canRetire(from, to uint64, snapType snaptype.Enum, chainConfig *chain.Confi
 		chainName = chainConfig.ChainName
 	}
 
-	mergeLimit := snapcfg.MergeLimit(chainName, snapType, blockFrom)
+	mergeLimit := snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(chainName), snapType, blockFrom)
 
 	if blockFrom%mergeLimit == 0 {
 		maxJump = mergeLimit
@@ -1879,13 +1889,14 @@ func NewMerger(tmpDir string, compressWorkers int, lvl log.Lvl, chainDB kv.RoDB,
 func (m *Merger) DisableFsync() { m.noFsync = true }
 
 func (m *Merger) FindMergeRanges(currentRanges []Range, maxBlockNum uint64) (toMerge []Range) {
+	cfg := snapcfg.KnownCfg(m.chainConfig.ChainName)
 	for i := len(currentRanges) - 1; i > 0; i-- {
 		r := currentRanges[i]
-		mergeLimit := snapcfg.MergeLimit(m.chainConfig.ChainName, snaptype.Unknown, r.from)
+		mergeLimit := snapcfg.MergeLimitFromCfg(cfg, snaptype.Unknown, r.from)
 		if r.to-r.from >= mergeLimit {
 			continue
 		}
-		for _, span := range snapcfg.MergeSteps(m.chainConfig.ChainName, snaptype.Unknown, r.from) {
+		for _, span := range snapcfg.MergeStepsFromCfg(cfg, snaptype.Unknown, r.from) {
 			if r.to%span != 0 {
 				continue
 			}
@@ -2168,6 +2179,7 @@ func (v *View) HeadersSegment(blockNum uint64) (*Segment, bool) {
 func (v *View) BodiesSegment(blockNum uint64) (*Segment, bool) {
 	return v.Segment(coresnaptype.Bodies, blockNum)
 }
+
 func (v *View) TxsSegment(blockNum uint64) (*Segment, bool) {
 	return v.Segment(coresnaptype.Transactions, blockNum)
 }

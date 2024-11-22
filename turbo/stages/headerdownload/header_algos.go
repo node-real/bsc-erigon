@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ledgerwatch/erigon-lib/common/dbg"
 	"github.com/ledgerwatch/erigon-lib/common/metrics"
 	"github.com/ledgerwatch/erigon-lib/kv/dbutils"
 
@@ -106,7 +107,8 @@ func (hd *HeaderDownload) SingleHeaderAsSegment(headerRaw []byte, header *types.
 	headerHash := types.RawRlpHash(headerRaw)
 	if _, bad := hd.badHeaders[headerHash]; bad {
 		hd.stats.RejectedBadHeaders++
-		hd.logger.Warn("[downloader] Rejected header marked as bad", "hash", headerHash, "height", header.Number.Uint64())
+		dbg.SaveHeapProfileNearOOM(dbg.SaveHeapWithLogger(&hd.logger))
+		hd.logger.Warn("[downloader] SingleHeaderAsSegment: Rejected header marked as bad", "hash", headerHash, "height", header.Number.Uint64())
 		return nil, BadBlockPenalty, nil
 	}
 	if penalizePoSBlocks && header.Difficulty.Sign() == 0 {
@@ -159,6 +161,11 @@ func (hd *HeaderDownload) IsBadHeaderPoS(tipHash libcommon.Hash) (bad bool, last
 func (hd *HeaderDownload) removeUpwards(link *Link) {
 	if link == nil {
 		return
+	}
+	if link.header != nil {
+		if parentLink, ok := hd.links[link.header.ParentHash]; ok {
+			parentLink.RemoveChild(link)
+		}
 	}
 	var toRemove = []*Link{link}
 	for len(toRemove) > 0 {
@@ -527,12 +534,11 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 		}
 		if bad {
 			// If the link or its parent is marked bad, throw it out
-			hd.moveLinkToQueue(link, NoQueue)
-			delete(hd.links, link.hash)
 			hd.removeUpwards(link)
 			dataflow.HeaderDownloadStates.AddChange(link.blockHeight, dataflow.HeaderBad)
 			hd.stats.RejectedBadHeaders++
-			hd.logger.Warn("[downloader] Rejected header marked as bad", "hash", link.hash, "height", link.blockHeight)
+			dbg.SaveHeapProfileNearOOM(dbg.SaveHeapWithLogger(&hd.logger))
+			hd.logger.Warn("[downloader] InsertHeader: Rejected header marked as bad", "hash", link.hash, "height", link.blockHeight)
 			return true, false, 0, lastTime, nil
 		}
 		if !link.verified {
@@ -544,12 +550,7 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 					return false, false, 0, lastTime, nil // prevent removal of the link from the hd.linkQueue
 				} else {
 					hd.logger.Debug("[downloader] Verification failed for header", "hash", link.hash, "height", link.blockHeight, "err", err)
-					hd.moveLinkToQueue(link, NoQueue)
-					delete(hd.links, link.hash)
 					hd.removeUpwards(link)
-					if parentLink, ok := hd.links[link.header.ParentHash]; ok {
-						parentLink.RemoveChild(link)
-					}
 					dataflow.HeaderDownloadStates.AddChange(link.blockHeight, dataflow.HeaderEvicted)
 					hd.stats.InvalidHeaders++
 					return true, false, 0, lastTime, nil

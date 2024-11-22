@@ -930,15 +930,23 @@ func (api *TraceAPIImpl) callManyTransactions(
 	}
 
 	callParams := make([]TraceCallParam, 0, len(txs))
-	reader, err := rpchelper.CreateHistoryStateReader(dbtx, blockNumber, txIndex, api.historyV3(dbtx), block.Time(), cfg.ChainName)
-	if err != nil {
-		return nil, nil, err
+
+	parentHash := block.ParentHash()
+	parentNrOrHash := rpc.BlockNumberOrHash{
+		BlockNumber:      &parentNo,
+		BlockHash:        &parentHash,
+		RequireCanonical: true,
 	}
 
-	initialState := state.New(reader)
+	stateReader, err := rpchelper.CreateStateReader(ctx, dbtx, parentNrOrHash, 0, api.filters, api.stateCache, api.historyV3(dbtx), api._blockReader, cfg.ChainName)
 	if err != nil {
 		return nil, nil, err
 	}
+	stateCache := shards.NewStateCache(32, 0 /* no limit */) // this cache living only during current RPC call, but required to store state writes
+	cachedReader := state.NewCachedReader(stateReader, stateCache)
+	noop := state.NewNoopWriter()
+	cachedWriter := state.NewCachedWriter(noop, stateCache)
+	ibs := state.New(cachedReader)
 
 	engine := api.engine()
 	consensusHeaderReader := stagedsync.NewChainReaderImpl(cfg, dbtx, nil, nil)
@@ -947,8 +955,11 @@ func (api *TraceAPIImpl) callManyTransactions(
 	if err != nil {
 		return nil, nil, err
 	}
-	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), parent, cfg, initialState, logger)
+	err = core.InitializeBlockExecution(engine.(consensus.Engine), consensusHeaderReader, block.HeaderNoCopy(), parent, cfg, ibs, logger)
 	if err != nil {
+		return nil, nil, err
+	}
+	if err = ibs.CommitBlock(rules, cachedWriter); err != nil {
 		return nil, nil, err
 	}
 
@@ -971,7 +982,7 @@ func (api *TraceAPIImpl) callManyTransactions(
 			// gnosis might have a fee free account here
 			if msg.FeeCap().IsZero() && engine != nil {
 				syscall := func(contract common.Address, data []byte) ([]byte, error) {
-					return core.SysCallContract(contract, data, cfg, initialState, header, engine, true /* constCall */)
+					return core.SysCallContract(contract, data, cfg, ibs, header, engine, true /* constCall */)
 				}
 				msg.SetIsFree(engine.IsServiceTransaction(msg.From(), syscall))
 			}
@@ -986,20 +997,15 @@ func (api *TraceAPIImpl) callManyTransactions(
 		msgs[i] = msg
 	}
 
-	parentHash := block.ParentHash()
-
-	traces, lastState, cmErr := api.doCallMany(ctx, dbtx, msgs, callParams, &rpc.BlockNumberOrHash{
-		BlockNumber:      &parentNo,
-		BlockHash:        &parentHash,
-		RequireCanonical: true,
-	}, header, gasBailOut /* gasBailout */, txIndex, traceConfig)
+	traces, cmErr := api.doCallMany(ctx, dbtx, stateReader, stateCache, cachedWriter, ibs, msgs, callParams,
+		&parentNrOrHash, header, gasBailOut /* gasBailout */, txIndex, traceConfig)
 
 	if cmErr != nil {
 		return nil, nil, cmErr
 	}
 
 	syscall := func(contract common.Address, data []byte) ([]byte, error) {
-		return core.SysCallContract(contract, data, cfg, lastState, header, engine, false /* constCall */)
+		return core.SysCallContract(contract, data, cfg, ibs, header, engine, false /* constCall */)
 	}
 
 	return traces, syscall, nil
