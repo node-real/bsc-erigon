@@ -20,7 +20,9 @@ import (
 	"github.com/ledgerwatch/log/v3"
 )
 
-const safetyMargin = 2_000 // We retire snapshots 2k blocks after the finalized head
+const safetyMargin = 10_000 // We retire snapshots 10k blocks after the finalized head
+
+var IsTest = true
 
 // Antiquary is where the snapshots go, aka old history, it is what keep track of the oldest records.
 type Antiquary struct {
@@ -165,6 +167,10 @@ func (a *Antiquary) Loop() error {
 	if a.states {
 		go a.loopStates(a.ctx)
 	}
+	if !IsTest {
+		return nil
+	}
+
 	if a.blobs {
 		go a.loopBlobs(a.ctx)
 	}
@@ -304,6 +310,10 @@ func (a *Antiquary) antiquateBlobs() error {
 	defer roTx.Rollback()
 	// perform blob antiquation if it is time to.
 	currentBlobsProgress := a.sn.FrozenBlobs()
+	// We should NEVER get ahead of the block snapshots.
+	if currentBlobsProgress >= a.sn.BlocksAvailable() {
+		return nil
+	}
 	minimunBlobsProgress := ((a.cfg.DenebForkEpoch * a.cfg.SlotsPerEpoch) / snaptype.Erigon2MergeLimit) * snaptype.Erigon2MergeLimit
 	currentBlobsProgress = utils.Max64(currentBlobsProgress, minimunBlobsProgress)
 	// read the finalized head

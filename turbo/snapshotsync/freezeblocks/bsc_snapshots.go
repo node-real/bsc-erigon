@@ -3,6 +3,9 @@ package freezeblocks
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"reflect"
+
 	"github.com/ledgerwatch/erigon-lib/chain"
 	"github.com/ledgerwatch/erigon-lib/chain/networkname"
 	"github.com/ledgerwatch/erigon-lib/chain/snapcfg"
@@ -18,8 +21,6 @@ import (
 	"github.com/ledgerwatch/erigon/rlp"
 	"github.com/ledgerwatch/erigon/turbo/services"
 	"github.com/ledgerwatch/log/v3"
-	"path/filepath"
-	"reflect"
 )
 
 var BscProduceFiles = dbg.EnvBool("BSC_PRODUCE_FILES", false)
@@ -234,7 +235,7 @@ func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chai
 	//	return fmt.Errorf("check blobs failed")
 	//}
 	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig) {
-		blocksPerFile := snapcfg.MergeLimit("", coresnaptype.Enums.BscBlobs, i)
+		blocksPerFile := snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(""), coresnaptype.Enums.BscBlobs, i)
 		if blockTo-i < blocksPerFile {
 			break
 		}

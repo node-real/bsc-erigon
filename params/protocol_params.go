@@ -132,8 +132,9 @@ const (
 	InitialBaseFee                    = 1000000000 // Initial base fee for EIP-1559 blocks.
 	InitialBaseFeeForBSC              = 0          // Initial base fee for EIP-1559 blocks on bsc Mainnet
 
-	MaxCodeSize     = 24576           // Maximum bytecode to permit for a contract
-	MaxInitCodeSize = 2 * MaxCodeSize // Maximum initcode to permit in a creation transaction and create instructions
+	MaxCodeSize              = 24576           // Maximum bytecode to permit for a contract
+	MaxCodeSizePostAhmedabad = 32768           // Maximum bytecode to permit for a contract post Ahmedabad hard fork (bor / polygon pos) (32KB)
+	MaxInitCodeSize          = 2 * MaxCodeSize // Maximum initcode to permit in a creation transaction and create instructions
 
 	// Precompiled contract gas prices
 

@@ -129,9 +129,7 @@ func (l *JsonStreamLogger) CaptureState(pc uint64, op vm.OpCode, gas, cost uint6
 	if err != nil {
 		l.stream.WriteMore()
 		l.stream.WriteObjectField("error")
-		l.stream.WriteObjectStart()
-		l.stream.WriteObjectEnd()
-		//l.stream.WriteString(err.Error())
+		l.stream.WriteString(err.Error())
 	}
 	if !l.cfg.DisableStack {
 		l.stream.WriteMore()
@@ -141,7 +139,7 @@ func (l *JsonStreamLogger) CaptureState(pc uint64, op vm.OpCode, gas, cost uint6
 			if i > 0 {
 				l.stream.WriteMore()
 			}
-			l.stream.WriteString(stackValue.String())
+			l.stream.WriteString(stackValue.Hex())
 		}
 		l.stream.WriteArrayEnd()
 	}
