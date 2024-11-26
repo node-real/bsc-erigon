@@ -1411,9 +1411,6 @@ func _decodeTxBlockNums(v []byte) (txNum, blockNum uint64) {
 // LatestCommitmentState searches for last encoded state for CommitmentContext.
 // Found value does not become current state.
 func (sdc *SharedDomainsCommitmentContext) LatestCommitmentState() (blockNum, txNum uint64, state []byte, err error) {
-	if dbg.DiscardCommitment() {
-		return 0, 0, nil, nil
-	}
 	if sdc.patriciaTrie.Variant() != commitment.VariantHexPatriciaTrie {
 		return 0, 0, nil, fmt.Errorf("state storing is only supported hex patricia trie")
 	}
