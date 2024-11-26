@@ -353,6 +353,9 @@ func (sd *SharedDomains) SeekCommitment(ctx context.Context, tx kv.Tx) (txsFromB
 	}
 	sd.SetBlockNum(bn)
 	sd.SetTxNum(txn)
+	if dbg.DiscardCommitment() {
+		return 0, nil
+	}
 	newRh, err := sd.rebuildCommitment(ctx, tx, bn)
 	if err != nil {
 		return 0, err
@@ -383,6 +386,14 @@ func (sd *SharedDomains) ClearRam(resetCommitment bool) {
 
 	sd.storage = btree2.NewMap[string, dataWithPrevStep](128)
 	sd.estSize = 0
+}
+
+func (sd *SharedDomains) ResetCommitment() {
+	sd.sdCtx.updates.Reset()
+}
+
+func (sd *SharedDomains) SaveCommitment(blockNum uint64, rootHash []byte) error {
+	return sd.sdCtx.storeCommitmentState(blockNum, rootHash)
 }
 
 func (sd *SharedDomains) put(domain kv.Domain, key string, val []byte) {
@@ -907,13 +918,18 @@ func (sd *SharedDomains) Flush(ctx context.Context, tx kv.RwTx) error {
 	sd.pastChangesAccumulator = make(map[string]*StateChangeSet)
 
 	defer mxFlushTook.ObserveDuration(time.Now())
-	fh, err := sd.ComputeCommitment(ctx, true, sd.BlockNum(), "flush-commitment")
-	if err != nil {
-		return err
-	}
-	if sd.trace {
-		_, f, l, _ := runtime.Caller(1)
-		fmt.Printf("[SD aggTx=%d] FLUSHING at tx %d [%x], caller %s:%d\n", sd.aggTx.id, sd.TxNum(), fh, filepath.Base(f), l)
+	var err error
+	if dbg.DiscardCommitment() {
+		sd.ResetCommitment()
+	} else {
+		fh, err := sd.ComputeCommitment(ctx, true, sd.BlockNum(), "flush-commitment")
+		if err != nil {
+			return err
+		}
+		if sd.trace {
+			_, f, l, _ := runtime.Caller(1)
+			fmt.Printf("[SD aggTx=%d] FLUSHING at tx %d [%x], caller %s:%d\n", sd.aggTx.id, sd.TxNum(), fh, filepath.Base(f), l)
+		}
 	}
 	for _, w := range sd.domainWriters {
 		if w == nil {
@@ -1119,7 +1135,7 @@ func (sdc *SharedDomainsCommitmentContext) SetLimitReadAsOfTxNum(txNum uint64) {
 func NewSharedDomainsCommitmentContext(sd *SharedDomains, mode commitment.Mode, trieVariant commitment.TrieVariant) *SharedDomainsCommitmentContext {
 	ctx := &SharedDomainsCommitmentContext{
 		sharedDomains: sd,
-		discard:       dbg.DiscardCommitment(),
+		discard:       false,
 		branches:      make(map[string]cachedBranch),
 		keccak:        sha3.NewLegacyKeccak256().(cryptozerocopy.KeccakState),
 	}
@@ -1295,10 +1311,6 @@ func (sdc *SharedDomainsCommitmentContext) TouchKey(d kv.Domain, key string, val
 
 // Evaluates commitment for processed state.
 func (sdc *SharedDomainsCommitmentContext) ComputeCommitment(ctx context.Context, saveState bool, blockNum uint64, logPrefix string) (rootHash []byte, err error) {
-	if dbg.DiscardCommitment() {
-		sdc.updates.Reset()
-		return nil, nil
-	}
 	sdc.ResetBranchCache()
 	defer sdc.ResetBranchCache()
 
