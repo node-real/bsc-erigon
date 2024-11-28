@@ -317,11 +317,6 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 		}
 	}
 
-	// Bsc keep all the blob snapshot but Caplin is on the contrary
-	if caplin == NoCaplin {
-		blobs = !blobs
-	}
-
 	// build all download requests
 	for _, p := range preverifiedBlockSnapshots {
 		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks") || strings.Contains(p.Name, "blobsidecars")) && !strings.Contains(p.Name, "bscblobsiders") {

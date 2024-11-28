@@ -209,7 +209,7 @@ type Config struct {
 	Aura   chain.AuRaConfig
 	Parlia chain.ParliaConfig
 
-	BlobPrune bool // Prune Bsc BlobSidecars
+	DisableBlobPrune bool // Disable prune Bsc BlobSidecars
 
 	// Transaction pool options
 	DeprecatedTxPool DeprecatedTxPoolConfig

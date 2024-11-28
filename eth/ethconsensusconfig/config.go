@@ -49,7 +49,7 @@ import (
 )
 
 func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chainConfig *chain.Config, config interface{}, notify []string, noVerify bool,
-	heimdallClient heimdall.HeimdallClient, withoutHeimdall bool, blobPrune bool, blockReader services.FullBlockReader, readonly bool,
+	heimdallClient heimdall.HeimdallClient, withoutHeimdall bool, disableBlobPrune bool, blockReader services.FullBlockReader, readonly bool,
 	logger log.Logger, polygonBridge bridge.Service, heimdallService heimdall.Service,
 ) consensus.Engine {
 	var eng consensus.Engine
@@ -140,9 +140,9 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 				panic(err)
 			}
 			var blocksKept uint64
-			blocksKept = math.MaxUint64
-			if blobPrune {
-				blocksKept = params.MinBlocksForBlobRequests
+			blocksKept = params.MinBlocksForBlobRequests
+			if disableBlobPrune {
+				blocksKept = math.MaxUint64
 			}
 			blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), nodeConfig.Dirs.DataDir), blocksKept, chainConfig)
 

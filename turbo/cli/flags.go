@@ -105,9 +105,9 @@ var (
 * tevm - write TEVM translated code to the DB`,
 		Value: "default",
 	}
-	PruneBscBlobSidecarsFlag = cli.BoolFlag{
-		Name:  "prune.blobSidecars",
-		Usage: `enable blob pruning in bsc`,
+	BscDisableBlobPruningFlag = cli.BoolFlag{
+		Name:  "bsc.blobSidecars.no-pruning",
+		Usage: `bsc will keep 18 days blobs in db`,
 		Value: false,
 	}
 
@@ -312,7 +312,7 @@ func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.
 		mode.History = prune.Distance(config3.DefaultPruneDistance)
 	}
 
-	cfg.BlobPrune = ctx.Bool(PruneBscBlobSidecarsFlag.Name)
+	cfg.DisableBlobPrune = ctx.Bool(BscDisableBlobPruningFlag.Name)
 
 	if err != nil {
 		utils.Fatalf(fmt.Sprintf("error while parsing mode: %v", err))
@@ -442,7 +442,7 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 	}
 	cfg.Prune = mode
 
-	cfg.BlobPrune = *f.Bool(PruneBscBlobSidecarsFlag.Name, PruneBscBlobSidecarsFlag.Value, PruneBscBlobSidecarsFlag.Usage)
+	cfg.DisableBlobPrune = *f.Bool(BscDisableBlobPruningFlag.Name, BscDisableBlobPruningFlag.Value, BscDisableBlobPruningFlag.Usage)
 
 	if v := f.String(BatchSizeFlag.Name, BatchSizeFlag.Value, BatchSizeFlag.Usage); v != nil {
 		err := cfg.BatchSize.UnmarshalText([]byte(*v))

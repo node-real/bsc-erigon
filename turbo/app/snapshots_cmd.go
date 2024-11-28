@@ -1016,7 +1016,7 @@ func doIndicesCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
-		bs = openBlobStore(dirs, chainConfig, true)
+		bs = openBlobStore(dirs, chainConfig, false)
 	}
 
 	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, dirs, chainDB, bs, logger)
@@ -1280,7 +1280,7 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
-		bs = openBlobStore(dirs, chainConfig, blobPrune)
+		bs = openBlobStore(dirs, chainConfig, !blobPrune)
 	}
 
 	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, dirs, db, bs, logger)
@@ -1582,13 +1582,13 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 //	return nil
 //}
 
-func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, blobPrune bool) services.BlobStorage {
+func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, disableBlobPrune bool) services.BlobStorage {
 	blobDbPath := path.Join(dirs.Blobs, "blob")
 	blobDb := mdbx.MustOpen(blobDbPath)
 	var blobKept uint64
-	blobKept = math.MaxUint64
-	if blobPrune {
-		blobKept = params.MinBlocksForBlobRequests
+	blobKept = params.MinBlocksForBlobRequests
+	if disableBlobPrune {
+		blobKept = math.MaxUint64
 	}
 	blobStore := blob_storage.NewBlobStore(blobDb, afero.NewBasePathFs(afero.NewOsFs(), dirs.Blobs), blobKept, chainConfig)
 	return blobStore
