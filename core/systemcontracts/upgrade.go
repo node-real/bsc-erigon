@@ -18,13 +18,15 @@ package systemcontracts
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon/consensus/misc"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
-	"math/big"
-	"strconv"
 )
 
 type UpgradeConfig struct {
@@ -58,6 +60,10 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 
 	if config.Parlia == nil || config.Parlia.BlockAlloc == nil {
 		return
+	}
+
+	if config.IsOnPrague(blockNumber, lastBlockTime, blockTime) {
+		misc.InitializeBlockHashesEip2935(state)
 	}
 
 	for blockNumberOrTime, genesisAlloc := range config.Parlia.BlockAlloc {

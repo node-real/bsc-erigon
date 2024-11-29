@@ -295,6 +295,15 @@ func (c *Config) IsPrague(time uint64) bool {
 	return isForked(c.PragueTime, time)
 }
 
+// IsOnPrague  returns whether currentBlockTime is either equal to the Prague  fork time or greater firstly.
+func (c *Config) IsOnPrague(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsPrague(lastBlockTime) && c.IsPrague(currentBlockTime)
+}
+
 // IsOsaka returns whether time is either equal to the Osaka fork time or greater.
 func (c *Config) IsOsaka(time uint64) bool {
 	return isForked(c.OsakaTime, time)
@@ -501,7 +510,7 @@ func (c *Config) IsHaber(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.HaberTime, time)
 }
 
-// IsHaber returns whether time is either equal to the Haber fork time or greater.
+// IsHaber returns whether time is either equal to the HaberFix fork time or greater.
 func (c *Config) IsHaberFix(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.HaberFixTime, time)
 }
@@ -515,12 +524,12 @@ func (c *Config) IsOnHaberFix(currentBlockNumber *big.Int, lastBlockTime uint64,
 	return !c.IsHaberFix(lastBlockNumber.Uint64(), lastBlockTime) && c.IsHaberFix(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
-// IsBohr returns whether time is either equal to the Haber fork time or greater.
+// IsBohr returns whether time is either equal to the Bohr fork time or greater.
 func (c *Config) IsBohr(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.BohrTime, time)
 }
 
-// IsOnBohr returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+// IsOnBohr returns whether currentBlockTime is either equal to the Bohr fork time or greater firstly.
 func (c *Config) IsOnBohr(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
 	lastBlockNumber := new(big.Int)
 	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
@@ -529,12 +538,12 @@ func (c *Config) IsOnBohr(currentBlockNumber *big.Int, lastBlockTime uint64, cur
 	return !c.IsBohr(lastBlockNumber.Uint64(), lastBlockTime) && c.IsBohr(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
-// IsPascal returns whether time is either equal to the Haber fork time or greater.
+// IsPascal returns whether time is either equal to the Pascal fork time or greater.
 func (c *Config) IsPascal(num uint64, time uint64) bool {
 	return c.IsLondon(num) && isForked(c.PascalTime, time)
 }
 
-// IsOnPascal returns whether currentBlockTime is either equal to the HaberFix fork time or greater firstly.
+// IsOnPascal returns whether currentBlockTime is either equal to the Pascal fork time or greater firstly.
 func (c *Config) IsOnPascal(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
 	lastBlockNumber := new(big.Int)
 	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
