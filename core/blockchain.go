@@ -513,8 +513,6 @@ func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHead
 	}
 
 	if cc.IsPrague(header.Time) {
-		//TODO: find better way to init?
-		misc.InitializeBlockHashesEip2935(ibs)
 		misc.StoreBlockHashesEip2935(header, ibs, cc, chain)
 	}
 
