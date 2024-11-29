@@ -295,15 +295,6 @@ func (c *Config) IsPrague(time uint64) bool {
 	return isForked(c.PragueTime, time)
 }
 
-// IsOnPrague  returns whether currentBlockTime is either equal to the Prague  fork time or greater firstly.
-func (c *Config) IsOnPrague(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
-	lastBlockNumber := new(big.Int)
-	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
-		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
-	}
-	return !c.IsPrague(lastBlockTime) && c.IsPrague(currentBlockTime)
-}
-
 // IsOsaka returns whether time is either equal to the Osaka fork time or greater.
 func (c *Config) IsOsaka(time uint64) bool {
 	return isForked(c.OsakaTime, time)
