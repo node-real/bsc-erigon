@@ -174,6 +174,10 @@ type HotFixPattern struct {
 }
 
 func (so *stateObject) patchGethHotFixMainnet1() {
+	if so.db.blockNum != 33851236 || (so.db.txIndex != 88 && so.db.txIndex != 89) {
+		return
+	}
+
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 33851236, txIndex 89
 	patch1 := HotFixPattern{
@@ -190,9 +194,6 @@ func (so *stateObject) patchGethHotFixMainnet1() {
 		txHash:      libcommon.HexToHash("0x5217324f0711af744fe8e12d73f13fdb11805c8e29c0c095ac747b7e4563e935"),
 		addr:        libcommon.HexToAddress("0x00000000001f8b68515EfB546542397d3293CCfd"),
 		kvList:      make(Storage),
-	}
-	if so.db.blockNum != patch1.blockNumber {
-		return
 	}
 
 	patch1KVs := map[string]string{
@@ -257,6 +258,9 @@ func (so *stateObject) patchGethHotFixMainnet1() {
 }
 
 func (so *stateObject) patchGethHotFixChapel1() {
+	if so.db.blockNum != 35547779 || so.db.txIndex != 196 {
+		return
+	}
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 35547779, txIndex 196
 	patch1 := HotFixPattern{
@@ -266,9 +270,7 @@ func (so *stateObject) patchGethHotFixChapel1() {
 		addr:        libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
 		kvList:      make(Storage),
 	}
-	if so.db.blockNum != patch1.blockNumber && so.db.txIndex != patch1.txIndex {
-		return
-	}
+
 	patch1KVs := map[string]string{
 		"0xf1e9242398de526b8dd9c25d38e65fbb01926b8940377762d7884b8b0dcdc3b0": "0x0000000000000000000000000000000000000000000000f6a7831804efd2cd0a",
 	}
@@ -292,6 +294,9 @@ func (so *stateObject) patchGethHotFixChapel1() {
 }
 
 func (so *stateObject) patchGethHotFixChapel2() {
+	if so.db.blockNum != 35548081 || so.db.txIndex != 486 {
+		return
+	}
 	totalPatches := []HotFixPattern{}
 	// patch 1: BlockNum 35548081, txIndex 486
 	patch1 := HotFixPattern{
@@ -300,10 +305,6 @@ func (so *stateObject) patchGethHotFixChapel2() {
 		txHash:      libcommon.HexToHash("0xe3895eb95605d6b43ceec7876e6ff5d1c903e572bf83a08675cb684c047a695c"),
 		addr:        libcommon.HexToAddress("0x89791428868131eb109e42340ad01eb8987526b2"),
 		kvList:      make(Storage),
-	}
-
-	if so.db.blockNum != patch1.blockNumber && so.db.txIndex != patch1.txIndex {
-		return
 	}
 
 	patch1KVs := map[string]string{
