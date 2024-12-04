@@ -45,3 +45,11 @@ func storeHash(num uint64, hash libcommon.Hash, state *state.IntraBlockState) {
 	parentHashInt := uint256.NewInt(0).SetBytes32(hash.Bytes())
 	state.SetState(params.HistoryStorageAddress, &storageSlot, *parentHashInt)
 }
+
+func InitializeBlockHashesEip2935(state *state.IntraBlockState) {
+	if state.GetCodeSize(params.HistoryStorageAddress) != 0 {
+		return
+	}
+	state.SetCode(params.HistoryStorageAddress, params.HistoryStorageCode)
+	state.SetNonce(params.HistoryStorageAddress, 1)
+}

@@ -18,8 +18,9 @@ package exec3
 
 import (
 	"context"
-	"github.com/erigontech/erigon/core/systemcontracts"
 	"sync"
+
+	"github.com/erigontech/erigon/core/systemcontracts"
 
 	"golang.org/x/sync/errgroup"
 
@@ -229,8 +230,8 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 		syscall := func(contract libcommon.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.chainConfig, ibs, header, rw.engine, constCall /* constCall */)
 		}
-		if rw.isPoSA && !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+		if rw.isPoSA {
+			systemcontracts.BeginBlockUpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 		}
 		if err := rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil); err != nil {
 			txTask.Error = err
@@ -244,8 +245,8 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 
 		if _, isPoSa := rw.engine.(consensus.PoSA); isPoSa {
 			// Is an empty block
-			if rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
-				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			if txTask.TxIndex == 0 {
+				systemcontracts.EndBlockUpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 			}
 			break
 		}
