@@ -20,8 +20,9 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"github.com/erigontech/erigon/core/systemcontracts"
 	"sync"
+
+	"github.com/erigontech/erigon/core/systemcontracts"
 
 	"github.com/erigontech/erigon-lib/common/datadir"
 
@@ -344,16 +345,6 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 		}
 	} else if txTask.TxIndex == -1 {
 		// Block initialisation
-		syscall := func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
-			return core.SysCallContract(contract, data, rw.chainConfig, ibState, header, rw.engine, constCall /* constCall */)
-		}
-
-		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil)
-		if err = ibs.FinalizeTx(rules, noop); err != nil {
-			if _, readError := rw.stateReader.ReadError(); !readError {
-				return err
-			}
-		}
 		if rw.isPoSA && !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
 			lastBlockTime := header.Time - rw.chainConfig.Parlia.Period
 			parent := rw.chain.GetHeaderByHash(header.ParentHash)
@@ -361,6 +352,16 @@ func (rw *ReconWorker) runTxTask(txTask *state.TxTask) error {
 				lastBlockTime = parent.Time
 			}
 			systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+		}
+
+		syscall := func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
+			return core.SysCallContract(contract, data, rw.chainConfig, ibState, header, rw.engine, constCall /* constCall */)
+		}
+		rw.engine.Initialize(rw.chainConfig, rw.chain, header, ibs, syscall, rw.logger, nil)
+		if err = ibs.FinalizeTx(rules, noop); err != nil {
+			if _, readError := rw.stateReader.ReadError(); !readError {
+				return err
+			}
 		}
 	} else {
 		if rw.isPoSA {

@@ -19,17 +19,15 @@ package misc
 import (
 	"github.com/holiman/uint256"
 
-	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
 
-	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/params"
 )
 
-func StoreBlockHashesEip2935(header *types.Header, state *state.IntraBlockState, config *chain.Config, headerReader consensus.ChainHeaderReader) {
+func StoreBlockHashesEip2935(header *types.Header, state *state.IntraBlockState) {
 	if state.GetCodeSize(params.HistoryStorageAddress) == 0 {
 		log.Debug("[EIP-2935] No code deployed to HistoryStorageAddress before call to store EIP-2935 history")
 		return

@@ -40,7 +40,6 @@ import (
 	"github.com/erigontech/erigon/common/math"
 	"github.com/erigontech/erigon/common/u256"
 	"github.com/erigontech/erigon/consensus"
-	"github.com/erigontech/erigon/consensus/misc"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/types"
@@ -505,16 +504,13 @@ func FinalizeBlockExecution(
 func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHeaderReader, header, parent *types.Header,
 	cc *chain.Config, ibs *state.IntraBlockState, logger log.Logger, tracer *tracing.Hooks,
 ) error {
-	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
-		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
-	}, logger, tracer)
 	if !cc.IsFeynman(header.Number.Uint64(), header.Time) {
 		systemcontracts.UpgradeBuildInSystemContract(cc, header.Number, parent.Time, header.Time, ibs, logger)
 	}
 
-	if cc.IsPrague(header.Time) {
-		misc.StoreBlockHashesEip2935(header, ibs, cc, chain)
-	}
+	engine.Initialize(cc, chain, header, ibs, func(contract libcommon.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
+		return SysCallContract(contract, data, cc, ibState, header, engine, constCall)
+	}, logger, tracer)
 
 	noop := state.NewNoopWriter()
 	ibs.FinalizeTx(cc.Rules(header.Number.Uint64(), header.Time), noop)
