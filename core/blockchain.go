@@ -24,9 +24,11 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"github.com/erigontech/erigon/core/systemcontracts"
+
 	"slices"
 	"time"
+
+	"github.com/erigontech/erigon/core/systemcontracts"
 
 	"golang.org/x/crypto/sha3"
 

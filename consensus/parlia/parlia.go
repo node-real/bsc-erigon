@@ -6,15 +6,16 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon/consensus/parlia/finality"
-	"github.com/erigontech/erigon/core/tracing"
-	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"io"
 	"math/big"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/erigontech/erigon/consensus/parlia/finality"
+	"github.com/erigontech/erigon/core/tracing"
+	"github.com/erigontech/erigon/core/vm/evmtypes"
 
 	"github.com/erigontech/erigon/crypto/cryptopool"
 	"github.com/erigontech/erigon/turbo/services"
@@ -892,6 +893,12 @@ func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderRea
 	if err = p.verifyTurnLength(chain, header, state); err != nil {
 		return err
 	}
+
+	// store block hashes for EIP-2935 (BEP440) upgrade
+	if config.IsPrague(header.Time) {
+		misc.StoreBlockHashesEip2935(header, state)
+	}
+
 	// update validators every day
 	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
 		// we should avoid update validators in the Feynman upgrade block
@@ -970,9 +977,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	}()
 
 	if curIndex == txIndex {
-		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
-		}
+		systemcontracts.EndBlockUpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
 	}
 
 	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
