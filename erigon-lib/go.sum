@@ -314,8 +314,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8m
 github.com/mwitkow/go-conntrack v0.0.0-20161129095857-cc309e4a2223/go.mod h1:qRWi+5nqEBWmkhHvq77mSJWrCKwh8bxhgT7d/eI7P4U=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241129035802-a72b049b15b1 h1:EUZrUxVfvsX6kkhxOYJ/hhsnfI9PPz0kPm4n9J6eX3c=
-github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241129035802-a72b049b15b1/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241205030250-2148c54a942b h1:nbel7drI7zGoq9V2Muwqjw3UnQd6s9V5r2ski8KLktY=
+github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241205030250-2148c54a942b/go.mod h1:ooHlCl+eEYzebiPu+FP6Q6SpPUeMADn8Jxabv3IKb9M=
 github.com/nxadm/tail v1.4.4/go.mod h1:kenIhsEOeOJmVchQTgglprH7qJGnHDVpk1VPCcaMI8A=
 github.com/nxadm/tail v1.4.8/go.mod h1:+ncqLTQzXmGhMZNUePPaPqPvBxHAIsmXswZKocGu+AU=
 github.com/nyaosorg/go-windows-shortcut v0.0.0-20220529122037-8b0c89bca4c4 h1:+3bXHpIl3RiBuPKlqeCZZeShGHC9RFhR/P2OJfOLRyA=
