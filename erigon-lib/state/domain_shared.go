@@ -252,6 +252,10 @@ func (sd *SharedDomains) DiscardWrites(d kv.Domain) {
 	sd.domainWriters[d].h.discard = true
 }
 
+func (sd *SharedDomains) DiscardCommitment() {
+	sd.sdCtx.discard = dbg.DiscardCommitment()
+}
+
 func (sd *SharedDomains) RebuildCommitmentShard(ctx context.Context, next func() (bool, []byte), cfg *RebuiltCommitment) (*RebuiltCommitment, error) {
 	sd.DiscardWrites(kv.AccountsDomain)
 	sd.DiscardWrites(kv.StorageDomain)
@@ -1135,7 +1139,7 @@ func (sdc *SharedDomainsCommitmentContext) SetLimitReadAsOfTxNum(txNum uint64) {
 func NewSharedDomainsCommitmentContext(sd *SharedDomains, mode commitment.Mode, trieVariant commitment.TrieVariant) *SharedDomainsCommitmentContext {
 	ctx := &SharedDomainsCommitmentContext{
 		sharedDomains: sd,
-		discard:       dbg.DiscardCommitment(),
+		discard:       false,
 		branches:      make(map[string]cachedBranch),
 		keccak:        sha3.NewLegacyKeccak256().(cryptozerocopy.KeccakState),
 	}
