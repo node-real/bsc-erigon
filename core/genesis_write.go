@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/common/dbg"
 	"math/big"
 	"slices"
 
@@ -629,6 +630,11 @@ func GenesisToBlock(g *types.Genesis, dirs datadir.Dirs, logger log.Logger) (*ty
 		}
 		if err = statedb.FinalizeTx(&chain.Rules{}, w); err != nil {
 			return err
+		}
+
+		if dbg.DiscardCommitment() {
+			root = *params.GenesisHashByChainName(g.Config.ChainName)
+			return nil
 		}
 
 		rh, err := sd.ComputeCommitment(context.Background(), true, 0, "genesis")
