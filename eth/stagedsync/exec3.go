@@ -795,6 +795,7 @@ Loop:
 					if err != nil {
 						return err
 					}
+					doms.DiscardCommitment()
 					doms.SetTxNum(inputTxNum)
 					rs = state.NewStateV3(doms, logger)
 
