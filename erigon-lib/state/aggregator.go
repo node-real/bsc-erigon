@@ -122,7 +122,7 @@ func NewAggregator(ctx context.Context, dirs datadir.Dirs, aggregationStep uint6
 		collateAndBuildWorkers: 1,
 		mergeWorkers:           1,
 
-		commitmentValuesTransform: AggregatorSqueezeCommitmentValues,
+		commitmentValuesTransform: AggregatorSqueezeCommitmentValues && !dbg.DiscardCommitment(),
 
 		produce: true,
 	}
@@ -146,6 +146,9 @@ func NewAggregator(ctx context.Context, dirs datadir.Dirs, aggregationStep uint6
 		switch name {
 		case kv.AccountsDomain, kv.StorageDomain, kv.CodeDomain:
 			if toStep-fromStep > 1 { // only recently built files
+				return true
+			}
+			if dbg.DiscardCommitment() {
 				return true
 			}
 			return commitmentFileMustExist(fromStep, toStep)

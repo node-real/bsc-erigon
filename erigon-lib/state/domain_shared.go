@@ -324,6 +324,12 @@ func (sd *SharedDomains) SeekCommitment(ctx context.Context, tx kv.Tx) (txsFromB
 	if err != nil {
 		return 0, err
 	}
+	if dbg.DiscardCommitment() && bn == 0 {
+		txn = sd.aggTx.EndTxNumNoCommitment()
+		sd.SetBlockNum(bn)
+		sd.SetTxNum(txn)
+		return 0, nil
+	}
 	if ok {
 		if bn > 0 {
 			lastBn, _, err := rawdbv3.TxNums.Last(tx)
