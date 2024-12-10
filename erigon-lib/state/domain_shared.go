@@ -325,7 +325,7 @@ func (sd *SharedDomains) SeekCommitment(ctx context.Context, tx kv.Tx) (txsFromB
 		return 0, err
 	}
 	if dbg.DiscardCommitment() && bn == 0 {
-		txn = sd.aggTx.EndTxNumNoCommitment()
+		txn = sd.aggTx.EndTxNumNoCommitment() - 1
 		sd.SetBlockNum(bn)
 		sd.SetTxNum(txn)
 		return 0, nil
