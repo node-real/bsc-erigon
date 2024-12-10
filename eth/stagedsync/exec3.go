@@ -203,8 +203,6 @@ func ExecV3(ctx context.Context,
 	txNumInDB := doms.TxNum()
 	doms.DiscardCommitment()
 
-	log.Info(fmt.Sprintf("[%s] starting", execStage.LogPrefix()),
-		"from", doms.BlockNum(), "to", maxBlockNum, "fromTxNum", doms.TxNum(), "initialCycle", initialCycle, "useExternalTx", useExternalTx)
 	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, cfg.blockReader))
 
 	var (
