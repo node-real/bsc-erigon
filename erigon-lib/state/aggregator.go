@@ -148,9 +148,6 @@ func NewAggregator(ctx context.Context, dirs datadir.Dirs, aggregationStep uint6
 			if toStep-fromStep > 1 { // only recently built files
 				return true
 			}
-			if dbg.DiscardCommitment() {
-				return true
-			}
 			return commitmentFileMustExist(fromStep, toStep)
 		default:
 			return true
