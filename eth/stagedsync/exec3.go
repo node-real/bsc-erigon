@@ -201,6 +201,7 @@ func ExecV3(ctx context.Context,
 		defer doms.Close()
 	}
 	txNumInDB := doms.TxNum()
+	doms.DiscardCommitment()
 
 	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, cfg.blockReader))
 
@@ -687,8 +688,12 @@ Loop:
 			aggTx := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
-			if _, err := doms.ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix()); err != nil {
-				return err
+			if dbg.DiscardCommitment() {
+				_ = doms.SaveCommitment(blockNum, b.Root().Bytes())
+			} else {
+				if _, err := doms.ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix()); err != nil {
+					return err
+				}
 			}
 			ts += time.Since(start)
 			aggTx.RestrictSubsetFileDeletions(false)
@@ -790,6 +795,7 @@ Loop:
 					if err != nil {
 						return err
 					}
+					doms.DiscardCommitment()
 					doms.SetTxNum(inputTxNum)
 					rs = state.NewStateV3(doms, logger)
 
@@ -923,27 +929,31 @@ func flushAndCheckCommitmentV3(ctx context.Context, header *types.Header, applyT
 		return false, errors.New("header is nil")
 	}
 
-	if dbg.DiscardCommitment() {
-		return true, nil
-	}
 	if doms.BlockNum() != header.Number.Uint64() {
 		panic(fmt.Errorf("%d != %d", doms.BlockNum(), header.Number.Uint64()))
 	}
 
-	rh, err := doms.ComputeCommitment(ctx, true, header.Number.Uint64(), e.LogPrefix())
-	if err != nil {
-		return false, fmt.Errorf("StateV3.Apply: %w", err)
+	var rh []byte
+	var err error
+	if dbg.DiscardCommitment() {
+		doms.ResetCommitment()
+		_ = doms.SaveCommitment(doms.BlockNum(), header.Root.Bytes())
+	} else {
+		rh, err = doms.ComputeCommitment(ctx, true, header.Number.Uint64(), e.LogPrefix())
+		if err != nil {
+			return false, fmt.Errorf("StateV3.Apply: %w", err)
+		}
+		if cfg.blockProduction {
+			header.Root = common.BytesToHash(rh)
+			return true, nil
+		}
 	}
-	if cfg.blockProduction {
-		header.Root = common.BytesToHash(rh)
-		return true, nil
-	}
-	if bytes.Equal(rh, header.Root.Bytes()) {
+	if bytes.Equal(rh, header.Root.Bytes()) || dbg.DiscardCommitment() {
 		if !inMemExec {
 			if err := doms.Flush(ctx, applyTx); err != nil {
 				return false, err
 			}
-			if err = applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneCommitHistory(ctx, applyTx, nil); err != nil {
+			if err := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneCommitHistory(ctx, applyTx, nil); err != nil {
 				return false, err
 			}
 		}

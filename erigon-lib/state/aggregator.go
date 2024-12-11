@@ -122,7 +122,7 @@ func NewAggregator(ctx context.Context, dirs datadir.Dirs, aggregationStep uint6
 		collateAndBuildWorkers: 1,
 		mergeWorkers:           1,
 
-		commitmentValuesTransform: AggregatorSqueezeCommitmentValues,
+		commitmentValuesTransform: AggregatorSqueezeCommitmentValues && !dbg.DiscardCommitment(),
 
 		produce: true,
 	}
