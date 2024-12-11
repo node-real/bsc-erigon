@@ -195,6 +195,7 @@ func (rs *StateV3) ApplyState4(ctx context.Context, txTask *TxTask) error {
 
 	if (txTask.TxNum+1)%rs.domains.StepSize() == 0 /*&& txTask.TxNum > 0 */ {
 		if dbg.DiscardCommitment() {
+			// Don't apply update just save root hash.
 			rs.domains.ResetCommitment()
 			_ = rs.domains.SaveCommitment(txTask.BlockNum, txTask.Header.Root.Bytes())
 		} else {

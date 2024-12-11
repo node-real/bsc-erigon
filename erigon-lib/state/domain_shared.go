@@ -252,10 +252,6 @@ func (sd *SharedDomains) DiscardWrites(d kv.Domain) {
 	sd.domainWriters[d].h.discard = true
 }
 
-func (sd *SharedDomains) DiscardCommitment() {
-	sd.sdCtx.discard = dbg.DiscardCommitment()
-}
-
 func (sd *SharedDomains) RebuildCommitmentShard(ctx context.Context, next func() (bool, []byte), cfg *RebuiltCommitment) (*RebuiltCommitment, error) {
 	sd.DiscardWrites(kv.AccountsDomain)
 	sd.DiscardWrites(kv.StorageDomain)
@@ -363,9 +359,6 @@ func (sd *SharedDomains) SeekCommitment(ctx context.Context, tx kv.Tx) (txsFromB
 	}
 	sd.SetBlockNum(bn)
 	sd.SetTxNum(txn)
-	if dbg.DiscardCommitment() {
-		return 0, nil
-	}
 	newRh, err := sd.rebuildCommitment(ctx, tx, bn)
 	if err != nil {
 		return 0, err
@@ -404,6 +397,10 @@ func (sd *SharedDomains) ResetCommitment() {
 
 func (sd *SharedDomains) SaveCommitment(blockNum uint64, rootHash []byte) error {
 	return sd.sdCtx.storeCommitmentState(blockNum, rootHash)
+}
+
+func (sd *SharedDomains) DiscardCommitment() {
+	sd.sdCtx.discard = dbg.DiscardCommitment()
 }
 
 func (sd *SharedDomains) put(domain kv.Domain, key string, val []byte) {
@@ -929,9 +926,7 @@ func (sd *SharedDomains) Flush(ctx context.Context, tx kv.RwTx) error {
 
 	defer mxFlushTook.ObserveDuration(time.Now())
 	var err error
-	if dbg.DiscardCommitment() {
-		sd.ResetCommitment()
-	} else {
+	if !dbg.DiscardCommitment() {
 		fh, err := sd.ComputeCommitment(ctx, true, sd.BlockNum(), "flush-commitment")
 		if err != nil {
 			return err
@@ -1145,7 +1140,6 @@ func (sdc *SharedDomainsCommitmentContext) SetLimitReadAsOfTxNum(txNum uint64) {
 func NewSharedDomainsCommitmentContext(sd *SharedDomains, mode commitment.Mode, trieVariant commitment.TrieVariant) *SharedDomainsCommitmentContext {
 	ctx := &SharedDomainsCommitmentContext{
 		sharedDomains: sd,
-		discard:       false,
 		branches:      make(map[string]cachedBranch),
 		keccak:        sha3.NewLegacyKeccak256().(cryptozerocopy.KeccakState),
 	}
