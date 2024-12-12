@@ -19,10 +19,11 @@ package exec3
 import (
 	"context"
 	"fmt"
-	"github.com/erigontech/erigon/core/systemcontracts"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/erigontech/erigon/core/systemcontracts"
 
 	"golang.org/x/sync/errgroup"
 
@@ -169,8 +170,8 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		syscall := func(contract common.Address, data []byte, ibs *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, constCall /* constCall */)
 		}
-		if isPoSA && !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+		if isPoSA {
+			systemcontracts.BeginBlockUpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 		}
 		if err := rw.execArgs.Engine.Initialize(rw.execArgs.ChainConfig, rw.chain, header, ibs, syscall, rw.logger, nil); err != nil {
 			txTask.Error = err
@@ -184,8 +185,8 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 
 		if _, isPoSa := rw.execArgs.Engine.(consensus.PoSA); isPoSa {
 			// Is an empty block
-			if rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
-				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			if txTask.TxIndex == 0 {
+				systemcontracts.EndBlockUpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 			}
 			break
 		}
