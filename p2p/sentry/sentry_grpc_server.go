@@ -371,7 +371,7 @@ func handShake(
 		}()
 
 		go func() {
-			err = readUpgradeStatusMsg(rw, &upgradeStatus)
+			err := readUpgradeStatusMsg(rw, &upgradeStatus)
 			if err == nil {
 				errChan <- nil
 			} else {
