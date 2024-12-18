@@ -89,7 +89,7 @@ var (
 				Full: Keep only blocks and latest state,
 				Archive: Keep the entire indexed database, aka. no pruning,
 				Minimal: Keep only latest state`,
-		Value: "full",
+		Value: "archive",
 	}
 	PruneDistanceFlag = cli.Uint64Flag{
 		Name:  "prune.distance",
