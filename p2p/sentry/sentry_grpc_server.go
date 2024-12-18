@@ -355,7 +355,8 @@ func handShake(
 			return nil, p2p.NewPeerError(p2p.PeerErrorDiscReason, p2p.DiscQuitting, ctx.Err(), "sentry.handShake ctx.Done")
 		}
 	}
-	if version >= direct.ETH67 {
+	if version >= direct.ETH68 {
+		var upgradeStatus eth.UpgradeStatusPacket
 		extensionRaw, err := (&eth.UpgradeStatusExtension{}).Encode()
 		if err != nil {
 			return nil, p2p.NewPeerError(p2p.PeerErrorStatusDecode, p2p.DiscIncompatibleVersion, err, "")
@@ -368,17 +369,27 @@ func handShake(
 				errChan <- p2p.NewPeerError(p2p.PeerErrorStatusDecode, p2p.DiscNetworkError, err, "sentry.handShake failed to send bsc UpgradeStatusMsg")
 			}
 		}()
-		//todo: receive UpgradeStatus from bsc and set txBroadcast
-		//		go func() {
-		//			errc <- p.readUpgradeStatus(&upgradeStatus)
-		//		}()
-		select {
-		case err := <-errChan:
-			if err != nil {
-				return nil, err
+
+		go func() {
+			err = readUpgradeStatusMsg(rw, &upgradeStatus)
+			if err == nil {
+				errChan <- nil
+			} else {
+				errChan <- p2p.NewPeerError(p2p.PeerErrorStatusDecode, p2p.DiscNetworkError, err, "sentry.handShake failed to send bsc UpgradeStatusMsg")
 			}
-		case <-timeout.C:
-			return nil, p2p.NewPeerError(p2p.PeerErrorStatusHandshakeTimeout, p2p.DiscReadTimeout, nil, "sentry.handShake send bsc UpgradeStatusMsg timeout")
+		}()
+
+		timeout := time.NewTimer(handshakeTimeout)
+		defer timeout.Stop()
+		for i := 0; i < 2; i++ {
+			select {
+			case err := <-errChan:
+				if err != nil {
+					return nil, err
+				}
+			case <-timeout.C:
+				return nil, p2p.NewPeerError(p2p.PeerErrorStatusHandshakeTimeout, p2p.DiscReadTimeout, nil, "sentry.UpgradeStatusMsg timeout")
+			}
 		}
 	}
 	peerStatus := <-resultChan
