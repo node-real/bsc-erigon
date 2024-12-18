@@ -501,6 +501,8 @@ var ConsensusTables = append([]string{
 },
 	ChaindataTables..., //TODO: move bor tables from chaintables to `ConsensusTables`
 )
+
+var BscBlobTables = []string{}
 var HeimdallTables = []string{}
 var PolygonBridgeTables = []string{}
 var DownloaderTables = []string{
@@ -623,6 +625,7 @@ var DownloaderTablesCfg = TableCfg{}
 var DiagnosticsTablesCfg = TableCfg{}
 var HeimdallTablesCfg = TableCfg{}
 var PolygonBridgeTablesCfg = TableCfg{}
+var BscBlobTablesCfg = TableCfg{}
 var ReconTablesCfg = TableCfg{
 	PlainStateD:    {Flags: DupSort},
 	CodeD:          {Flags: DupSort},
@@ -647,6 +650,8 @@ func TablesCfgByLabel(label Label) TableCfg {
 		return PolygonBridgeTablesCfg
 	case ConsensusDB:
 		return ConsensusTablesCfg
+	case BlobDb:
+		return BscBlobTablesCfg
 	default:
 		panic(fmt.Sprintf("unexpected label: %s", label))
 	}
@@ -733,6 +738,12 @@ func reinit() {
 		_, ok := PolygonBridgeTablesCfg[name]
 		if !ok {
 			PolygonBridgeTablesCfg[name] = TableCfgItem{}
+		}
+	}
+	for _, name := range BscBlobTables {
+		_, ok := BscBlobTablesCfg[name]
+		if !ok {
+			BscBlobTablesCfg[name] = TableCfgItem{}
 		}
 	}
 }
