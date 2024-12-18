@@ -24,7 +24,7 @@ jobs:
         os:
           - ubuntu-22.04
           - macos-14
-          - ubuntu-latest-erigontests-large
+          - prod-cicd-runners
     runs-on: ${{ matrix.os }}
 
     steps:
