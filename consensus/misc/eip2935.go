@@ -19,17 +19,15 @@ package misc
 import (
 	"github.com/holiman/uint256"
 
-	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
 
-	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/params"
 )
 
-func StoreBlockHashesEip2935(header *types.Header, state *state.IntraBlockState, config *chain.Config, headerReader consensus.ChainHeaderReader) error {
+func StoreBlockHashesEip2935(header *types.Header, state *state.IntraBlockState) error {
 	codeSize, err := state.GetCodeSize(params.HistoryStorageAddress)
 	if err != nil {
 		return err
@@ -50,4 +48,12 @@ func storeHash(num uint64, hash libcommon.Hash, state *state.IntraBlockState) er
 	storageSlot := libcommon.BytesToHash(uint256.NewInt(slotNum).Bytes())
 	parentHashInt := uint256.NewInt(0).SetBytes32(hash.Bytes())
 	return state.SetState(params.HistoryStorageAddress, &storageSlot, *parentHashInt)
+}
+
+func InitializeBlockHashesEip2935(state *state.IntraBlockState) {
+	if codeSize, err := state.GetCodeSize(params.HistoryStorageAddress); err != nil && codeSize != 0 {
+		return
+	}
+	state.SetCode(params.HistoryStorageAddress, params.HistoryStorageCode)
+	state.SetNonce(params.HistoryStorageAddress, 1)
 }

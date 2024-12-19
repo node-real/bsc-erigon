@@ -6,14 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon-lib/common/math"
-	"github.com/erigontech/erigon-lib/common/u256"
-	"github.com/erigontech/erigon-lib/crypto"
-	"github.com/erigontech/erigon-lib/crypto/cryptopool"
-	"github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon/consensus/parlia/finality"
-	"github.com/erigontech/erigon/core/tracing"
-	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"io"
 	"math/big"
 	"sort"
@@ -21,30 +13,38 @@ import (
 	"sync"
 	"time"
 
-	"github.com/erigontech/erigon/turbo/services"
-
 	"github.com/Giulio2002/bls"
-	"github.com/erigontech/erigon-lib/chain"
-	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/common/length"
+
 	lru "github.com/hashicorp/golang-lru/arc/v2"
+	"github.com/holiman/uint256"
 	"github.com/willf/bitset"
 
+	"github.com/erigontech/erigon-lib/chain"
+	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutility"
+	"github.com/erigontech/erigon-lib/common/length"
+	"github.com/erigontech/erigon-lib/common/math"
+	"github.com/erigontech/erigon-lib/common/u256"
+	"github.com/erigontech/erigon-lib/crypto"
+	"github.com/erigontech/erigon-lib/crypto/cryptopool"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/accounts/abi"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/misc"
+	"github.com/erigontech/erigon/consensus/parlia/finality"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/forkid"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/systemcontracts"
+	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/vm"
+	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"github.com/erigontech/erigon/params"
 	"github.com/erigontech/erigon/rpc"
-	"github.com/holiman/uint256"
+	"github.com/erigontech/erigon/turbo/services"
 )
 
 const (
@@ -891,6 +891,12 @@ func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderRea
 	if err = p.verifyTurnLength(chain, header, state); err != nil {
 		return err
 	}
+
+	// store block hashes for EIP-2935 (BEP440) upgrade
+	if config.IsPrague(header.Time) {
+		misc.StoreBlockHashesEip2935(header, state)
+	}
+
 	// update validators every day
 	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
 		// we should avoid update validators in the Feynman upgrade block
@@ -969,9 +975,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	}()
 
 	if curIndex == txIndex {
-		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
-		}
+		systemcontracts.EndBlockUpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
 	}
 
 	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {

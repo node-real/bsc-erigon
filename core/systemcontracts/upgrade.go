@@ -18,29 +18,16 @@ package systemcontracts
 
 import (
 	"fmt"
+	"math/big"
+	"strconv"
+
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon/consensus/misc"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
-	"math/big"
-	"strconv"
 )
-
-type UpgradeConfig struct {
-	BeforeUpgrade upgradeHook
-	AfterUpgrade  upgradeHook
-	ContractAddr  libcommon.Address
-	CommitUrl     string
-	Code          string
-}
-
-type Upgrade struct {
-	UpgradeName string
-	Configs     []*UpgradeConfig
-}
-
-type upgradeHook func(blockNumber *big.Int, contractAddr libcommon.Address, statedb *state.IntraBlockState) error
 
 var (
 	// SystemContractCodeLookup is used to address a flaw in the upgrade logic of the system contracts. Since they are updated directly, without first being self-destructed
@@ -51,7 +38,15 @@ var (
 	SystemContractCodeLookup = map[string]map[libcommon.Address][]libcommon.CodeRecord{}
 )
 
-func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
+func BeginBlockUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
+	TryUpgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger, false)
+}
+
+func EndBlockUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
+	TryUpgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger, true)
+}
+
+func TryUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger, endBlock bool) {
 	if config == nil || blockNumber == nil || state == nil {
 		return
 	}
@@ -60,6 +55,29 @@ func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, la
 		return
 	}
 
+	// Everything after Faynman is initialized in the end block
+	if endBlock {
+		if config.IsFeynman(blockNumber.Uint64(), lastBlockTime) {
+			upgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger)
+		}
+		return
+	}
+
+	// this will execute in the begin block
+
+	// Everything before Feynman is initialized in the begin block
+	if !config.IsFeynman(blockNumber.Uint64(), lastBlockTime) {
+		upgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger)
+	}
+
+	// HistoryStorageAddress is a special system contract in bsc, which can't be upgraded
+	if config.IsOnPrague(blockNumber, lastBlockTime, blockTime) {
+		misc.InitializeBlockHashesEip2935(state)
+		log.Info("Set code for HistoryStorageAddress", "blockNumber", blockNumber.Int64(), "blockTime", blockTime)
+	}
+}
+
+func upgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
 	for blockNumberOrTime, genesisAlloc := range config.Parlia.BlockAlloc {
 		numOrTime, err := strconv.ParseUint(blockNumberOrTime, 10, 64)
 		if err != nil {

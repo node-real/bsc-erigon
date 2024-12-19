@@ -20,8 +20,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/holiman/uint256"
 	"math/big"
+
+	"github.com/holiman/uint256"
 
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
@@ -353,7 +354,7 @@ func (s *Merge) Initialize(config *chain.Config, chain consensus.ChainHeaderRead
 		}, tracer)
 	}
 	if chain.Config().IsPrague(header.Time) {
-		misc.StoreBlockHashesEip2935(header, state, config, chain)
+		misc.StoreBlockHashesEip2935(header, state)
 	}
 	return nil
 }
