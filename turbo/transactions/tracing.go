@@ -54,7 +54,7 @@ type BlockGetter interface {
 
 // ComputeBlockContext returns the execution environment of a certain block.
 func ComputeBlockContext(ctx context.Context, engine consensus.EngineReader, header *types.Header, cfg *chain.Config,
-	headerReader services.HeaderReader, txNumsReader rawdbv3.TxNumsReader, dbtx kv.Tx,
+	headerReader services.HeaderReader, txNumsReader rawdbv3.TxNumsReader, dbtx kv.TemporalTx,
 	txIndex int) (*state.IntraBlockState, evmtypes.BlockContext, state.StateReader, *chain.Rules, *types.Signer, error) {
 	reader, err := rpchelper.CreateHistoryStateReader(dbtx, txNumsReader, header.Number.Uint64(), txIndex, cfg.ChainName)
 	if err != nil {
@@ -107,21 +107,27 @@ func TraceTx(
 	chainConfig *chain.Config,
 	stream *jsoniter.Stream,
 	callTimeout time.Duration,
-) error {
+) (usedGas uint64, err error) {
 	tracer, streaming, cancel, err := AssembleTracer(ctx, config, txCtx.TxHash, stream, callTimeout)
 	if err != nil {
 		stream.WriteNil()
-		return err
+		return 0, err
 	}
 
 	defer cancel()
 
 	execCb := func(evm *vm.EVM, refunds bool) (*evmtypes.ExecutionResult, error) {
 		gp := new(core.GasPool).AddGas(message.Gas()).AddBlobGas(message.BlobGas())
-		return core.ApplyMessage(evm, message, gp, refunds, false /* gasBailout */)
+		res, err := core.ApplyMessage(evm, message, gp, refunds, false /* gasBailout */)
+		if err != nil {
+			return res, err
+		}
+		usedGas = res.UsedGas
+		return res, nil
 	}
 
-	return ExecuteTraceTx(blockCtx, txCtx, ibs, config, chainConfig, stream, tracer, streaming, execCb)
+	err = ExecuteTraceTx(blockCtx, txCtx, ibs, config, chainConfig, stream, tracer, streaming, execCb)
+	return usedGas, err
 }
 
 func AssembleTracer(

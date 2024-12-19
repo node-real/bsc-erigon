@@ -35,7 +35,6 @@ import (
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/datadir"
 	"github.com/erigontech/erigon-lib/downloader/downloadercfg"
-	"github.com/erigontech/erigon-lib/txpool/txpoolcfg"
 	"github.com/erigontech/erigon/cl/clparams"
 	"github.com/erigontech/erigon/consensus/ethash/ethashcfg"
 	"github.com/erigontech/erigon/core/types"
@@ -44,6 +43,8 @@ import (
 	"github.com/erigontech/erigon/ethdb/prune"
 	"github.com/erigontech/erigon/params"
 	"github.com/erigontech/erigon/rpc"
+	"github.com/erigontech/erigon/txnprovider/shutter"
+	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
 )
 
 // BorDefaultMinerGasPrice defines the minimum gas price for bor validators to mine a transaction.
@@ -78,6 +79,7 @@ var Defaults = Config{
 		BodyDownloadTimeoutSeconds: 2,
 		//LoopBlockLimit:             100_000,
 		ParallelStateFlushing: true,
+		ChaosMonkey:           false,
 	},
 	Ethash: ethashcfg.Config{
 		CachesInMem:      2,
@@ -89,15 +91,14 @@ var Defaults = Config{
 	NetworkID: 1,
 	Prune:     prune.DefaultMode,
 	Miner: params.MiningConfig{
-		GasLimit: 30_000_000,
+		GasLimit: 36_000_000,
 		GasPrice: big.NewInt(params.GWei),
 		Recommit: 3 * time.Second,
 	},
-	DeprecatedTxPool: DeprecatedDefaultTxPoolConfig,
-	TxPool:           txpoolcfg.DefaultConfig,
-	RPCGasCap:        50000000,
-	GPO:              FullNodeGPO,
-	RPCTxFeeCap:      1, // 1 ether
+	TxPool:      txpoolcfg.DefaultConfig,
+	RPCGasCap:   50000000,
+	GPO:         FullNodeGPO,
+	RPCTxFeeCap: 1, // 1 ether
 
 	ImportMode: false,
 	Snapshot: BlocksFreezing{
@@ -212,8 +213,8 @@ type Config struct {
 	DisableBlobPrune bool // Disable prune Bsc BlobSidecars
 
 	// Transaction pool options
-	DeprecatedTxPool DeprecatedTxPoolConfig
-	TxPool           txpoolcfg.Config
+	TxPool  txpoolcfg.Config
+	Shutter shutter.Config
 
 	// Gas Price Oracle options
 	GPO gaspricecfg.Config
@@ -278,4 +279,7 @@ type Sync struct {
 	UploadLocation   string
 	UploadFrom       rpc.BlockNumber
 	FrozenBlockLimit uint64
+
+	ChaosMonkey              bool
+	AlwaysGenerateChangesets bool
 }

@@ -21,7 +21,6 @@ package eth
 
 import (
 	"bytes"
-	types2 "github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/params"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
@@ -30,9 +29,9 @@ import (
 
 	libcommon "github.com/erigontech/erigon-lib/common"
 
-	"github.com/erigontech/erigon/common"
+	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/rlp"
 )
 
 // Tests that the custom union field encoder and decoder works correctly.
@@ -249,7 +248,7 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		ChainID:    uint256.NewInt(716),
 		Tip:        uint256.NewInt(22),
 		FeeCap:     uint256.NewInt(5),
-		AccessList: types2.AccessList{},
+		AccessList: types.AccessList{},
 	}
 	txSidecar := types.BlobTxSidecar{
 		Blobs:       types.Blobs{types.Blob{}, types.Blob{}},

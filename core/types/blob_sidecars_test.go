@@ -3,13 +3,13 @@ package types
 import (
 	"bytes"
 	"encoding/hex"
+	"github.com/erigontech/erigon-lib/rlp"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon/rlp"
 	"github.com/stretchr/testify/assert"
 )
 

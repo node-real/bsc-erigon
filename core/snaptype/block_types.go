@@ -31,15 +31,15 @@ import (
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
 	"github.com/erigontech/erigon-lib/common/dbg"
+	"github.com/erigontech/erigon-lib/crypto"
+	"github.com/erigontech/erigon-lib/crypto/cryptopool"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/recsplit"
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/seg"
-	types2 "github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/crypto"
-	"github.com/erigontech/erigon/crypto/cryptopool"
-	"github.com/erigontech/erigon/rlp"
+	"github.com/erigontech/erigon/txnprovider/txpool"
 )
 
 func init() {
@@ -54,6 +54,7 @@ func init() {
 
 var Enums = struct {
 	snaptype.Enums
+	Salt,
 	Headers,
 	Bodies,
 	Transactions,
@@ -65,14 +66,15 @@ var Enums = struct {
 	BscBlobs snaptype.Enum
 }{
 	Enums:            snaptype.Enums{},
-	Headers:          snaptype.MinCoreEnum,
-	Bodies:           snaptype.MinCoreEnum + 1,
-	Transactions:     snaptype.MinCoreEnum + 2,
-	Domains:          snaptype.MinCoreEnum + 3,
-	Histories:        snaptype.MinCoreEnum + 4,
-	InvertedIndicies: snaptype.MinCoreEnum + 5,
-	Accessor:         snaptype.MinCoreEnum + 6,
-	Txt:              snaptype.MinCoreEnum + 7,
+	Salt:             snaptype.MinCoreEnum,
+	Headers:          snaptype.MinCoreEnum + 1,
+	Bodies:           snaptype.MinCoreEnum + 2,
+	Transactions:     snaptype.MinCoreEnum + 3,
+	Domains:          snaptype.MinCoreEnum + 4,
+	Histories:        snaptype.MinCoreEnum + 5,
+	InvertedIndicies: snaptype.MinCoreEnum + 6,
+	Accessor:         snaptype.MinCoreEnum + 7,
+	Txt:              snaptype.MinCoreEnum + 8,
 	BscBlobs:         snaptype.MinBscEnum,
 }
 
@@ -91,6 +93,17 @@ var Indexes = struct {
 }
 
 var (
+	Salt = snaptype.RegisterType(
+		Enums.Domains,
+		"salt",
+		snaptype.Versions{
+			Current:      0, //2,
+			MinSupported: 0,
+		},
+		nil,
+		nil,
+		nil,
+	)
 	Headers = snaptype.RegisterType(
 		Enums.Headers,
 		"headers",
@@ -249,9 +262,9 @@ var (
 
 				chainId, _ := uint256.FromBig(chainConfig.ChainID)
 
-				parseCtx := types2.NewTxParseContext(*chainId)
+				parseCtx := txpool.NewTxnParseContext(*chainId)
 				parseCtx.WithSender(false)
-				slot := types2.TxSlot{}
+				slot := txpool.TxnSlot{}
 				bodyBuf, word := make([]byte, 0, 4096), make([]byte, 0, 4096)
 
 				defer d.EnableReadAhead().DisableReadAhead()

@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
+	"github.com/erigontech/erigon/polygon/bridge"
 	"github.com/urfave/cli/v2"
 
 	"golang.org/x/sync/semaphore"
@@ -74,6 +75,7 @@ import (
 	"github.com/erigontech/erigon/eth/integrity"
 	"github.com/erigontech/erigon/eth/stagedsync/stages"
 	"github.com/erigontech/erigon/params"
+	"github.com/erigontech/erigon/polygon/heimdall"
 	erigoncli "github.com/erigontech/erigon/turbo/cli"
 	"github.com/erigontech/erigon/turbo/debug"
 	"github.com/erigontech/erigon/turbo/logging"
@@ -90,9 +92,9 @@ func joinFlags(lists ...[]cli.Flag) (res []cli.Flag) {
 }
 
 var snapshotCommand = cli.Command{
-	Name:    "snapshots",
-	Aliases: []string{"seg"},
-	Usage:   `Managing snapshots (historical data partitions)`,
+	Name:    "seg",
+	Aliases: []string{"snapshots", "segments"},
+	Usage:   `Managing historical data segments (partitions)`,
 	Before: func(cliCtx *cli.Context) error {
 		go mem.LogMemStats(cliCtx.Context, log.New())
 		go disk.UpdateDiskStats(cliCtx.Context, log.New())
@@ -115,7 +117,8 @@ var snapshotCommand = cli.Command{
 			}),
 		},
 		{
-			Name: "index",
+			Name:    "accessor",
+			Aliases: []string{"index"},
 			Action: func(c *cli.Context) error {
 				dirs, l, err := datadir.New(c.String(utils.DataDirFlag.Name)).MustFlock()
 				if err != nil {
@@ -462,6 +465,7 @@ func doBtSearch(cliCtx *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	defer cur.Close()
 	if cur != nil {
 		fmt.Printf("seek: %x, -> %x, %x\n", seek, cur.Key(), cur.Value())
 	} else {
@@ -503,7 +507,11 @@ func doDebugKey(cliCtx *cli.Context) error {
 	chainDB := dbCfg(kv.ChainDB, dirs.Chaindata).MustOpen()
 	defer chainDB.Close()
 
-	_, _, _, _, _, agg, clean, err := openSnaps(ctx, dirs, chainDB, nil, logger)
+	chainConfig := fromdb.ChainConfig(chainDB)
+	cfg := ethconfig.NewSnapCfg(false, true, true, chainConfig.ChainName)
+	from := cliCtx.Uint64(SnapshotFromFlag.Name)
+
+	_, _, _, _, _, agg, clean, err := openSnaps(ctx, cfg, dirs, from, chainDB, nil, logger)
 	if err != nil {
 		return err
 	}
@@ -534,7 +542,11 @@ func doIntegrity(cliCtx *cli.Context) error {
 	chainDB := dbCfg(kv.ChainDB, dirs.Chaindata).MustOpen()
 	defer chainDB.Close()
 
-	_, _, _, _, blockRetire, agg, clean, err := openSnaps(ctx, dirs, chainDB, nil, logger)
+	chainConfig := fromdb.ChainConfig(chainDB)
+	cfg := ethconfig.NewSnapCfg(false, true, true, chainConfig.ChainName)
+	from := cliCtx.Uint64(SnapshotFromFlag.Name)
+
+	_, _, _, _, blockRetire, agg, clean, err := openSnaps(ctx, cfg, dirs, from, chainDB, nil, logger)
 	if err != nil {
 		return err
 	}
@@ -1013,13 +1025,15 @@ func doIndicesCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 	}
 
 	chainConfig := fromdb.ChainConfig(chainDB)
+	cfg := ethconfig.NewSnapCfg(false, true, true, chainConfig.ChainName)
+	from := cliCtx.Uint64(SnapshotFromFlag.Name)
 
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
 		bs = openBlobStore(dirs, chainConfig, false)
 	}
 
-	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, dirs, chainDB, bs, logger)
+	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, cfg, dirs, from, chainDB, bs, logger)
 	if err != nil {
 		return err
 	}
@@ -1048,25 +1062,31 @@ func doLS(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	chainDB := dbCfg(kv.ChainDB, dirs.Chaindata).MustOpen()
 	defer chainDB.Close()
-
-	blockSnaps, borSnaps, bscSnaps, caplinSnaps, _, agg, clean, err := openSnaps(ctx, dirs, chainDB, nil, logger)
+	chainConfig := fromdb.ChainConfig(chainDB)
+	cfg := ethconfig.NewSnapCfg(false, true, true, fromdb.ChainConfig(chainDB).ChainName)
+	from := cliCtx.Uint64(SnapshotFromFlag.Name)
+	var bs services.BlobStorage
+	if chainConfig.Parlia != nil {
+		bs = openBlobStore(dirs, chainConfig, false)
+	}
+	blockSnaps, borSnaps, bscSnaps, caplinSnaps, _, agg, clean, err := openSnaps(ctx, cfg, dirs, from, chainDB, bs, logger)
 	if err != nil {
 		return err
 	}
 	defer clean()
 
-	blockSnaps.LS()
-	borSnaps.LS()
-	bscSnaps.LS()
+	blockSnaps.Ls()
+	borSnaps.Ls()
+	bscSnaps.Ls()
 	caplinSnaps.LS()
 	agg.LS()
 
 	return nil
 }
 
-func openSnaps(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, bs services.BlobStorage, logger log.Logger) (
+func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.Dirs, from uint64, chainDB kv.RwDB, bs services.BlobStorage, logger log.Logger) (
 	blockSnaps *freezeblocks.RoSnapshots,
-	borSnaps *freezeblocks.BorRoSnapshots,
+	borSnaps *heimdall.RoSnapshots,
 	bscSnaps *freezeblocks.BscRoSnapshots,
 	csn *freezeblocks.CaplinSnapshots,
 	br *freezeblocks.BlockRetire,
@@ -1074,7 +1094,6 @@ func openSnaps(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, bs servi
 	clean func(), err error,
 ) {
 	chainConfig := fromdb.ChainConfig(chainDB)
-	cfg := ethconfig.NewSnapCfg(false, true, true, chainConfig.ChainName)
 
 	blockSnaps = freezeblocks.NewRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = blockSnaps.OpenFolder(); err != nil {
@@ -1082,7 +1101,7 @@ func openSnaps(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, bs servi
 	}
 	blockSnaps.LogStat("block")
 
-	borSnaps = freezeblocks.NewBorRoSnapshots(cfg, dirs.Snap, 0, logger)
+	borSnaps = heimdall.NewRoSnapshots(cfg, dirs.Snap, 0, logger)
 	if err = borSnaps.OpenFolder(); err != nil {
 		return
 	}
@@ -1104,10 +1123,23 @@ func openSnaps(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, bs servi
 
 	borSnaps.LogStat("bor")
 	bscSnaps.LogStat("bsc")
-	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps, bscSnaps)
+	var bridgeStore bridge.Store
+	var heimdallStore heimdall.Store
+	if chainConfig.Bor != nil {
+		const PolygonSync = false
+		if PolygonSync {
+			bridgeStore = bridge.NewSnapshotStore(bridge.NewMdbxStore(dirs.DataDir, logger, false, 0), borSnaps, chainConfig.Bor)
+			heimdallStore = heimdall.NewSnapshotStore(heimdall.NewMdbxStore(logger, dirs.DataDir, 0), borSnaps)
+		} else {
+			bridgeStore = bridge.NewSnapshotStore(bridge.NewDbStore(chainDB), borSnaps, chainConfig.Bor)
+			heimdallStore = heimdall.NewSnapshotStore(heimdall.NewDbStore(chainDB), borSnaps)
+		}
+	}
+
+	blockReader := freezeblocks.NewBlockReader(blockSnaps, borSnaps, heimdallStore, bridgeStore, bscSnaps)
 	blockWriter := blockio.NewBlockWriter()
 	blockSnapBuildSema := semaphore.NewWeighted(int64(dbg.BuildSnapshotAllowance))
-	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, bs, chainConfig, nil, blockSnapBuildSema, logger)
+	br = freezeblocks.NewBlockRetire(estimate.CompressSnapshot.Workers(), dirs, blockReader, blockWriter, chainDB, bs, heimdallStore, bridgeStore, chainConfig, &ethconfig.Defaults, nil, blockSnapBuildSema, logger)
 
 	agg = openAgg(ctx, dirs, chainDB, logger)
 	agg.SetSnapshotBuildSema(blockSnapBuildSema)
@@ -1275,15 +1307,15 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	db := dbCfg(kv.ChainDB, dirs.Chaindata).MustOpen()
 	defer db.Close()
-
 	chainConfig := fromdb.ChainConfig(db)
+	cfg := ethconfig.NewSnapCfg(false, true, true, chainConfig.ChainName)
 
 	var bs services.BlobStorage
 	if chainConfig.Parlia != nil {
 		bs = openBlobStore(dirs, chainConfig, !blobPrune)
 	}
 
-	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, dirs, db, bs, logger)
+	_, _, _, caplinSnaps, br, agg, clean, err := openSnaps(ctx, cfg, dirs, from, db, bs, logger)
 	if err != nil {
 		return err
 	}
@@ -1358,9 +1390,6 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 
 	logger.Info("Work on state history snapshots")
 	indexWorkers := estimate.IndexSnapshot.Workers()
-	if err = agg.BuildOptionalMissedIndices(ctx, indexWorkers); err != nil {
-		return err
-	}
 	if err = agg.BuildMissedIndices(ctx, indexWorkers); err != nil {
 		return err
 	}
@@ -1416,9 +1445,6 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 	if err = agg.MergeLoop(ctx); err != nil {
 		return err
 	}
-	if err = agg.BuildOptionalMissedIndices(ctx, indexWorkers); err != nil {
-		return err
-	}
 	if err = agg.BuildMissedIndices(ctx, indexWorkers); err != nil {
 		return err
 	}
@@ -1471,14 +1497,12 @@ func doUploaderCommand(cliCtx *cli.Context) error {
 func dbCfg(label kv.Label, path string) mdbx.MdbxOpts {
 	const ThreadsLimit = 9_000
 	limiterB := semaphore.NewWeighted(ThreadsLimit)
-	opts := mdbx.NewMDBX(log.New()).Path(path).Label(label).RoTxsLimiter(limiterB)
-	// integration tool don't intent to create db, then easiest way to open db - it's pass mdbx.Accede flag, which allow
-	// to read all options from DB, instead of overriding them
-	opts = opts.Accede()
-	return opts
+	return mdbx.New(label, log.New()).Path(path).
+		RoTxsLimiter(limiterB).
+		Accede(true) // integration tool: open db without creation and without blocking erigon
 }
 func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log.Logger) *libstate.Aggregator {
-	agg, err := libstate.NewAggregator(ctx, dirs, config3.HistoryV3AggregationStep, chainDB, logger)
+	agg, err := libstate.NewAggregator(ctx, dirs, config3.DefaultStepSize, chainDB, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -1488,99 +1512,6 @@ func openAgg(ctx context.Context, dirs datadir.Dirs, chainDB kv.RwDB, logger log
 	agg.SetCompressWorkers(estimate.CompressSnapshot.Workers())
 	return agg
 }
-
-//
-//func doBodiesDecrement(cliCtx *cli.Context) error {
-//	logger, _, _, err := debug.Setup(cliCtx, true)
-//	if err != nil {
-//		return err
-//	}
-//	dirs := datadir.New(cliCtx.String(utils.DataDirFlag.Name))
-//	ctx := cliCtx.Context
-//	logEvery := time.NewTicker(30 * time.Second)
-//	defer logEvery.Stop()
-//
-//	list, err := snaptype.Segments(dirs.Snap)
-//	if err != nil {
-//		return err
-//	}
-//	var l []snaptype.FileInfo
-//	for _, f := range list {
-//		if f.Type.Enum() != coresnaptype.Enums.Bodies {
-//			continue
-//		}
-//		if f.From < 11_500_000 {
-//			continue
-//		}
-//		l = append(l, f)
-//	}
-//	migrateSingleBody := func(srcF, dstF string) error {
-//		src, err := seg.NewDecompressor(srcF)
-//		if err != nil {
-//			return err
-//		}
-//		defer src.Close()
-//		dst, err := seg.NewCompressor(ctx, "compress", dstF, dirs.Tmp, seg.MinPatternScore, estimate.CompressSnapshot.Workers(), log.LvlInfo, logger)
-//		if err != nil {
-//			return err
-//		}
-//		defer dst.Close()
-//
-//		i := 0
-//		srcG := src.MakeGetter()
-//		var buf []byte
-//		log.Info("start", "file", src.FileName())
-//		dstBuf := bytes.NewBuffer(nil)
-//		for srcG.HasNext() {
-//			i++
-//			buf, _ = srcG.Next(buf[:0])
-//			if buf == nil {
-//				panic(fmt.Sprintf("nil val at file: %s\n", srcG.FileName()))
-//			}
-//			body := &types.BodyForStorage{}
-//			if err := rlp.Decode(bytes.NewReader(buf), body); err != nil {
-//				return err
-//			}
-//			body.BaseTxnID -= 1
-//			dstBuf.Reset()
-//			if err := rlp.Encode(dstBuf, body); err != nil {
-//				return err
-//			}
-//
-//			if err := dst.AddWord(dstBuf.Bytes()); err != nil {
-//				return err
-//			}
-//
-//			select {
-//			case <-logEvery.C:
-//				logger.Info("[bodies] progress", "f", src.FileName(), "progress", fmt.Sprintf("%dK/%dK", i/1_000, src.Count()/1_000))
-//			default:
-//			}
-//		}
-//		if err := dst.Compress(); err != nil {
-//			return err
-//		}
-//		src.Close()
-//		dst.Close()
-//		os.Rename(srcF, srcF+".back")
-//		os.Rename(dstF, srcF)
-//		os.Remove(srcF + ".torrent")
-//		os.Remove(srcF + ".idx")
-//		ext := filepath.Ext(srcF)
-//		withoutExt := srcF[:len(srcF)-len(ext)]
-//		_ = os.Remove(withoutExt + ".idx")
-//		log.Info("done", "file", src.FileName())
-//		return nil
-//	}
-//	for _, f := range l {
-//		srcF, dstF := f.Path, f.Path+"2"
-//		if err := migrateSingleBody(srcF, dstF); err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
 
 func openBlobStore(dirs datadir.Dirs, chainConfig *chain.Config, disableBlobPrune bool) services.BlobStorage {
 	blobDbPath := path.Join(dirs.Blobs, "blob")

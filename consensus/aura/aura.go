@@ -33,6 +33,7 @@ import (
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/clique"
 	"github.com/erigontech/erigon/consensus/ethash"
@@ -40,7 +41,6 @@ import (
 	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
-	"github.com/erigontech/erigon/rlp"
 	"github.com/erigontech/erigon/rpc"
 )
 
@@ -320,6 +320,16 @@ func NewAuRa(spec *chain.AuRaConfig, db kv.RwDB) (*AuRa, error) {
 	}
 	c.step.canPropose.Store(true)
 
+	return c, nil
+}
+
+// NewRo is used by the RPC daemon
+func NewRo(spec *chain.AuRaConfig, db kv.RoDB) (*AuRa, error) {
+	c, err := NewAuRa(spec, kv.RwWrapper{RoDB: db})
+	if err != nil {
+		return nil, err
+	}
+	c.e.readonly = true
 	return c, nil
 }
 
@@ -707,7 +717,7 @@ func (c *AuRa) applyRewards(header *types.Header, state *state.IntraBlockState, 
 // word `signal epoch` == word `pending epoch`
 func (c *AuRa) Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState, txs types.Transactions,
 	uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
-	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, tx kv.Tx, logger log.Logger,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, logger log.Logger,
 ) (types.Transactions, types.Receipts, types.FlatRequests, error) {
 	if err := c.applyRewards(header, state, syscall); err != nil {
 		return nil, nil, nil, err
@@ -846,7 +856,7 @@ func allHeadersUntil(chain consensus.ChainHeaderReader, from *types.Header, to l
 
 // FinalizeAndAssemble implements consensus.Engine
 func (c *AuRa) FinalizeAndAssemble(config *chain.Config, header *types.Header, state *state.IntraBlockState, txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal, chain consensus.ChainReader, syscall consensus.SystemCall, call consensus.Call, logger log.Logger) (*types.Block, types.Transactions, types.Receipts, types.FlatRequests, error) {
-	outTxs, outReceipts, _, err := c.Finalize(config, header, state, txs, uncles, receipts, withdrawals, chain, syscall, nil, 0, nil, logger)
+	outTxs, outReceipts, _, err := c.Finalize(config, header, state, txs, uncles, receipts, withdrawals, chain, syscall, nil, 0, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

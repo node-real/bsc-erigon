@@ -22,13 +22,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon/consensus"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/erigontech/erigon/core/rawdb/rawtemporaldb"
-
+	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/cmp"
 	"github.com/erigontech/erigon-lib/common/dbg"
@@ -39,14 +39,14 @@ import (
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/metrics"
 	state2 "github.com/erigontech/erigon-lib/state"
+	"github.com/erigontech/erigon-lib/types/accounts"
 	"github.com/erigontech/erigon-lib/wrap"
-	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/rawdb"
 	"github.com/erigontech/erigon/core/rawdb/rawdbhelpers"
+	"github.com/erigontech/erigon/core/rawdb/rawtemporaldb"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/core/types/accounts"
 	"github.com/erigontech/erigon/eth/ethconfig/estimate"
 	"github.com/erigontech/erigon/eth/stagedsync/stages"
 	"github.com/erigontech/erigon/turbo/services"
@@ -86,7 +86,7 @@ type Progress struct {
 	logger       log.Logger
 }
 
-func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetry, rws *state.ResultsQueue, txCount uint64, gas uint64, inputBlockNum uint64, outputBlockNum uint64, outTxNum uint64, repeatCount uint64, idxStepsAmountInDB float64, shouldGenerateChangesets bool) {
+func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetry, rws *state.ResultsQueue, txCount uint64, gas uint64, inputBlockNum uint64, outputBlockNum uint64, outTxNum uint64, repeatCount uint64, idxStepsAmountInDB float64, shouldGenerateChangesets bool, inMemExec bool) {
 	mxExecStepsInDB.Set(idxStepsAmountInDB * 100)
 	var m runtime.MemStats
 	dbg.ReadMemStats(&m)
@@ -122,7 +122,8 @@ func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetr
 		//"workers", p.workersCount,
 		"buf", fmt.Sprintf("%s/%s", common.ByteCount(sizeEstimate), common.ByteCount(p.commitThreshold)),
 		"stepsInDB", fmt.Sprintf("%.2f", idxStepsAmountInDB),
-		"step", fmt.Sprintf("%.1f", float64(outTxNum)/float64(config3.HistoryV3AggregationStep)),
+		"step", fmt.Sprintf("%.1f", float64(outTxNum)/float64(config3.DefaultStepSize)),
+		"inMem", inMemExec,
 		"alloc", common.ByteCount(m.Alloc), "sys", common.ByteCount(m.Sys),
 	)
 
@@ -131,6 +132,71 @@ func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetr
 	p.prevGasUsed = gas
 	p.prevOutputBlockNum = outputBlockNum
 	p.prevRepeatCount = repeatCount
+}
+
+// Cases:
+//  1. Snapshots > ExecutionStage: snapshots can have half-block data `10.4`. Get right txNum from SharedDomains (after SeekCommitment)
+//  2. ExecutionStage > Snapshots: no half-block data possible. Rely on DB.
+func restoreTxNum(ctx context.Context, cfg *ExecuteBlockCfg, applyTx kv.Tx, doms *state2.SharedDomains, maxBlockNum uint64) (
+	inputTxNum uint64, maxTxNum uint64, offsetFromBlockBeginning uint64, err error) {
+
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, cfg.blockReader))
+
+	inputTxNum = doms.TxNum()
+
+	if nothing, err := nothingToExec(applyTx, txNumsReader, inputTxNum); err != nil {
+		return 0, 0, 0, err
+	} else if nothing {
+		return 0, 0, 0, err
+	}
+
+	maxTxNum, err = txNumsReader.Max(applyTx, maxBlockNum)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	ok, _blockNum, err := txNumsReader.FindBlockNum(applyTx, doms.TxNum())
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if !ok {
+		_lb, _lt, _ := txNumsReader.Last(applyTx)
+		_fb, _ft, _ := txNumsReader.First(applyTx)
+		return 0, 0, 0, fmt.Errorf("seems broken TxNums index not filled. can't find blockNum of txNum=%d; in db: (%d-%d, %d-%d)", inputTxNum, _fb, _lb, _ft, _lt)
+	}
+	{
+		_max, _ := txNumsReader.Max(applyTx, _blockNum)
+		if doms.TxNum() == _max {
+			_blockNum++
+		}
+	}
+
+	_min, err := txNumsReader.Min(applyTx, _blockNum)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	if doms.TxNum() > _min {
+		// if stopped in the middle of the block: start from beginning of block.
+		// first part will be executed in HistoryExecution mode
+		offsetFromBlockBeginning = doms.TxNum() - _min
+	}
+
+	inputTxNum = _min
+
+	//_max, _ := txNumsReader.Max(applyTx, blockNum)
+	//fmt.Printf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, blockNum, _min, _max)
+	doms.SetBlockNum(_blockNum)
+	doms.SetTxNum(inputTxNum)
+	return inputTxNum, maxTxNum, offsetFromBlockBeginning, nil
+}
+
+func nothingToExec(applyTx kv.Tx, txNumsReader rawdbv3.TxNumsReader, inputTxNum uint64) (bool, error) {
+	_, lastTxNum, err := txNumsReader.Last(applyTx)
+	if err != nil {
+		return false, err
+	}
+	return lastTxNum == inputTxNum, nil
 }
 
 func ExecV3(ctx context.Context,
@@ -143,11 +209,11 @@ func ExecV3(ctx context.Context,
 ) error {
 	// TODO: e35 doesn't support parallel-exec yet
 	parallel = false //nolint
+	if parallel && cfg.chainConfig.ChainName == networkname.Gnosis {
+		panic("gnosis consensus doesn't support parallel exec yet: https://github.com/erigontech/erigon/issues/12054")
+	}
 
-	batchSize := cfg.batchSize
-	chainDb := cfg.db
 	blockReader := cfg.blockReader
-	engine := cfg.engine
 	chainConfig := cfg.chainConfig
 	totalGasUsed := uint64(0)
 	start := time.Now()
@@ -162,7 +228,7 @@ func ExecV3(ctx context.Context,
 	if !useExternalTx {
 		if !parallel {
 			var err error
-			applyTx, err = chainDb.BeginRw(ctx) //nolint
+			applyTx, err = cfg.db.BeginRw(ctx) //nolint
 			if err != nil {
 				return err
 			}
@@ -201,101 +267,19 @@ func ExecV3(ctx context.Context,
 		defer doms.Close()
 	}
 	txNumInDB := doms.TxNum()
-
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, cfg.blockReader))
+	doms.DiscardCommitment()
 
 	var (
-		inputTxNum    = doms.TxNum()
-		stageProgress = execStage.BlockNumber
-		outputTxNum   = atomic.Uint64{}
-		blockComplete = atomic.Bool{}
-
+		inputTxNum               = doms.TxNum()
+		stageProgress            = execStage.BlockNumber
+		outputTxNum              = atomic.Uint64{}
+		blockComplete            = atomic.Bool{}
+		outputBlockNum           = stages.SyncMetrics[stages.Execution]
+		inputBlockNum            = &atomic.Uint64{}
 		offsetFromBlockBeginning uint64
 		blockNum, maxTxNum       uint64
 	)
-	blockComplete.Store(true)
 
-	nothingToExec := func(applyTx kv.Tx) (bool, error) {
-		_, lastTxNum, err := txNumsReader.Last(applyTx)
-		if err != nil {
-			return false, err
-		}
-		return lastTxNum == inputTxNum, nil
-	}
-	// Cases:
-	//  1. Snapshots > ExecutionStage: snapshots can have half-block data `10.4`. Get right txNum from SharedDomains (after SeekCommitment)
-	//  2. ExecutionStage > Snapshots: no half-block data possible. Rely on DB.
-	restoreTxNum := func(applyTx kv.Tx) error {
-		var err error
-		maxTxNum, err = txNumsReader.Max(applyTx, maxBlockNum)
-		if err != nil {
-			return err
-		}
-		ok, _blockNum, err := txNumsReader.FindBlockNum(applyTx, doms.TxNum())
-		if err != nil {
-			return err
-		}
-		if !ok {
-			_lb, _lt, _ := txNumsReader.Last(applyTx)
-			_fb, _ft, _ := txNumsReader.First(applyTx)
-			return fmt.Errorf("seems broken TxNums index not filled. can't find blockNum of txNum=%d; in db: (%d-%d, %d-%d)", inputTxNum, _fb, _lb, _ft, _lt)
-		}
-		{
-			_max, _ := txNumsReader.Max(applyTx, _blockNum)
-			if doms.TxNum() == _max {
-				_blockNum++
-			}
-		}
-
-		_min, err := txNumsReader.Min(applyTx, _blockNum)
-		if err != nil {
-			return err
-		}
-
-		if doms.TxNum() > _min {
-			// if stopped in the middle of the block: start from beginning of block.
-			// first part will be executed in HistoryExecution mode
-			offsetFromBlockBeginning = doms.TxNum() - _min
-		}
-
-		inputTxNum = _min
-		outputTxNum.Store(inputTxNum)
-
-		//_max, _ := txNumsReader.Max(applyTx, blockNum)
-		//fmt.Printf("[commitment] found domain.txn %d, inputTxn %d, offset %d. DB found block %d {%d, %d}\n", doms.TxNum(), inputTxNum, offsetFromBlockBeginning, blockNum, _min, _max)
-		doms.SetBlockNum(_blockNum)
-		doms.SetTxNum(inputTxNum)
-		return nil
-	}
-	if applyTx != nil {
-		if _nothing, err := nothingToExec(applyTx); err != nil {
-			return err
-		} else if _nothing {
-			return nil
-		}
-
-		if err := restoreTxNum(applyTx); err != nil {
-			return err
-		}
-	} else {
-		var _nothing bool
-		if err := chainDb.View(ctx, func(tx kv.Tx) (err error) {
-			if _nothing, err = nothingToExec(applyTx); err != nil {
-				return err
-			} else if _nothing {
-				return nil
-			}
-
-			return restoreTxNum(applyTx)
-		}); err != nil {
-			return err
-		}
-		if _nothing {
-			return nil
-		}
-	}
-
-	ts := time.Duration(0)
 	blockNum = doms.BlockNum()
 	outputTxNum.Store(doms.TxNum())
 
@@ -303,20 +287,18 @@ func ExecV3(ctx context.Context,
 		return nil
 	}
 
-	shouldGenerateChangesets := maxBlockNum-blockNum <= changesetSafeRange || cfg.keepAllChangesets
+	shouldGenerateChangesets := maxBlockNum-blockNum <= changesetSafeRange || cfg.syncCfg.AlwaysGenerateChangesets
 	if blockNum < cfg.blockReader.FrozenBlocks() {
 		shouldGenerateChangesets = false
 	}
 
 	if maxBlockNum > blockNum+16 {
 		log.Info(fmt.Sprintf("[%s] starting", execStage.LogPrefix()),
-			"from", blockNum, "to", maxBlockNum, "fromTxNum", doms.TxNum(), "offsetFromBlockBeginning", offsetFromBlockBeginning, "initialCycle", initialCycle, "useExternalTx", useExternalTx)
+			"from", blockNum, "to", maxBlockNum, "fromTxNum", doms.TxNum(), "offsetFromBlockBeginning", offsetFromBlockBeginning, "initialCycle", initialCycle, "useExternalTx", useExternalTx, "inMem", inMemExec)
 	}
 
 	agg.BuildFilesInBackground(outputTxNum.Load())
 
-	var outputBlockNum = stages.SyncMetrics[stages.Execution]
-	inputBlockNum := &atomic.Uint64{}
 	var count uint64
 
 	shouldReportToTxPool := cfg.notifications != nil && !isMining && maxBlockNum <= blockNum+64
@@ -333,54 +315,65 @@ func ExecV3(ctx context.Context,
 	// Now rwLoop closing both (because applyLoop we completely restart)
 	// Maybe need split channels? Maybe don't exit from ApplyLoop? Maybe current way is also ok?
 
-	// input queue
-	in := state.NewQueueWithRetry(100_000)
-	defer in.Close()
+	if applyTx != nil {
+		if inputTxNum, maxTxNum, offsetFromBlockBeginning, err = restoreTxNum(ctx, &cfg, applyTx, doms, maxBlockNum); err != nil {
+			return err
+		}
+	} else {
+		if err := cfg.db.View(ctx, func(tx kv.Tx) (err error) {
+			inputTxNum, maxTxNum, offsetFromBlockBeginning, err = restoreTxNum(ctx, &cfg, tx, doms, maxBlockNum)
+			return err
+		}); err != nil {
+			return err
+		}
+	}
 
-	rwsConsumed := make(chan struct{}, 1)
-	defer close(rwsConsumed)
+	if maxTxNum == 0 {
+		return nil
+	}
 
 	applyWorker := cfg.applyWorker
 	if isMining {
 		applyWorker = cfg.applyWorkerMining
 	}
-	applyWorker.ResetState(rs, accumulator)
 	defer applyWorker.LogLRUStats()
 
-	commitThreshold := batchSize.Bytes()
+	applyWorker.ResetState(rs, accumulator)
+
+	commitThreshold := cfg.batchSize.Bytes()
+
+	// TODO are these dups ?
+	processed := NewProgress(blockNum, commitThreshold, workerCount, true, execStage.LogPrefix(), logger)
 	progress := NewProgress(blockNum, commitThreshold, workerCount, false, execStage.LogPrefix(), logger)
+
 	logEvery := time.NewTicker(20 * time.Second)
 	defer logEvery.Stop()
 	pruneEvery := time.NewTicker(2 * time.Second)
 	defer pruneEvery.Stop()
 
 	var logGas uint64
-	var txCount uint64
 	var stepsInDB float64
-
-	processed := NewProgress(blockNum, commitThreshold, workerCount, true, execStage.LogPrefix(), logger)
-	defer func() {
-		processed.Log("Done", rs, in, nil, txCount, logGas, inputBlockNum.Load(), outputBlockNum.GetValueUint64(), outputTxNum.Load(), mxExecRepeats.GetValueUint64(), stepsInDB, shouldGenerateChangesets)
-	}()
-
-	var pe *parallelExecutor
+	var executor executor
 
 	if parallel {
-		pe = &parallelExecutor{
-			execStage:                execStage,
-			chainDb:                  chainDb,
-			applyWorker:              applyWorker,
-			applyTx:                  applyTx,
-			outputTxNum:              &outputTxNum,
-			in:                       in,
-			rs:                       rs,
-			agg:                      agg,
-			rwsConsumed:              rwsConsumed,
-			isMining:                 isMining,
-			inMemExec:                inMemExec,
+		pe := &parallelExecutor{
+			txExecutor: txExecutor{
+				cfg:            cfg,
+				execStage:      execStage,
+				rs:             rs,
+				doms:           doms,
+				agg:            agg,
+				accumulator:    accumulator,
+				isMining:       isMining,
+				inMemExec:      inMemExec,
+				applyTx:        applyTx,
+				applyWorker:    applyWorker,
+				outputTxNum:    &outputTxNum,
+				outputBlockNum: stages.SyncMetrics[stages.Execution],
+				logger:         logger,
+			},
 			shouldGenerateChangesets: shouldGenerateChangesets,
 			workerCount:              workerCount,
-			accumulator:              accumulator,
 			pruneEvery:               pruneEvery,
 			logEvery:                 logEvery,
 			progress:                 progress,
@@ -388,34 +381,58 @@ func ExecV3(ctx context.Context,
 
 		executorCancel := pe.run(ctx, maxTxNum, logger)
 		defer executorCancel()
-	}
 
-	getHeaderFunc := func(hash common.Hash, number uint64) (h *types.Header) {
-		var err error
-		if parallel {
-			if err = chainDb.View(ctx, func(tx kv.Tx) error {
-				h, err = blockReader.Header(ctx, tx, hash, number)
-				if err != nil {
-					return err
-				}
-				return nil
-			}); err != nil {
-				panic(err)
-			}
-			return h
-		} else {
-			h, err = blockReader.Header(ctx, applyTx, hash, number)
-			if err != nil {
-				panic(err)
-			}
-			return h
-		}
-	}
-	if !parallel {
+		defer func() {
+			processed.Log("Done", executor.readState(), nil, pe.rws, 0 /*txCount - TODO*/, logGas, inputBlockNum.Load(), outputBlockNum.GetValueUint64(), outputTxNum.Load(), mxExecRepeats.GetValueUint64(), stepsInDB, shouldGenerateChangesets, inMemExec)
+		}()
+
+		executor = pe
+	} else {
 		applyWorker.ResetTx(applyTx)
 		doms.SetTx(applyTx)
+
+		se := &serialExecutor{
+			txExecutor: txExecutor{
+				cfg:            cfg,
+				execStage:      execStage,
+				rs:             rs,
+				doms:           doms,
+				agg:            agg,
+				u:              u,
+				isMining:       isMining,
+				inMemExec:      inMemExec,
+				applyTx:        applyTx,
+				applyWorker:    applyWorker,
+				outputTxNum:    &outputTxNum,
+				outputBlockNum: stages.SyncMetrics[stages.Execution],
+				logger:         logger,
+			},
+		}
+
+		defer func() {
+			processed.Log("Done", executor.readState(), nil, nil, se.txCount, logGas, inputBlockNum.Load(), outputBlockNum.GetValueUint64(), outputTxNum.Load(), mxExecRepeats.GetValueUint64(), stepsInDB, shouldGenerateChangesets, inMemExec)
+		}()
+
+		executor = se
 	}
 	posa, isPoSa := cfg.engine.(consensus.PoSA)
+
+	blockComplete.Store(true)
+
+	ts := time.Duration(0)
+	blockNum = executor.domains().BlockNum()
+	outputTxNum.Store(executor.domains().TxNum())
+
+	if maxBlockNum < blockNum {
+		return nil
+	}
+
+	if maxBlockNum > blockNum+16 {
+		log.Info(fmt.Sprintf("[%s] starting", execStage.LogPrefix()),
+			"from", blockNum, "to", maxBlockNum, "fromTxNum", executor.domains().TxNum(), "offsetFromBlockBeginning", offsetFromBlockBeginning, "initialCycle", initialCycle, "useExternalTx", useExternalTx)
+	}
+
+	agg.BuildFilesInBackground(outputTxNum.Load())
 
 	var readAhead chan uint64
 	if !parallel {
@@ -440,12 +457,12 @@ Loop:
 		// set shouldGenerateChangesets=true if we are at last n blocks from maxBlockNum. this is as a safety net in chains
 		// where during initial sync we can expect bogus blocks to be imported.
 		if !shouldGenerateChangesets && shouldGenerateChangesetsForLastBlocks && blockNum > cfg.blockReader.FrozenBlocks() && blockNum+changesetSafeRange >= maxBlockNum {
-			aggTx := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
+			aggTx := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
-			doms.SetChangesetAccumulator(nil) // Make sure we don't have an active changeset accumulator
+			executor.domains().SetChangesetAccumulator(nil) // Make sure we don't have an active changeset accumulator
 			// First compute and commit the progress done so far
-			if _, err := doms.ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix()); err != nil {
+			if _, err := executor.domains().ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix()); err != nil {
 				return err
 			}
 			ts += time.Since(start)
@@ -454,7 +471,7 @@ Loop:
 		}
 		changeset := &state2.StateChangeSet{}
 		if shouldGenerateChangesets && blockNum > 0 {
-			doms.SetChangesetAccumulator(changeset)
+			executor.domains().SetChangesetAccumulator(changeset)
 		}
 		if !parallel {
 			select {
@@ -463,9 +480,9 @@ Loop:
 			}
 		}
 		inputBlockNum.Store(blockNum)
-		doms.SetBlockNum(blockNum)
+		executor.domains().SetBlockNum(blockNum)
 
-		b, err = blockWithSenders(ctx, chainDb, applyTx, blockReader, blockNum)
+		b, err = blockWithSenders(ctx, cfg.db, executor.tx(), blockReader, blockNum)
 		if err != nil {
 			return err
 		}
@@ -479,22 +496,21 @@ Loop:
 		skipAnalysis := core.SkipAnalysis(chainConfig, blockNum)
 		signer := *types.MakeSigner(chainConfig, blockNum, header.Time)
 
-		f := core.GetHashFn(header, getHeaderFunc)
 		getHashFnMute := &sync.Mutex{}
-		getHashFn := func(n uint64) common.Hash {
+		getHashFn := core.GetHashFn(header, func(hash common.Hash, number uint64) (h *types.Header) {
 			getHashFnMute.Lock()
 			defer getHashFnMute.Unlock()
-			return f(n)
-		}
+			return executor.getHeader(ctx, hash, number)
+		})
 		totalGasUsed += b.GasUsed()
-		blockContext := core.NewEVMBlockContext(header, getHashFn, engine, cfg.author /* author */, chainConfig)
+		blockContext := core.NewEVMBlockContext(header, getHashFn, cfg.engine, cfg.author /* author */, chainConfig)
 		// print type of engine
 		if parallel {
-			if err := pe.status(ctx, commitThreshold); err != nil {
+			if err := executor.status(ctx, commitThreshold); err != nil {
 				return err
 			}
-		} else if shouldReportToTxPool {
-			txs, err := blockReader.RawTransactions(context.Background(), applyTx, b.NumberU64(), b.NumberU64())
+		} else if accumulator != nil {
+			txs, err := blockReader.RawTransactions(context.Background(), executor.tx(), b.NumberU64(), b.NumberU64())
 			if err != nil {
 				return err
 			}
@@ -507,7 +523,7 @@ Loop:
 		// Thus, we need to skip the first txs in the block, however, this causes the GasUsed to be incorrect.
 		// So we skip that check for the first block, if we find half-executed data.
 		skipPostEvaluation := false
-		var usedGas, blobGasUsed uint64
+		var usedGas uint64
 		var systemTxIndex int
 
 		var txTasks []*state.TxTask
@@ -538,7 +554,7 @@ Loop:
 				Config: chainConfig,
 			}
 			if txTask.HistoryExecution && usedGas == 0 {
-				usedGas, blobGasUsed, _, err = rawtemporaldb.ReceiptAsOf(applyTx.(kv.TemporalTx), txTask.TxNum)
+				usedGas, _, _, err = rawtemporaldb.ReceiptAsOf(executor.tx().(kv.TemporalTx), txTask.TxNum)
 				if err != nil {
 					return err
 				}
@@ -561,8 +577,8 @@ Loop:
 				skipPostEvaluation = true
 				continue
 			}
-			doms.SetTxNum(txTask.TxNum)
-			doms.SetBlockNum(txTask.BlockNum)
+			executor.domains().SetTxNum(txTask.TxNum)
+			executor.domains().SetBlockNum(txTask.BlockNum)
 
 			if txIndex >= 0 && txIndex < len(txs) {
 				txTask.Tx = txs[txIndex]
@@ -570,135 +586,69 @@ Loop:
 				if err != nil {
 					return err
 				}
-
-				if sender, ok := txs[txIndex].GetSender(); ok {
-					txTask.Sender = &sender
-				} else {
-					sender, err := signer.Sender(txTask.Tx)
-					if err != nil {
-						return err
-					}
-					txTask.Sender = &sender
-					logger.Warn("[Execution] expensive lazy sender recovery", "blockNum", txTask.BlockNum, "txIdx", txTask.TxIndex)
-				}
 			}
 
-			if parallel {
-				txTasks = append(txTasks, txTask)
-				stageProgress = blockNum
-				inputTxNum++
-				continue
-			}
-
-			count++
-			if txTask.Error != nil {
-				break Loop
-			}
-			applyWorker.RunTxTaskNoLock(txTask, isMining)
-			if err := func() error {
-				if errors.Is(txTask.Error, context.Canceled) {
-					return err
-				}
-				if txTask.Error != nil {
-					return fmt.Errorf("%w, txnIdx=%d, %v", consensus.ErrInvalidBlock, txTask.TxIndex, txTask.Error) //same as in stage_exec.go
-				}
-
-				txCount++
-				usedGas += txTask.UsedGas
-				logGas += txTask.UsedGas
-				mxExecGas.Add(float64(txTask.UsedGas))
-				mxExecTransactions.Add(1)
-
-				if txTask.Tx != nil {
-					blobGasUsed += txTask.Tx.GetBlobGas()
-				}
-
-				txTask.CreateReceipt(applyTx)
-
-				if txTask.Final {
-					if !isMining && !inMemExec && !skipPostEvaluation && !execStage.CurrentSyncCycle.IsInitialCycle {
-						cfg.notifications.RecentLogs.Add(blockReceipts)
-					}
-					checkReceipts := !cfg.vmConfig.StatelessExec && chainConfig.IsByzantium(txTask.BlockNum) && !cfg.vmConfig.NoReceipts && !isMining
-					if txTask.BlockNum > 0 && !skipPostEvaluation { //Disable check for genesis. Maybe need somehow improve it in future - to satisfy TestExecutionSpec
-						if err := core.BlockPostValidation(usedGas, blobGasUsed, checkReceipts, txTask.BlockReceipts, txTask.Header, isMining); err != nil {
-							return fmt.Errorf("%w, txnIdx=%d, %v", consensus.ErrInvalidBlock, txTask.TxIndex, err) //same as in stage_exec.go
-						}
-					}
-					usedGas, blobGasUsed = 0, 0
-				}
-				return nil
-			}(); err != nil {
-				if errors.Is(err, context.Canceled) {
-					return err
-				}
-				logger.Warn(fmt.Sprintf("[%s] Execution failed", execStage.LogPrefix()), "block", blockNum, "txNum", txTask.TxNum, "hash", header.Hash().String(), "err", err)
-				if cfg.hd != nil && cfg.hd.POSSync() && errors.Is(err, consensus.ErrInvalidBlock) {
-					cfg.hd.ReportBadHeaderPoS(header.Hash(), header.ParentHash)
-				}
-				if cfg.badBlockHalt {
-					return err
-				}
-				if errors.Is(err, consensus.ErrInvalidBlock) {
-					if u != nil {
-						if err := u.UnwindTo(blockNum-1, BadBlock(header.Hash(), err), applyTx); err != nil {
-							return err
-						}
-					}
-				} else {
-					if u != nil {
-						if err := u.UnwindTo(blockNum-1, ExecUnwind, applyTx); err != nil {
-							return err
-						}
-					}
-				}
-				break Loop
-			}
-
-			if !txTask.Final {
-				var receipt *types.Receipt
-				if txTask.TxIndex >= 0 && !txTask.Final {
-					receipt = txTask.BlockReceipts[txTask.TxIndex]
-				}
-				if err := rawtemporaldb.AppendReceipt(doms, receipt, blobGasUsed); err != nil {
-					return err
-				}
-			}
-
-			// MA applystate
-			if err := rs.ApplyState4(ctx, txTask); err != nil {
-				return err
-			}
-
+			txTasks = append(txTasks, txTask)
 			stageProgress = blockNum
-			outputTxNum.Add(1)
 			inputTxNum++
 		}
 
 		if parallel {
-			if _, err := pe.execute(ctx, txTasks); err != nil {
+			if _, err := executor.execute(ctx, txTasks); err != nil {
 				return err
+			}
+			agg.BuildFilesInBackground(outputTxNum.Load())
+		} else {
+			se := executor.(*serialExecutor)
+
+			se.skipPostEvaluation = skipPostEvaluation
+
+			continueLoop, err := se.execute(ctx, txTasks)
+
+			if err != nil {
+				return err
+			}
+
+			count += uint64(len(txTasks))
+			logGas += se.usedGas
+
+			se.usedGas = 0
+			se.blobGasUsed = 0
+
+			if !continueLoop {
+				break Loop
 			}
 		}
 
 		mxExecBlocks.Add(1)
 
 		if shouldGenerateChangesets {
-			aggTx := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
+			aggTx := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
-			if _, err := doms.ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix()); err != nil {
-				return err
-			}
-			ts += time.Since(start)
-			aggTx.RestrictSubsetFileDeletions(false)
-			doms.SavePastChangesetAccumulator(b.Hash(), blockNum, changeset)
-			if !inMemExec {
-				if err := state2.WriteDiffSet(applyTx, blockNum, b.Hash(), changeset); err != nil {
+			if dbg.DiscardCommitment() {
+				_ = executor.domains().SaveCommitment(blockNum, b.Root().Bytes())
+			} else {
+				_ /*rh*/, err := executor.domains().ComputeCommitment(ctx, true, blockNum, execStage.LogPrefix())
+				if err != nil {
 					return err
 				}
 			}
-			doms.SetChangesetAccumulator(nil)
+
+			//if !bytes.Equal(rh, header.Root.Bytes()) {
+			//	logger.Error(fmt.Sprintf("[%s] Wrong trie root of block %d: %x, expected (from header): %x. Block hash: %x", execStage.LogPrefix(), header.Number.Uint64(), rh, header.Root.Bytes(), header.Hash()))
+			//	return errors.New("wrong trie root")
+			//}
+
+			ts += time.Since(start)
+			aggTx.RestrictSubsetFileDeletions(false)
+			executor.domains().SavePastChangesetAccumulator(b.Hash(), blockNum, changeset)
+			if !inMemExec {
+				if err := state2.WriteDiffSet(executor.tx(), blockNum, b.Hash(), changeset); err != nil {
+					return err
+				}
+			}
+			executor.domains().SetChangesetAccumulator(nil)
 		}
 
 		mxExecBlocks.Add(1)
@@ -714,30 +664,28 @@ Loop:
 				metrics2.UpdateBlockConsumerPostExecutionDelay(b.Time(), blockNum, logger)
 			}
 
-			outputBlockNum.SetUint64(blockNum)
-
 			select {
 			case <-logEvery.C:
 				if inMemExec || isMining {
 					break
 				}
 
-				stepsInDB := rawdbhelpers.IdxStepsCountV3(applyTx)
-				progress.Log("", rs, in, nil, count, logGas, inputBlockNum.Load(), outputBlockNum.GetValueUint64(), outputTxNum.Load(), mxExecRepeats.GetValueUint64(), stepsInDB, shouldGenerateChangesets)
+				stepsInDB := rawdbhelpers.IdxStepsCountV3(executor.tx())
+				progress.Log("", executor.readState(), nil, nil, count, logGas, inputBlockNum.Load(), outputBlockNum.GetValueUint64(), outputTxNum.Load(), mxExecRepeats.GetValueUint64(), stepsInDB, shouldGenerateChangesets, inMemExec)
 
 				//TODO: https://github.com/erigontech/erigon/issues/10724
-				//if applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).CanPrune(applyTx, outputTxNum.Load()) {
+				//if executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).CanPrune(executor.tx(), outputTxNum.Load()) {
 				//	//small prune cause MDBX_TXN_FULL
-				//	if _, err := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneSmallBatches(ctx, 10*time.Hour, applyTx); err != nil {
+				//	if _, err := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneSmallBatches(ctx, 10*time.Hour, executor.tx()); err != nil {
 				//		return err
 				//	}
 				//}
 
-				aggregatorRo := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
+				aggregatorRo := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
 
-				needCalcRoot := rs.SizeEstimate() >= commitThreshold ||
+				needCalcRoot := executor.readState().SizeEstimate() >= commitThreshold ||
 					skipPostEvaluation || // If we skip post evaluation, then we should compute root hash ASAP for fail-fast
-					aggregatorRo.CanPrune(applyTx, outputTxNum.Load()) // if have something to prune - better prune ASAP to keep chaindata smaller
+					aggregatorRo.CanPrune(executor.tx(), outputTxNum.Load()) // if have something to prune - better prune ASAP to keep chaindata smaller
 				if !needCalcRoot {
 					break
 				}
@@ -746,10 +694,10 @@ Loop:
 					commitStart = time.Now()
 					tt          = time.Now()
 
-					t1, t2, t3 time.Duration
+					t1, t3 time.Duration
 				)
 
-				if ok, err := flushAndCheckCommitmentV3(ctx, b.HeaderNoCopy(), applyTx, doms, cfg, execStage, stageProgress, parallel, logger, u, inMemExec); err != nil {
+				if ok, err := flushAndCheckCommitmentV3(ctx, b.HeaderNoCopy(), executor.tx(), executor.domains(), cfg, execStage, stageProgress, parallel, logger, u, inMemExec); err != nil {
 					return err
 				} else if !ok {
 					break Loop
@@ -758,46 +706,13 @@ Loop:
 				t1 = time.Since(tt) + ts
 
 				tt = time.Now()
-				if _, err := aggregatorRo.PruneSmallBatches(ctx, 10*time.Hour, applyTx); err != nil {
+				if _, err := aggregatorRo.PruneSmallBatches(ctx, 10*time.Hour, executor.tx()); err != nil {
 					return err
 				}
 				t3 = time.Since(tt)
 
-				if err := func() error {
-					doms.Close()
-					if err = execStage.Update(applyTx, outputBlockNum.GetValueUint64()); err != nil {
-						return err
-					}
-
-					tt = time.Now()
-					applyTx.CollectMetrics()
-
-					if !useExternalTx {
-						tt = time.Now()
-						if err = applyTx.Commit(); err != nil {
-							return err
-						}
-
-						t2 = time.Since(tt)
-						agg.BuildFilesInBackground(outputTxNum.Load())
-
-						applyTx, err = cfg.db.BeginRw(context.Background()) //nolint
-						if err != nil {
-							return err
-						}
-					}
-					doms, err = state2.NewSharedDomains(applyTx, logger)
-					if err != nil {
-						return err
-					}
-					doms.SetTxNum(inputTxNum)
-					rs = state.NewStateV3(doms, logger)
-
-					applyWorker.ResetTx(applyTx)
-					applyWorker.ResetState(rs, accumulator)
-
-					return nil
-				}(); err != nil {
+				t2, err := executor.(*serialExecutor).commit(ctx, inputTxNum, outputBlockNum.GetValueUint64(), useExternalTx)
+				if err != nil {
 					return err
 				}
 
@@ -806,16 +721,13 @@ Loop:
 					break Loop
 				}
 				logger.Info("Committed", "time", time.Since(commitStart),
-					"block", doms.BlockNum(), "txNum", doms.TxNum(),
-					"step", fmt.Sprintf("%.1f", float64(doms.TxNum())/float64(agg.StepSize())),
+					"block", executor.domains().BlockNum(), "txNum", executor.domains().TxNum(),
+					"step", fmt.Sprintf("%.1f", float64(executor.domains().TxNum())/float64(agg.StepSize())),
 					"flush+commitment", t1, "tx.commit", t2, "prune", t3)
 			default:
 			}
 		}
 
-		if parallel { // sequential exec - does aggregate right after commit
-			agg.BuildFilesInBackground(outputTxNum.Load())
-		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -825,14 +737,12 @@ Loop:
 
 	//log.Info("Executed", "blocks", inputBlockNum.Load(), "txs", outputTxNum.Load(), "repeats", mxExecRepeats.GetValueUint64())
 
-	if parallel {
-		logger.Warn("[dbg] all txs sent")
-		pe.wait()
-	}
+	//fmt.Println("WAIT")
+	executor.wait()
 
 	if u != nil && !u.HasUnwindPoint() {
 		if b != nil {
-			_, err := flushAndCheckCommitmentV3(ctx, b.HeaderNoCopy(), applyTx, doms, cfg, execStage, stageProgress, parallel, logger, u, inMemExec)
+			_, err := flushAndCheckCommitmentV3(ctx, b.HeaderNoCopy(), executor.tx(), executor.domains(), cfg, execStage, stageProgress, parallel, logger, u, inMemExec)
 			if err != nil {
 				return err
 			}
@@ -841,10 +751,10 @@ Loop:
 		}
 	}
 
-	//dumpPlainStateDebug(applyTx, doms)
+	//dumpPlainStateDebug(executor.tx(), executor.domains())
 
-	if !useExternalTx && applyTx != nil {
-		if err = applyTx.Commit(); err != nil {
+	if !useExternalTx && executor.tx() != nil {
+		if err = executor.tx().Commit(); err != nil {
 			return err
 		}
 	}
@@ -860,7 +770,7 @@ func dumpPlainStateDebug(tx kv.RwTx, doms *state2.SharedDomains) {
 		doms.Flush(context.Background(), tx)
 	}
 	{
-		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).DomainRangeLatest(tx, kv.AccountsDomain, nil, nil, -1)
+		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).RangeLatest(tx, kv.AccountsDomain, nil, nil, -1)
 		if err != nil {
 			panic(err)
 		}
@@ -875,7 +785,7 @@ func dumpPlainStateDebug(tx kv.RwTx, doms *state2.SharedDomains) {
 		}
 	}
 	{
-		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).DomainRangeLatest(tx, kv.StorageDomain, nil, nil, -1)
+		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).RangeLatest(tx, kv.StorageDomain, nil, nil, -1)
 		if err != nil {
 			panic(1)
 		}
@@ -888,7 +798,7 @@ func dumpPlainStateDebug(tx kv.RwTx, doms *state2.SharedDomains) {
 		}
 	}
 	{
-		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).DomainRangeLatest(tx, kv.CommitmentDomain, nil, nil, -1)
+		it, err := tx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).RangeLatest(tx, kv.CommitmentDomain, nil, nil, -1)
 		if err != nil {
 			panic(1)
 		}
@@ -923,27 +833,31 @@ func flushAndCheckCommitmentV3(ctx context.Context, header *types.Header, applyT
 		return false, errors.New("header is nil")
 	}
 
-	if dbg.DiscardCommitment() {
-		return true, nil
-	}
 	if doms.BlockNum() != header.Number.Uint64() {
 		panic(fmt.Errorf("%d != %d", doms.BlockNum(), header.Number.Uint64()))
 	}
 
-	rh, err := doms.ComputeCommitment(ctx, true, header.Number.Uint64(), e.LogPrefix())
-	if err != nil {
-		return false, fmt.Errorf("StateV3.Apply: %w", err)
+	var rh []byte
+	var err error
+	if dbg.DiscardCommitment() {
+		doms.ResetCommitment()
+		_ = doms.SaveCommitment(doms.BlockNum(), header.Root.Bytes())
+	} else {
+		rh, err = doms.ComputeCommitment(ctx, true, header.Number.Uint64(), e.LogPrefix())
+		if err != nil {
+			return false, fmt.Errorf("StateV3.Apply: %w", err)
+		}
+		if cfg.blockProduction {
+			header.Root = common.BytesToHash(rh)
+			return true, nil
+		}
 	}
-	if cfg.blockProduction {
-		header.Root = common.BytesToHash(rh)
-		return true, nil
-	}
-	if bytes.Equal(rh, header.Root.Bytes()) {
+	if bytes.Equal(rh, header.Root.Bytes()) || dbg.DiscardCommitment() {
 		if !inMemExec {
 			if err := doms.Flush(ctx, applyTx); err != nil {
 				return false, err
 			}
-			if err = applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneCommitHistory(ctx, applyTx, nil); err != nil {
+			if err := applyTx.(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx).PruneCommitHistory(ctx, applyTx, nil); err != nil {
 				return false, err
 			}
 		}

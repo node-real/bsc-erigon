@@ -90,8 +90,18 @@ func (p Preverified) Typed(types []snaptype.Type) Preverified {
 	var bestVersions btree.Map[string, PreverifiedItem]
 
 	for _, p := range p {
+		if strings.HasPrefix(p.Name, "salt") && strings.HasSuffix(p.Name, "txt") {
+			bestVersions.Set(p.Name, p)
+			continue
+		}
+
 		v, name, ok := strings.Cut(p.Name, "-")
 		if !ok {
+			continue
+		}
+
+		if strings.HasPrefix(p.Name, "caplin") {
+			bestVersions.Set(p.Name, p)
 			continue
 		}
 
@@ -246,7 +256,7 @@ func (p Preverified) Versioned(preferredVersion snaptype.Version, minVersion sna
 }
 
 func (p Preverified) MaxBlock(version snaptype.Version) (uint64, error) {
-	max := uint64(0)
+	_max := uint64(0)
 	for _, p := range p {
 		_, fileName := filepath.Split(p.Name)
 		ext := filepath.Ext(fileName)
@@ -262,16 +272,16 @@ func (p Preverified) MaxBlock(version snaptype.Version) (uint64, error) {
 			return 0, err
 		}
 
-		if max < to {
-			max = to
+		if _max < to {
+			_max = to
 		}
 
 	}
-	if max == 0 { // to prevent underflow
+	if _max == 0 { // to prevent underflow
 		return 0, nil
 	}
 
-	return max*1_000 - 1, nil
+	return _max*1_000 - 1, nil
 }
 
 var errWrongVersion = errors.New("wrong version")
@@ -394,6 +404,9 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 		if !ok {
 			continue
 		}
+		if strings.Contains(p.Name, "caplin") {
+			continue
+		}
 
 		if info.Ext != ".seg" || (t != snaptype.Unknown && t != info.Type.Enum()) {
 			continue
@@ -454,29 +467,22 @@ func Seedable(networkName string, info snaptype.FileInfo) bool {
 	return KnownCfg(networkName).Seedable(info)
 }
 
-func IsFrozen(networkName string, info snaptype.FileInfo) bool {
-	if networkName == "" {
-		return false
-	}
-	return KnownCfg(networkName).IsFrozen(info)
-}
-
 func MergeLimitFromCfg(cfg *Cfg, snapType snaptype.Enum, fromBlock uint64) uint64 {
 	return cfg.MergeLimit(snapType, fromBlock)
 }
 
 func MaxSeedableSegment(chain string, dir string) uint64 {
-	var max uint64
-
+	var _max uint64
+	segConfig := KnownCfg(chain)
 	if list, err := snaptype.Segments(dir); err == nil {
 		for _, info := range list {
-			if Seedable(chain, info) && info.Type.Enum() == snaptype.MinCoreEnum && info.To > max {
-				max = info.To
+			if segConfig.Seedable(info) && info.Type.Enum() == snaptype.MinCoreEnum && info.To > _max {
+				_max = info.To
 			}
 		}
 	}
 
-	return max
+	return _max
 }
 
 var oldMergeSteps = append([]uint64{snaptype.Erigon2OldMergeLimit}, snaptype.MergeSteps...)
@@ -491,6 +497,13 @@ func MergeStepsFromCfg(cfg *Cfg, snapType snaptype.Enum, fromBlock uint64) []uin
 	return snaptype.MergeSteps
 }
 
+func IsFrozen(networkName string, info snaptype.FileInfo) bool {
+	if networkName == "" {
+		return false
+	}
+	return KnownCfg(networkName).IsFrozen(info)
+}
+
 // KnownCfg return list of preverified hashes for given network, but apply whiteList filter if it's not empty
 func KnownCfg(networkName string) *Cfg {
 	c, ok := knownPreverified[networkName]
@@ -500,14 +513,14 @@ func KnownCfg(networkName string) *Cfg {
 	return newCfg(networkName, c.Typed(knownTypes[networkName]))
 }
 
-func VersionedCfg(networkName string, preferred snaptype.Version, min snaptype.Version) *Cfg {
+func VersionedCfg(networkName string, preferred snaptype.Version, _min snaptype.Version) *Cfg {
 	c, ok := knownPreverified[networkName]
 
 	if !ok {
 		return newCfg(networkName, Preverified{})
 	}
 
-	return newCfg(networkName, c.Versioned(preferred, min))
+	return newCfg(networkName, c.Versioned(preferred, _min))
 }
 
 var KnownWebseeds = map[string][]string{

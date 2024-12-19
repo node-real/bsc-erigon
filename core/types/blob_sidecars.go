@@ -8,8 +8,7 @@ import (
 	"math/big"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
-	rlp2 "github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon/rlp"
+	"github.com/erigontech/erigon-lib/rlp"
 )
 
 type BlobSidecars []*BlobSidecar
@@ -60,7 +59,7 @@ func (s *BlobSidecar) SanityCheck(blockNumber *big.Int, blockHash libcommon.Hash
 // generate encode and decode rlp for BlobSidecar
 func (s *BlobSidecar) EncodeRLP(w io.Writer) error {
 	var b [33]byte
-	if err := EncodeStructSizePrefix(s.payloadSize(), w, b[:]); err != nil {
+	if err := rlp.EncodeStructSizePrefix(s.payloadSize(), w, b[:]); err != nil {
 		return err
 	}
 	if err := s.BlobTxSidecar.EncodeRLP(w); err != nil {
@@ -139,17 +138,17 @@ func (sc *BlobSidecar) DecodeRLP(s *rlp.Stream) error {
 
 func (s *BlobSidecar) payloadSize() int {
 	size := s.BlobTxSidecar.payloadSize()
-	size += rlp2.ListPrefixLen(size) // size of payload size encoding
+	size += rlp.ListPrefixLen(size) // size of payload size encoding
 
 	size++
 	size += rlp.BigIntLenExcludingHead(s.BlockNumber)
 
-	size += rlp2.StringLen(s.BlockHash.Bytes())
+	size += rlp.StringLen(s.BlockHash.Bytes())
 
 	size++
 	size += rlp.IntLenExcludingHead(s.TxIndex)
 
-	size += rlp2.StringLen(s.TxHash.Bytes())
+	size += rlp.StringLen(s.TxHash.Bytes())
 	return size
 }
 

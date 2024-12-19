@@ -30,10 +30,9 @@ import (
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 
-	"github.com/erigontech/erigon/common"
+	"github.com/erigontech/erigon-lib/trie/vtree"
+	"github.com/erigontech/erigon-lib/types/accounts"
 	"github.com/erigontech/erigon/core/rawdb"
-	"github.com/erigontech/erigon/core/types/accounts"
-	"github.com/erigontech/erigon/turbo/trie/vtree"
 )
 
 func int256ToVerkleFormat(x *uint256.Int, buffer []byte) {
@@ -60,7 +59,7 @@ func flushVerkleNode(db kv.RwTx, node verkle.VerkleNode, logInterval *time.Ticke
 		totalInserted++
 		select {
 		case <-logInterval.C:
-			logger.Info("Flushing Verkle nodes", "inserted", totalInserted, "key", common.Bytes2Hex(key))
+			logger.Info("Flushing Verkle nodes", "inserted", totalInserted, "key", libcommon.Bytes2Hex(key))
 		default:
 		}
 	})
@@ -85,7 +84,7 @@ func collectVerkleNode(collector *etl.Collector, node verkle.VerkleNode, logInte
 		totalInserted++
 		select {
 		case <-logInterval.C:
-			logger.Info("Flushing Verkle nodes", "inserted", totalInserted, "key", common.Bytes2Hex(key))
+			logger.Info("Flushing Verkle nodes", "inserted", totalInserted, "key", libcommon.Bytes2Hex(key))
 		default:
 		}
 	})
@@ -211,32 +210,31 @@ func (v *VerkleTreeWriter) CommitVerkleTreeFromScratch() (libcommon.Hash, error)
 	root := verkle.New()
 
 	logInterval := time.NewTicker(30 * time.Second)
-	// TODO @blxdyx disable for go1.21
-	//if err := v.collector.Load(v.db, kv.VerkleTrie, func(k []byte, val []byte, _ etl.CurrentTableReader, next etl.LoadNextFunc) error {
-	//	if len(val) == 0 {
-	//		return next(k, nil, nil)
-	//	}
-	//	if err := root.InsertOrdered(libcommon.CopyBytes(k), libcommon.CopyBytes(val), func(node verkle.VerkleNode) {
-	//		rootHash := node.Commitment().Bytes()
-	//		encodedNode, err := node.Serialize()
-	//		if err != nil {
-	//			panic(err)
-	//		}
-	//		if err := verkleCollector.Collect(rootHash[:], encodedNode); err != nil {
-	//			panic(err)
-	//		}
-	//		select {
-	//		case <-logInterval.C:
-	//			v.logger.Info("[Verkle] Assembling Verkle Tree", "key", common.Bytes2Hex(k))
-	//		default:
-	//		}
-	//	}); err != nil {
-	//		return err
-	//	}
-	//	return next(k, nil, nil)
-	//}, etl.TransformArgs{Quit: context.Background().Done()}); err != nil {
-	//	return libcommon.Hash{}, err
-	//}
+	if err := v.collector.Load(v.db, kv.VerkleTrie, func(k []byte, val []byte, _ etl.CurrentTableReader, next etl.LoadNextFunc) error {
+		if len(val) == 0 {
+			return next(k, nil, nil)
+		}
+		if err := root.InsertOrdered(libcommon.CopyBytes(k), libcommon.CopyBytes(val), func(node verkle.VerkleNode) {
+			rootHash := node.Commitment().Bytes()
+			encodedNode, err := node.Serialize()
+			if err != nil {
+				panic(err)
+			}
+			if err := verkleCollector.Collect(rootHash[:], encodedNode); err != nil {
+				panic(err)
+			}
+			select {
+			case <-logInterval.C:
+				v.logger.Info("[Verkle] Assembling Verkle Tree", "key", libcommon.Bytes2Hex(k))
+			default:
+			}
+		}); err != nil {
+			return err
+		}
+		return next(k, nil, nil)
+	}, etl.TransformArgs{Quit: context.Background().Done()}); err != nil {
+		return libcommon.Hash{}, err
+	}
 
 	// Flush the rest all at once
 	if err := collectVerkleNode(v.collector, root, logInterval, nil, v.logger); err != nil {
@@ -246,7 +244,7 @@ func (v *VerkleTreeWriter) CommitVerkleTreeFromScratch() (libcommon.Hash, error)
 	v.logger.Info("Started Verkle Tree Flushing")
 	return root.Commitment().Bytes(), verkleCollector.Load(v.db, kv.VerkleTrie, etl.IdentityLoadFunc, etl.TransformArgs{Quit: context.Background().Done(),
 		LogDetailsLoad: func(k, v []byte) (additionalLogArguments []interface{}) {
-			return []interface{}{"key", common.Bytes2Hex(k)}
+			return []interface{}{"key", libcommon.Bytes2Hex(k)}
 		}})
 }
 

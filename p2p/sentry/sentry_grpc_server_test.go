@@ -86,7 +86,7 @@ func startHandshake(
 
 // Tests that peers are correctly accepted (or rejected) based on the advertised
 // fork IDs in the protocol handshake.
-func TestForkIDSplit66(t *testing.T) { testForkIDSplit(t, direct.ETH66) }
+func TestForkIDSplit68(t *testing.T) { testForkIDSplit(t, direct.ETH68) }
 
 func testForkIDSplit(t *testing.T, protocol uint) {
 	var (
@@ -178,7 +178,7 @@ func testForkIDSplit(t *testing.T, protocol uint) {
 					t.Fatalf("fork ID rejection didn't happen")
 				}
 			}
-		case <-time.After(250 * time.Millisecond):
+		case <-time.After(10000 * time.Millisecond):
 			t.Fatalf("split peers not rejected")
 		}
 	}

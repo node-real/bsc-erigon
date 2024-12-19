@@ -51,6 +51,25 @@ func readAndValidatePeerStatusMessage(
 	return reply, nil
 }
 
+func readUpgradeStatusMsg(rw p2p.MsgReadWriter, status *eth.UpgradeStatusPacket) *p2p.PeerError {
+	msg, err := rw.ReadMsg()
+	if err != nil {
+		return p2p.NewPeerError(p2p.PeerErrorStatusReceive, p2p.DiscNetworkError, err, "readUpgradeStatusMsg rw.ReadMsg error")
+	}
+	if msg.Code != eth.UpgradeStatusMsg {
+		return p2p.NewPeerError(p2p.PeerErrorStatusReceive, p2p.DiscNetworkError, err, "readUpgradeStatusMsg: upgrade status msg code != UpgradeStatusMsg")
+	}
+
+	if msg.Size > eth.ProtocolMaxMsgSize {
+		return p2p.NewPeerError(p2p.PeerErrorStatusReceive, p2p.DiscNetworkError, fmt.Errorf("message is too large %d, limit %d", msg.Size, eth.ProtocolMaxMsgSize), "readUpgradeStatusMsg too large")
+	}
+
+	if err := msg.Decode(&status); err != nil {
+		return p2p.NewPeerError(p2p.PeerErrorStatusReceive, p2p.DiscNetworkError, err, "readUpgradeStatusMsg DecodeUpgradeStatusMsg error")
+	}
+	return nil
+}
+
 func tryDecodeStatusMessage(msg *p2p.Msg) (*eth.StatusPacket, error) {
 	if msg.Code != eth.StatusMsg {
 		return nil, fmt.Errorf("first msg has code %x (!= %x)", msg.Code, eth.StatusMsg)

@@ -24,7 +24,7 @@ import (
 	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/config3"
 
-	"github.com/erigontech/erigon-lib/txpool/txpoolcfg"
+	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
 
 	libcommon "github.com/erigontech/erigon-lib/common"
 
@@ -85,10 +85,10 @@ var (
 
 	PruneModeFlag = cli.StringFlag{
 		Name: "prune.mode",
-		Usage: `Choose a pruning preset to run onto. Available values: "archive","full","minimal".
-				Archive: Keep the entire indexed database, aka. no pruning. (Pruning is flexible),
-				Full: Keep only blocks and latest state (Pruning is not flexible)
-				Minimal: Keep only latest state (Pruning is not flexible)`,
+		Usage: `Choose a pruning preset to run onto. Available values: "full", "archive", "minimal".
+				Full: Keep only blocks and latest state,
+				Archive: Keep the entire indexed database, aka. no pruning,
+				Minimal: Keep only latest state`,
 		Value: "archive",
 	}
 	PruneDistanceFlag = cli.Uint64Flag{
@@ -396,6 +396,10 @@ func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.
 	if ctx.Bool(utils.DisableIPV4.Name) {
 		cfg.Downloader.ClientConfig.DisableIPv4 = true
 	}
+
+	if ctx.Bool(utils.ChaosMonkeyFlag.Name) {
+		cfg.ChaosMonkey = true
+	}
 }
 
 func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
@@ -404,9 +408,7 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 	pruneDistance := f.Uint64(PruneDistanceFlag.Name, PruneDistanceFlag.Value, PruneDistanceFlag.Usage)
 
 	chainId := cfg.NetworkID
-	if *pruneMode != "archive" && (pruneBlockDistance != nil || pruneDistance != nil) {
-		utils.Fatalf("error: --prune.distance and --prune.distance.blocks are only allowed with --prune.mode=archive")
-	}
+
 	var distance, blockDistance uint64 = math.MaxUint64, math.MaxUint64
 	if pruneBlockDistance != nil {
 		blockDistance = *pruneBlockDistance
@@ -440,6 +442,9 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 	default:
 		utils.Fatalf("error: --prune.mode must be one of archive, full, minimal")
 	}
+	mode.Blocks = prune.Distance(blockDistance)
+	mode.History = prune.Distance(distance)
+
 	cfg.Prune = mode
 
 	cfg.DisableBlobPrune = *f.Bool(BscDisableBlobPruningFlag.Name, BscDisableBlobPruningFlag.Value, BscDisableBlobPruningFlag.Usage)
@@ -463,6 +468,10 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 	cfg.StateStream = true
 	if v := f.Bool(StateStreamDisableFlag.Name, false, StateStreamDisableFlag.Usage); v != nil {
 		cfg.StateStream = false
+	}
+
+	if v := f.Bool(utils.ChaosMonkeyFlag.Name, true, utils.ChaosMonkeyFlag.Usage); v != nil {
+		cfg.ChaosMonkey = true
 	}
 }
 

@@ -10,14 +10,14 @@ import (
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/seg"
 	"github.com/erigontech/erigon/cmd/hack/tool/fromdb"
 	coresnaptype "github.com/erigontech/erigon/core/snaptype"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/rlp"
 	"github.com/erigontech/erigon/turbo/services"
-	"path/filepath"
+	"github.com/erigontech/erigon/turbo/snapshotsync"
 	"reflect"
 )
 
@@ -30,7 +30,7 @@ func (br *BlockRetire) dbHasEnoughDataForBscRetire(ctx context.Context) (bool, e
 	return true, nil
 }
 
-func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, maxBlockNum uint64, lvl log.Lvl, seedNewSnapshots func(downloadRequest []services.DownloadRequest) error, onDelete func(l []string) error) (bool, error) {
+func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, maxBlockNum uint64, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (bool, error) {
 	select {
 	case <-ctx.Done():
 		return false, ctx.Err()
@@ -96,8 +96,8 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 		}
 		if seedNewSnapshots != nil {
-			downloadRequest := []services.DownloadRequest{
-				services.NewDownloadRequest("", ""),
+			downloadRequest := []snapshotsync.DownloadRequest{
+				snapshotsync.NewDownloadRequest("", ""),
 			}
 			if err := seedNewSnapshots(downloadRequest); err != nil {
 				return false, err
@@ -109,7 +109,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 }
 
 type BscRoSnapshots struct {
-	RoSnapshots
+	snapshotsync.RoSnapshots
 }
 
 // NewBscSnapshots - opens all snapshots. But to simplify everything:
@@ -118,35 +118,21 @@ type BscRoSnapshots struct {
 //   - gaps are not allowed
 //   - segment have [from:to) semantic
 func NewBscRoSnapshots(cfg ethconfig.BlocksFreezing, snapDir string, segmentsMin uint64, logger log.Logger) *BscRoSnapshots {
-	return &BscRoSnapshots{*newRoSnapshots(cfg, snapDir, coresnaptype.BscSnapshotTypes, segmentsMin, logger)}
+	return &BscRoSnapshots{*snapshotsync.NewRoSnapshots(cfg, snapDir, coresnaptype.BscSnapshotTypes, segmentsMin, false, logger)}
 }
 
-func (s *BscRoSnapshots) Ranges() []Range {
+func (s *BscRoSnapshots) Ranges() []snapshotsync.Range {
 	view := s.View()
 	defer view.Close()
 	return view.base.Ranges()
 }
 
-func (s *BscRoSnapshots) OpenFolder() error {
-	files, _, err := typedSegments(s.dir, coresnaptype.BscSnapshotTypes, true)
-	if err != nil {
-		return err
-	}
-	list := make([]string, 0, len(files))
-	for _, f := range files {
-		_, fName := filepath.Split(f.Path)
-		list = append(list, fName)
-	}
-	return s.OpenList(list, false)
-}
-
 type BscView struct {
-	base *View
+	base *snapshotsync.View
 }
 
 func (s *BscRoSnapshots) View() *BscView {
-	v := &BscView{base: s.RoSnapshots.View()}
-	v.base.baseSegType = coresnaptype.BlobSidecars
+	v := &BscView{base: s.RoSnapshots.View().WithBaseSegType(coresnaptype.BlobSidecars)}
 	return v
 }
 
@@ -154,11 +140,11 @@ func (v *BscView) Close() {
 	v.base.Close()
 }
 
-func (v *BscView) BlobSidecars() []*VisibleSegment {
-	return v.base.segmentsByType(coresnaptype.BlobSidecars)
+func (v *BscView) BlobSidecars() []*snapshotsync.VisibleSegment {
+	return v.base.Segments(coresnaptype.BlobSidecars)
 }
 
-func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*VisibleSegment, bool) {
+func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*snapshotsync.VisibleSegment, bool) {
 	return v.base.Segment(coresnaptype.BlobSidecars, blockNum)
 }
 
@@ -217,7 +203,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	// Generate .idx file, which is the slot => offset mapping.
 	p := &background.Progress{}
 
-	if err := f.Type.BuildIndexes(ctx, f, chainConfig, tmpDir, p, lvl, logger); err != nil {
+	if err := f.Type.BuildIndexes(ctx, f, nil, chainConfig, tmpDir, p, lvl, logger); err != nil {
 		return err
 	}
 
@@ -249,14 +235,14 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 		return nil, nil
 	}
 
-	idxNum := seg.src.Index()
+	idxNum := seg.Src().Index()
 
 	if idxNum == nil {
 		return nil, nil
 	}
 	blockOffset := idxNum.OrdinalLookup(blockNum - idxNum.BaseDataID())
 
-	gg := seg.src.MakeGetter()
+	gg := seg.Src().MakeGetter()
 	gg.Reset(blockOffset)
 	if !gg.HasNext() {
 		return nil, nil

@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/erigontech/erigon-lib/common/length"
+	"github.com/erigontech/erigon-lib/config3"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/seg"
 
@@ -55,7 +56,7 @@ func testDbAndHistory(tb testing.TB, largeValues bool, logger log.Logger) (kv.Rw
 	indexTable := "AccountIndex"
 	valsTable := "AccountVals"
 	settingsTable := "Settings"
-	db := mdbx.NewMDBX(logger).InMem(dirs.SnapDomain).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
+	db := mdbx.New(kv.ChainDB, logger).InMem(dirs.SnapDomain).WithTableCfg(func(defaultBuckets kv.TableCfg) kv.TableCfg {
 		if largeValues {
 			return kv.TableCfg{
 				keysTable:             kv.TableCfgItem{Flags: kv.DupSort},
@@ -76,10 +77,15 @@ func testDbAndHistory(tb testing.TB, largeValues bool, logger log.Logger) (kv.Rw
 	//TODO: tests will fail if set histCfg.compression = CompressKeys | CompressValues
 	salt := uint32(1)
 	cfg := histCfg{
-		iiCfg:             iiCfg{salt: &salt, dirs: dirs, db: db},
-		withLocalityIndex: false, withExistenceIndex: false, compression: seg.CompressNone, historyLargeValues: largeValues,
+		filenameBase: "hist",
+		valuesTable:  valsTable,
+
+		iiCfg: iiCfg{salt: &salt, dirs: dirs, db: db, withExistence: false,
+			aggregationStep: 16, filenameBase: "hist", keysTable: keysTable, valuesTable: indexTable,
+		},
+		compression: seg.CompressNone, historyLargeValues: largeValues,
 	}
-	h, err := NewHistory(cfg, 16, "hist", keysTable, indexTable, valsTable, nil, logger)
+	h, err := NewHistory(cfg, logger)
 	require.NoError(tb, err)
 	h.DisableFsync()
 	tb.Cleanup(db.Close)
@@ -356,7 +362,7 @@ func TestHistoryAfterPrune(t *testing.T) {
 
 		require.NoError(err)
 
-		for _, table := range []string{h.indexKeysTable, h.historyValsTable, h.indexTable} {
+		for _, table := range []string{h.keysTable, h.valuesTable, h.valuesTable} {
 			var cur kv.Cursor
 			cur, err = tx.Cursor(table)
 			require.NoError(err)
@@ -530,7 +536,7 @@ func TestHistoryPruneCorrectnessWithFiles(t *testing.T) {
 	hc := h.BeginFilesRo()
 	defer hc.Close()
 
-	itable, err := rwTx.CursorDupSort(hc.iit.ii.indexTable)
+	itable, err := rwTx.CursorDupSort(hc.iit.ii.valuesTable)
 	require.NoError(t, err)
 	defer itable.Close()
 	limits := 10
@@ -545,7 +551,7 @@ func TestHistoryPruneCorrectnessWithFiles(t *testing.T) {
 		fmt.Printf("k=%x [%d] v=%x\n", k, binary.BigEndian.Uint64(k), v)
 	}
 	canHist, txTo := hc.canPruneUntil(rwTx, math.MaxUint64)
-	t.Logf("canPrune=%t [%s] to=%d", canHist, hc.h.indexKeysTable, txTo)
+	t.Logf("canPrune=%t [%s] to=%d", canHist, hc.h.keysTable, txTo)
 
 	stat, err := hc.Prune(context.Background(), rwTx, 0, txTo, 50, false, logEvery)
 	require.NoError(t, err)
@@ -566,7 +572,7 @@ func TestHistoryPruneCorrectnessWithFiles(t *testing.T) {
 	t.Logf("stat=%v", stat)
 
 	fmt.Printf("start hist table:\n")
-	icc, err := rwTx.CursorDupSort(h.historyValsTable)
+	icc, err := rwTx.CursorDupSort(h.valuesTable)
 	require.NoError(t, err)
 	defer icc.Close()
 
@@ -590,7 +596,7 @@ func TestHistoryPruneCorrectnessWithFiles(t *testing.T) {
 	// }
 
 	// fmt.Printf("start index table:\n")
-	itable, err = rwTx.CursorDupSort(hc.iit.ii.indexTable)
+	itable, err = rwTx.CursorDupSort(hc.iit.ii.valuesTable)
 	require.NoError(t, err)
 	defer itable.Close()
 
@@ -613,7 +619,7 @@ func TestHistoryPruneCorrectnessWithFiles(t *testing.T) {
 	// }
 
 	// fmt.Printf("start index keys table:\n")
-	itable, err = rwTx.CursorDupSort(hc.iit.ii.indexKeysTable)
+	itable, err = rwTx.CursorDupSort(hc.iit.ii.keysTable)
 	require.NoError(t, err)
 	defer itable.Close()
 
@@ -656,7 +662,7 @@ func TestHistoryPruneCorrectness(t *testing.T) {
 	binary.BigEndian.PutUint64(from[:], uint64(0))
 	binary.BigEndian.PutUint64(to[:], uint64(pruneIters)*pruneLimit)
 
-	icc, err := rwTx.CursorDupSort(h.historyValsTable)
+	icc, err := rwTx.CursorDupSort(h.valuesTable)
 	require.NoError(t, err)
 
 	count := 0
@@ -692,7 +698,7 @@ func TestHistoryPruneCorrectness(t *testing.T) {
 		t.Logf("[%d] stats: %v", i, stat)
 	}
 
-	icc, err = rwTx.CursorDupSort(h.historyValsTable)
+	icc, err = rwTx.CursorDupSort(h.valuesTable)
 	require.NoError(t, err)
 	defer icc.Close()
 
@@ -701,7 +707,7 @@ func TestHistoryPruneCorrectness(t *testing.T) {
 	require.NotNil(t, key)
 	require.EqualValues(t, pruneIters*int(pruneLimit), binary.BigEndian.Uint64(key[len(key)-8:])-1)
 
-	icc, err = rwTx.CursorDupSort(h.indexTable)
+	icc, err = rwTx.CursorDupSort(h.valuesTable)
 	require.NoError(t, err)
 	defer icc.Close()
 }
@@ -919,7 +925,7 @@ func collateAndMergeHistory(tb testing.TB, db kv.RwDB, h *History, txs uint64, d
 	}
 
 	var r HistoryRanges
-	maxSpan := h.aggregationStep * StepsInColdFile
+	maxSpan := h.aggregationStep * config3.StepsInFrozenFile
 
 	for {
 		if stop := func() bool {
@@ -940,11 +946,6 @@ func collateAndMergeHistory(tb testing.TB, db kv.RwDB, h *History, txs uint64, d
 			break
 		}
 	}
-
-	hc := h.BeginFilesRo()
-	defer hc.Close()
-	err = hc.iit.BuildOptionalMissedIndices(ctx, background.NewProgressSet())
-	require.NoError(err)
 
 	err = tx.Commit()
 	require.NoError(err)
@@ -1388,8 +1389,12 @@ func TestIterateChanged2(t *testing.T) {
 func TestScanStaticFilesH(t *testing.T) {
 	t.Parallel()
 
-	h := &History{InvertedIndex: emptyTestInvertedIndex(1),
-		dirtyFiles: btree2.NewBTreeG[*filesItem](filesItemLess),
+	h := &History{
+		histCfg: histCfg{
+			filenameBase: "test",
+		},
+		InvertedIndex: emptyTestInvertedIndex(1),
+		dirtyFiles:    btree2.NewBTreeG[*filesItem](filesItemLess),
 	}
 	files := []string{
 		"v1-test.0-1.v",
@@ -1403,7 +1408,7 @@ func TestScanStaticFilesH(t *testing.T) {
 	require.Equal(t, 6, h.dirtyFiles.Len())
 
 	h.dirtyFiles.Clear()
-	h.integrityCheck = func(fromStep, toStep uint64) bool { return false }
+	h.integrity = func(fromStep, toStep uint64) bool { return false }
 	h.scanDirtyFiles(files)
 	require.Equal(t, 0, h.dirtyFiles.Len())
 

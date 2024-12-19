@@ -28,15 +28,13 @@ import (
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/direct"
 	proto_sentry "github.com/erigontech/erigon-lib/gointerfaces/sentryproto"
-	rlp2 "github.com/erigontech/erigon-lib/rlp"
 
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/core/forkid"
 	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/rlp"
 )
 
 var ProtocolToString = map[uint]string{
-	direct.ETH66: "eth66",
 	direct.ETH67: "eth67",
 	direct.ETH68: "eth68",
 }
@@ -59,8 +57,6 @@ const (
 	GetBlockBodiesMsg  = 0x05
 	BlockBodiesMsg     = 0x06
 	NewBlockMsg        = 0x07
-	GetNodeDataMsg     = 0x0d
-	NodeDataMsg        = 0x0e
 	GetReceiptsMsg     = 0x0f
 	ReceiptsMsg        = 0x10
 
@@ -74,22 +70,6 @@ const (
 )
 
 var ToProto = map[uint]map[uint64]proto_sentry.MessageId{
-	direct.ETH66: {
-		GetBlockHeadersMsg:            proto_sentry.MessageId_GET_BLOCK_HEADERS_66,
-		BlockHeadersMsg:               proto_sentry.MessageId_BLOCK_HEADERS_66,
-		GetBlockBodiesMsg:             proto_sentry.MessageId_GET_BLOCK_BODIES_66,
-		BlockBodiesMsg:                proto_sentry.MessageId_BLOCK_BODIES_66,
-		GetNodeDataMsg:                proto_sentry.MessageId_GET_NODE_DATA_66,
-		NodeDataMsg:                   proto_sentry.MessageId_NODE_DATA_66,
-		GetReceiptsMsg:                proto_sentry.MessageId_GET_RECEIPTS_66,
-		ReceiptsMsg:                   proto_sentry.MessageId_RECEIPTS_66,
-		NewBlockHashesMsg:             proto_sentry.MessageId_NEW_BLOCK_HASHES_66,
-		NewBlockMsg:                   proto_sentry.MessageId_NEW_BLOCK_66,
-		TransactionsMsg:               proto_sentry.MessageId_TRANSACTIONS_66,
-		NewPooledTransactionHashesMsg: proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66,
-		GetPooledTransactionsMsg:      proto_sentry.MessageId_GET_POOLED_TRANSACTIONS_66,
-		PooledTransactionsMsg:         proto_sentry.MessageId_POOLED_TRANSACTIONS_66,
-	},
 	direct.ETH67: {
 		GetBlockHeadersMsg:            proto_sentry.MessageId_GET_BLOCK_HEADERS_66,
 		BlockHeadersMsg:               proto_sentry.MessageId_BLOCK_HEADERS_66,
@@ -114,29 +94,13 @@ var ToProto = map[uint]map[uint64]proto_sentry.MessageId{
 		NewBlockHashesMsg:             proto_sentry.MessageId_NEW_BLOCK_HASHES_66,
 		NewBlockMsg:                   proto_sentry.MessageId_NEW_BLOCK_66,
 		TransactionsMsg:               proto_sentry.MessageId_TRANSACTIONS_66,
-		NewPooledTransactionHashesMsg: proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_68, // Modified since ETH66
+		NewPooledTransactionHashesMsg: proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_68, // Modified in eth/68
 		GetPooledTransactionsMsg:      proto_sentry.MessageId_GET_POOLED_TRANSACTIONS_66,
 		PooledTransactionsMsg:         proto_sentry.MessageId_POOLED_TRANSACTIONS_66,
 	},
 }
 
 var FromProto = map[uint]map[proto_sentry.MessageId]uint64{
-	direct.ETH66: {
-		proto_sentry.MessageId_GET_BLOCK_HEADERS_66:             GetBlockHeadersMsg,
-		proto_sentry.MessageId_BLOCK_HEADERS_66:                 BlockHeadersMsg,
-		proto_sentry.MessageId_GET_BLOCK_BODIES_66:              GetBlockBodiesMsg,
-		proto_sentry.MessageId_BLOCK_BODIES_66:                  BlockBodiesMsg,
-		proto_sentry.MessageId_GET_NODE_DATA_66:                 GetNodeDataMsg,
-		proto_sentry.MessageId_NODE_DATA_66:                     NodeDataMsg,
-		proto_sentry.MessageId_GET_RECEIPTS_66:                  GetReceiptsMsg,
-		proto_sentry.MessageId_RECEIPTS_66:                      ReceiptsMsg,
-		proto_sentry.MessageId_NEW_BLOCK_HASHES_66:              NewBlockHashesMsg,
-		proto_sentry.MessageId_NEW_BLOCK_66:                     NewBlockMsg,
-		proto_sentry.MessageId_TRANSACTIONS_66:                  TransactionsMsg,
-		proto_sentry.MessageId_NEW_POOLED_TRANSACTION_HASHES_66: NewPooledTransactionHashesMsg,
-		proto_sentry.MessageId_GET_POOLED_TRANSACTIONS_66:       GetPooledTransactionsMsg,
-		proto_sentry.MessageId_POOLED_TRANSACTIONS_66:           PooledTransactionsMsg,
-	},
 	direct.ETH67: {
 		proto_sentry.MessageId_GET_BLOCK_HEADERS_66:             GetBlockHeadersMsg,
 		proto_sentry.MessageId_BLOCK_HEADERS_66:                 BlockHeadersMsg,
@@ -276,7 +240,7 @@ func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
 	encodingSize := 0
 	// size of Block
 	blockLen := nbp.Block.EncodingSize()
-	encodingSize += rlp2.ListPrefixLen(blockLen) + blockLen
+	encodingSize += rlp.ListPrefixLen(blockLen) + blockLen
 	// size of TD
 	encodingSize++
 	var tdBitLen, tdLen int
@@ -291,13 +255,13 @@ func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
 		sidecarsLen := 0
 		for _, item := range nbp.Sidecars {
 			size := item.EncodingSize()
-			sidecarsLen += rlp2.ListPrefixLen(size) + size
+			sidecarsLen += rlp.ListPrefixLen(size) + size
 		}
-		encodingSize += rlp2.ListPrefixLen(sidecarsLen) + sidecarsLen
+		encodingSize += rlp.ListPrefixLen(sidecarsLen) + sidecarsLen
 	}
 	var b [33]byte
 	// prefix
-	if err := types.EncodeStructSizePrefix(encodingSize, w, b[:]); err != nil {
+	if err := rlp.EncodeStructSizePrefix(encodingSize, w, b[:]); err != nil {
 		return err
 	}
 	// encode Block
