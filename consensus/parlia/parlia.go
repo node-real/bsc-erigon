@@ -579,6 +579,17 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		}
 	}
 
+	prague := chain.Config().IsPrague(header.Time)
+	if !prague {
+		if header.RequestsHash != nil {
+			return fmt.Errorf("invalid RequestsHash, have %#x, expected nil", header.RequestsHash)
+		}
+	} else {
+		if header.RequestsHash == nil {
+			return errors.New("header has nil RequestsHash after Prague")
+		}
+	}
+
 	// All basic checks passed, verify cascading fields
 	return p.verifyCascadingFields(chain, header, parents)
 }
