@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon-lib/kv"
 	"math/big"
 	"runtime"
 	"time"
@@ -570,7 +569,7 @@ func (ethash *Ethash) Initialize(config *chain.Config, chain consensus.ChainHead
 // setting the final state on the header
 func (ethash *Ethash) Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, uncles []*types.Header, r types.Receipts, withdrawals []*types.Withdrawal,
-	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, tx kv.Tx, logger log.Logger,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, logger log.Logger,
 ) (types.Transactions, types.Receipts, types.FlatRequests, error) {
 	// Accumulate any block and uncle rewards and commit the final state root
 	accumulateRewards(config, state, header, uncles)
@@ -585,7 +584,7 @@ func (ethash *Ethash) FinalizeAndAssemble(chainConfig *chain.Config, header *typ
 ) (*types.Block, types.Transactions, types.Receipts, types.FlatRequests, error) {
 
 	// Finalize block
-	outTxs, outR, _, err := ethash.Finalize(chainConfig, header, state, txs, uncles, r, withdrawals, chain, syscall, nil, 0, nil, logger)
+	outTxs, outR, _, err := ethash.Finalize(chainConfig, header, state, txs, uncles, r, withdrawals, chain, syscall, nil, 0, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

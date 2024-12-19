@@ -933,14 +933,14 @@ func (p *Parlia) splitTxs(txs types.Transactions, header *types.Header) (userTxs
 // consensus rules that happen at finalization (e.g. block rewards).
 func (p *Parlia) Finalize(_ *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, _ []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
-	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, tx kv.Tx,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int,
 	logger log.Logger) (types.Transactions, types.Receipts, types.FlatRequests, error) {
-	return p.finalize(header, state, txs, receipts, chain, false, systemTxCall, txIndex, tx, logger)
+	return p.finalize(header, state, txs, receipts, chain, false, systemTxCall, txIndex, logger)
 }
 
 func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs types.Transactions,
 	receipts types.Receipts, chain consensus.ChainHeaderReader, mining bool, systemTxCall consensus.SystemTxCall,
-	txIndex int, tx kv.Tx, logger log.Logger) (types.Transactions, types.Receipts, types.FlatRequests, error) {
+	txIndex int, logger log.Logger) (types.Transactions, types.Receipts, types.FlatRequests, error) {
 	userTxs, systemTxs, err := p.splitTxs(txs, header)
 	if err != nil {
 		return nil, nil, nil, err
@@ -1045,7 +1045,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && isBreatheBlock(parentHeader.Time, header.Time) {
 		// we should avoid update validators in the Feynman upgrade block
 		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
-			finish, err = p.updateValidatorSetV2(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex, tx)
+			finish, err = p.updateValidatorSetV2(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 			if err != nil {
 				return nil, nil, nil, err
 			} else if finish {
@@ -1147,7 +1147,7 @@ func (p *Parlia) FinalizeAndAssemble(chainConfig *chain.Config, header *types.He
 		return nil, nil, nil, nil, consensus.ErrUnexpectedRequests
 	}
 
-	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, nil, logger)
+	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, logger)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}

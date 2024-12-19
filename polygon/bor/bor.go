@@ -409,26 +409,6 @@ func New(
 	return c
 }
 
-type rwWrapper struct {
-	kv.RoDB
-}
-
-func (w rwWrapper) Update(ctx context.Context, f func(tx kv.RwTx) error) error {
-	return errors.New("Update not implemented")
-}
-
-func (w rwWrapper) UpdateNosync(ctx context.Context, f func(tx kv.RwTx) error) error {
-	return errors.New("UpdateNosync not implemented")
-}
-
-func (w rwWrapper) BeginRw(ctx context.Context) (kv.RwTx, error) {
-	return nil, errors.New("BeginRw not implemented")
-}
-
-func (w rwWrapper) BeginRwNosync(ctx context.Context) (kv.RwTx, error) {
-	return nil, errors.New("BeginRwNosync not implemented")
-}
-
 // NewRo is used by the rpcdaemon and tests which need read only access to the provided data services
 func NewRo(chainConfig *chain.Config, db kv.RoDB, blockReader services.FullBlockReader, logger log.Logger) *Bor {
 	// get bor config
@@ -445,7 +425,7 @@ func NewRo(chainConfig *chain.Config, db kv.RoDB, blockReader services.FullBlock
 	return &Bor{
 		chainConfig: chainConfig,
 		config:      borConfig,
-		DB:          rwWrapper{db},
+		DB:          kv.RwWrapper{RoDB: db},
 		blockReader: blockReader,
 		logger:      logger,
 		Recents:     recents,
@@ -1039,7 +1019,7 @@ func (c *Bor) CalculateRewards(config *chain.Config, header *types.Header, uncle
 // rewards given.
 func (c *Bor) Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, uncles []*types.Header, r types.Receipts, withdrawals []*types.Withdrawal,
-	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, tx kv.Tx, logger log.Logger,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, logger log.Logger,
 ) (types.Transactions, types.Receipts, types.FlatRequests, error) {
 	headerNumber := header.Number.Uint64()
 

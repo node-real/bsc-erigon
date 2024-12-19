@@ -84,7 +84,7 @@ func (rs *StateV3) RegisterSender(txTask *TxTask) bool {
 	}()
 	rs.triggerLock.Lock()
 	defer rs.triggerLock.Unlock()
-	lastTxNum, deferral := rs.senderTxNums[*txTask.Sender]
+	lastTxNum, deferral := rs.senderTxNums[*txTask.Sender()]
 	if deferral {
 		// Transactions with the same sender have obvious data dependency, no point running it before lastTxNum
 		// So we add this data dependency as a trigger
@@ -92,7 +92,7 @@ func (rs *StateV3) RegisterSender(txTask *TxTask) bool {
 		rs.triggers[lastTxNum] = txTask
 	}
 	//fmt.Printf("senderTxNums[%x]=%d\n", *txTask.Sender, txTask.TxNum)
-	rs.senderTxNums[*txTask.Sender] = txTask.TxNum
+	rs.senderTxNums[*txTask.Sender()] = txTask.TxNum
 	return !deferral
 }
 
@@ -587,7 +587,7 @@ func NewReaderV3(tx kv.TemporalGetter) *ReaderV3 {
 func (r *ReaderV3) DiscardReadList()                     {}
 func (r *ReaderV3) SetTxNum(txNum uint64)                { r.txNum = txNum }
 func (r *ReaderV3) GetTxNum() uint64                     { return r.txNum }
-func (r *ReaderV3) SetTx(tx kv.Tx)                       {}
+func (r *ReaderV3) SetTx(tx kv.TemporalTx)               {}
 func (r *ReaderV3) ReadSet() map[string]*libstate.KvList { return nil }
 func (r *ReaderV3) SetTrace(trace bool)                  { r.trace = trace }
 func (r *ReaderV3) ResetReadSet()                        {}
@@ -683,7 +683,7 @@ func NewReaderParallelV3(sd *libstate.SharedDomains) *ReaderParallelV3 {
 func (r *ReaderParallelV3) DiscardReadList()                     { r.discardReadList = true }
 func (r *ReaderParallelV3) SetTxNum(txNum uint64)                { r.txNum = txNum }
 func (r *ReaderParallelV3) GetTxNum() uint64                     { return r.txNum }
-func (r *ReaderParallelV3) SetTx(tx kv.Tx)                       {}
+func (r *ReaderParallelV3) SetTx(tx kv.TemporalTx)               {}
 func (r *ReaderParallelV3) ReadSet() map[string]*libstate.KvList { return r.readLists }
 func (r *ReaderParallelV3) SetTrace(trace bool)                  { r.trace = trace }
 func (r *ReaderParallelV3) ResetReadSet()                        { r.readLists = newReadList() }

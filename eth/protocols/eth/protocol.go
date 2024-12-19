@@ -28,7 +28,6 @@ import (
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/direct"
 	proto_sentry "github.com/erigontech/erigon-lib/gointerfaces/sentryproto"
-	rlp2 "github.com/erigontech/erigon-lib/rlp2"
 
 	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/core/forkid"
@@ -241,7 +240,7 @@ func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
 	encodingSize := 0
 	// size of Block
 	blockLen := nbp.Block.EncodingSize()
-	encodingSize += rlp2.ListPrefixLen(blockLen) + blockLen
+	encodingSize += rlp.ListPrefixLen(blockLen) + blockLen
 	// size of TD
 	encodingSize++
 	var tdBitLen, tdLen int
@@ -256,13 +255,13 @@ func (nbp NewBlockPacket) EncodeRLP(w io.Writer) error {
 		sidecarsLen := 0
 		for _, item := range nbp.Sidecars {
 			size := item.EncodingSize()
-			sidecarsLen += rlp2.ListPrefixLen(size) + size
+			sidecarsLen += rlp.ListPrefixLen(size) + size
 		}
-		encodingSize += rlp2.ListPrefixLen(sidecarsLen) + sidecarsLen
+		encodingSize += rlp.ListPrefixLen(sidecarsLen) + sidecarsLen
 	}
 	var b [33]byte
 	// prefix
-	if err := types.EncodeStructSizePrefix(encodingSize, w, b[:]); err != nil {
+	if err := rlp.EncodeStructSizePrefix(encodingSize, w, b[:]); err != nil {
 		return err
 	}
 	// encode Block

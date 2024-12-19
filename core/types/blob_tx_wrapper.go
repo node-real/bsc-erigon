@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/erigontech/erigon-lib/common/hexutility"
-	rlp2 "github.com/erigontech/erigon-lib/rlp2"
 	"io"
 	"math/big"
 	"math/bits"
@@ -121,7 +120,7 @@ func (li BlobKzgs) payloadSize() int {
 
 func (li BlobKzgs) encodePayload(w io.Writer, b []byte, payloadSize int) error {
 	// prefix
-	if err := EncodeStructSizePrefix(payloadSize, w, b); err != nil {
+	if err := rlp.EncodeStructSizePrefix(payloadSize, w, b); err != nil {
 		return err
 	}
 
@@ -171,7 +170,7 @@ func (li KZGProofs) payloadSize() int {
 
 func (li KZGProofs) encodePayload(w io.Writer, b []byte, payloadSize int) error {
 	// prefix
-	if err := EncodeStructSizePrefix(payloadSize, w, b); err != nil {
+	if err := rlp.EncodeStructSizePrefix(payloadSize, w, b); err != nil {
 		return err
 	}
 
@@ -225,7 +224,7 @@ func (blobs Blobs) payloadSize() int {
 
 func (blobs Blobs) encodePayload(w io.Writer, b []byte, payloadSize int) error {
 	// prefix
-	if err := EncodeStructSizePrefix(payloadSize, w, b); err != nil {
+	if err := rlp.EncodeStructSizePrefix(payloadSize, w, b); err != nil {
 		return err
 	}
 
@@ -316,7 +315,7 @@ func (c KZGCommitment) ComputeVersionedHash() libcommon.Hash {
 // BlobTxSidecar encoderlp
 func (sc BlobTxSidecar) EncodeRLP(w io.Writer) error {
 	var b [33]byte
-	if err := EncodeStructSizePrefix(sc.payloadSize(), w, b[:]); err != nil {
+	if err := rlp.EncodeStructSizePrefix(sc.payloadSize(), w, b[:]); err != nil {
 		return err
 	}
 
@@ -367,11 +366,11 @@ func (sc *BlobTxSidecar) DecodeRLP(s *rlp.Stream) error {
 
 func (sc BlobTxSidecar) payloadSize() int {
 	blobSize := sc.Blobs.payloadSize()
-	payloadSize := rlp2.ListPrefixLen(blobSize) + blobSize
+	payloadSize := rlp.ListPrefixLen(blobSize) + blobSize
 	commitmentSize := sc.Commitments.payloadSize()
-	payloadSize += rlp2.ListPrefixLen(commitmentSize) + commitmentSize
+	payloadSize += rlp.ListPrefixLen(commitmentSize) + commitmentSize
 	proofSize := sc.Proofs.payloadSize()
-	payloadSize += rlp2.ListPrefixLen(proofSize) + proofSize
+	payloadSize += rlp.ListPrefixLen(proofSize) + proofSize
 	return payloadSize
 }
 

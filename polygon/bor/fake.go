@@ -18,7 +18,6 @@ package bor
 
 import (
 	"github.com/erigontech/erigon-lib/chain"
-	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/ethash"
@@ -39,7 +38,7 @@ func NewFaker() *FakeBor {
 
 func (f *FakeBor) Finalize(config *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, uncles []*types.Header, r types.Receipts, withdrawals []*types.Withdrawal,
-	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, tx kv.Tx, logger log.Logger,
+	chain consensus.ChainReader, syscall consensus.SystemCall, systemTxCall consensus.SystemTxCall, txIndex int, logger log.Logger,
 ) (types.Transactions, types.Receipts, types.FlatRequests, error) {
-	return f.FakeEthash.Finalize(config, header, state, txs, uncles, r, withdrawals, chain, syscall, systemTxCall, txIndex, tx, logger)
+	return f.FakeEthash.Finalize(config, header, state, txs, uncles, r, withdrawals, chain, syscall, systemTxCall, txIndex, logger)
 }

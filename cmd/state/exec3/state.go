@@ -22,6 +22,7 @@ import (
 	"github.com/erigontech/erigon/core/systemcontracts"
 	"sync"
 
+	"github.com/erigontech/erigon-lib/common/dbg"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/erigontech/erigon-lib/log/v3"
@@ -49,7 +50,7 @@ type Worker struct {
 	lock        sync.Locker
 	logger      log.Logger
 	chainDb     kv.RoDB
-	chainTx     kv.Tx
+	chainTx     kv.TemporalTx
 	background  bool // if true - worker does manage RoTx (begin/rollback) in .ResetTx()
 	blockReader services.FullBlockReader
 	in          *state.QueueWithRetry
@@ -121,21 +122,27 @@ func (rw *Worker) ResetState(rs *state.StateV3, accumulator *shards.Accumulator)
 	rw.stateWriter = state.NewStateWriterV3(rs, accumulator)
 }
 
-func (rw *Worker) Tx() kv.Tx        { return rw.chainTx }
-func (rw *Worker) DiscardReadList() { rw.stateReader.DiscardReadList() }
+func (rw *Worker) Tx() kv.TemporalTx { return rw.chainTx }
+func (rw *Worker) DiscardReadList()  { rw.stateReader.DiscardReadList() }
 func (rw *Worker) ResetTx(chainTx kv.Tx) {
 	if rw.background && rw.chainTx != nil {
 		rw.chainTx.Rollback()
 		rw.chainTx = nil
 	}
 	if chainTx != nil {
-		rw.chainTx = chainTx
+		rw.chainTx = chainTx.(kv.TemporalTx)
 		rw.stateReader.SetTx(rw.chainTx)
 		rw.chain = consensuschain.NewReader(rw.chainConfig, rw.chainTx, rw.blockReader, rw.logger)
 	}
 }
 
-func (rw *Worker) Run() error {
+func (rw *Worker) Run() (err error) {
+	defer func() { // convert panic to err - because it's background workers
+		if rec := recover(); rec != nil {
+			err = fmt.Errorf("exec3.Worker panic: %s, %s", rec, dbg.Stack())
+		}
+	}()
+
 	for txTask, ok := rw.in.Next(rw.ctx); ok; txTask, ok = rw.in.Next(rw.ctx) {
 		//fmt.Println("RTX", txTask.BlockNum, txTask.TxIndex, txTask.TxNum, txTask.Final)
 		rw.RunTxTask(txTask, rw.isMining)
@@ -186,7 +193,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 	}
 	if rw.background && rw.chainTx == nil {
 		var err error
-		if rw.chainTx, err = rw.chainDb.BeginRo(rw.ctx); err != nil {
+		if rw.chainTx, err = rw.chainDb.(kv.TemporalRoDB).BeginTemporalRo(rw.ctx); err != nil {
 			panic(err)
 		}
 		rw.stateReader.SetTx(rw.chainTx)
@@ -259,7 +266,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 		if isMining {
 			_, txTask.Txs, txTask.BlockReceipts, _, err = rw.engine.FinalizeAndAssemble(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, nil, rw.logger)
 		} else {
-			_, _, _, err = rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, nil, txTask.TxIndex, rw.chainTx, rw.logger)
+			_, _, _, err = rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, nil, txTask.TxIndex, rw.logger)
 		}
 		if err != nil {
 			txTask.Error = err
@@ -321,7 +328,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 			return ret, true, nil
 		}
 
-		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, systemCall, txTask.TxIndex, rw.chainTx, rw.logger)
+		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, systemCall, txTask.TxIndex, rw.logger)
 		if err != nil {
 			txTask.Error = err
 		}
