@@ -610,11 +610,17 @@ func MakeEmptyHeader(parent *types.Header, chainConfig *chain.Config, timestamp 
 		excessBlobGas := misc.CalcExcessBlobGas(chainConfig, parent)
 		header.ExcessBlobGas = &excessBlobGas
 		header.BlobGasUsed = new(uint64)
-		if chainConfig.Parlia != nil {
-			header.WithdrawalsHash = &types.EmptyRootHash
-		}
-		if chainConfig.Parlia == nil || chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+		if chainConfig.Parlia == nil {
 			header.ParentBeaconBlockRoot = new(libcommon.Hash)
+		} else {
+			header.WithdrawalsHash = &types.EmptyRootHash
+
+			if chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
+				header.ParentBeaconBlockRoot = new(libcommon.Hash)
+			}
+			if chainConfig.IsPrague(header.Time) {
+				header.RequestsHash = &types.EmptyRequestsHash
+			}
 		}
 	}
 
