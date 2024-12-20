@@ -24,6 +24,7 @@ import (
 	types2 "github.com/ledgerwatch/erigon-lib/types"
 	"github.com/ledgerwatch/erigon/consensus"
 	"github.com/ledgerwatch/erigon/core/types"
+	"math"
 
 	cmath "github.com/ledgerwatch/erigon/common/math"
 	"github.com/ledgerwatch/erigon/common/u256"
@@ -364,12 +365,13 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*Executi
 
 	// BSC always gave gas bailout due to system transactions that set 2^256/2 gas limit and
 	// for Parlia consensus this flag should be always be set
-	if st.isParlia {
-		gasBailout = true
+	var skipCheck bool
+	if st.evm.ChainConfig().Parlia != nil && st.msg.Gas() == math.MaxUint64/2 && st.msg.From() == coinbase {
+		skipCheck = true
 	}
 
 	// Check clauses 1-3 and 6, buy gas if everything is correct
-	if err := st.preCheck(gasBailout); err != nil {
+	if err := st.preCheck(gasBailout || skipCheck); err != nil {
 		return nil, err
 	}
 	if st.evm.Config().Debug {
