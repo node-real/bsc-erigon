@@ -606,10 +606,6 @@ func ValidateHeaderUnusedFields(header *types.Header) error {
 		return errInvalidUncleHash
 	}
 
-	if header.RequestsHash != nil {
-		return consensus.ErrUnexpectedRequests
-	}
-
 	return nil
 }
 
@@ -1158,9 +1154,6 @@ func (p *Parlia) FinalizeAndAssemble(chainConfig *chain.Config, header *types.He
 	txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
 	chain consensus.ChainReader, syscall consensus.SystemCall, call consensus.Call, logger log.Logger,
 ) (*types.Block, types.Transactions, types.Receipts, types.FlatRequests, error) {
-	if header.RequestsHash != nil {
-		return nil, nil, nil, nil, consensus.ErrUnexpectedRequests
-	}
 
 	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, logger)
 	if err != nil {
