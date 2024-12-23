@@ -982,7 +982,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	}()
 
 	if curIndex == txIndex {
-		systemcontracts.EndBlockUpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
+		if p.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+			systemcontracts.UpgradeBuildInSystemContract(p.chainConfig, header.Number, parentHeader.Time, header.Time, ibs, logger)
+		}
 	}
 
 	if p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {

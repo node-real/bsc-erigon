@@ -24,7 +24,6 @@ import (
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
-	"github.com/erigontech/erigon/consensus/misc"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
 )
@@ -38,15 +37,7 @@ var (
 	SystemContractCodeLookup = map[string]map[libcommon.Address][]libcommon.CodeRecord{}
 )
 
-func BeginBlockUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
-	TryUpgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger, false)
-}
-
-func EndBlockUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
-	TryUpgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger, true)
-}
-
-func TryUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger, endBlock bool) {
+func UpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
 	if config == nil || blockNumber == nil || state == nil {
 		return
 	}
@@ -55,29 +46,6 @@ func TryUpgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int,
 		return
 	}
 
-	// Everything after Faynman is initialized in the end block
-	if endBlock {
-		if config.IsFeynman(blockNumber.Uint64(), lastBlockTime) {
-			upgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger)
-		}
-		return
-	}
-
-	// this will execute in the begin block
-
-	// Everything before Feynman is initialized in the begin block
-	if !config.IsFeynman(blockNumber.Uint64(), lastBlockTime) {
-		upgradeBuildInSystemContract(config, blockNumber, lastBlockTime, blockTime, state, logger)
-	}
-
-	// HistoryStorageAddress is a special system contract in bsc, which can't be upgraded
-	if config.IsOnPrague(blockNumber, lastBlockTime, blockTime) {
-		misc.InitializeBlockHashesEip2935(state)
-		log.Info("Set code for HistoryStorageAddress", "blockNumber", blockNumber.Int64(), "blockTime", blockTime)
-	}
-}
-
-func upgradeBuildInSystemContract(config *chain.Config, blockNumber *big.Int, lastBlockTime uint64, blockTime uint64, state *state.IntraBlockState, logger log.Logger) {
 	for blockNumberOrTime, genesisAlloc := range config.Parlia.BlockAlloc {
 		numOrTime, err := strconv.ParseUint(blockNumberOrTime, 10, 64)
 		if err != nil {

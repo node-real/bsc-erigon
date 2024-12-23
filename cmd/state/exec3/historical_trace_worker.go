@@ -19,6 +19,7 @@ package exec3
 import (
 	"context"
 	"fmt"
+	"github.com/erigontech/erigon/consensus/misc"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -176,7 +177,14 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 			return core.SysCallContract(contract, data, rw.execArgs.ChainConfig, ibs, header, rw.execArgs.Engine, constCall /* constCall */)
 		}
 		if isPoSA {
-			systemcontracts.BeginBlockUpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			if !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
+				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			}
+			// HistoryStorageAddress is a special system contract in bsc, which can't be upgraded
+			if rw.execArgs.ChainConfig.IsOnPrague(header.Number, lastBlockTime, header.Time) {
+				misc.InitializeBlockHashesEip2935(ibs)
+				log.Info("Set code for HistoryStorageAddress", "blockNumber", header.Number.Uint64(), "blockTime", header.Time)
+			}
 		}
 		if err := rw.execArgs.Engine.Initialize(rw.execArgs.ChainConfig, rw.chain, header, ibs, syscall, rw.logger, nil); err != nil {
 			txTask.Error = err
@@ -190,8 +198,8 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 
 		if _, isPoSa := rw.execArgs.Engine.(consensus.PoSA); isPoSa {
 			// Is an empty block
-			if txTask.TxIndex == 0 {
-				systemcontracts.EndBlockUpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+			if rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
+				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
 			}
 			break
 		}
