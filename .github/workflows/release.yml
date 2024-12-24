@@ -261,7 +261,7 @@ jobs:
         --build-arg RELEASE_DOCKER_BASE_IMAGE=${{ env.DOCKER_BASE_IMAGE }} \
         --build-arg VERSION=${{ env.BUILD_VERSION }} \
         --build-arg APPLICATION=${{ env.APPLICATION }} \
-        --tag ghcr.io/${{ env.DOCKER_URL }}:${{ env.BUILD_VERSION }} \
+        --tag ${{ env.DOCKER_URL }}:${{ env.BUILD_VERSION }} \
         --target release \
         --attest type=provenance,mode=max \
         --sbom=true \
