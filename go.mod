@@ -7,7 +7,7 @@ replace github.com/erigontech/erigon-lib => ./erigon-lib
 replace (
 	github.com/anacrolix/torrent => github.com/erigontech/torrent v1.54.3-alpha-1
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
-	github.com/erigontech/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241205030250-2148c54a942b
+	github.com/erigontech/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20241224064241-69d30f189fb6
 	github.com/holiman/bloomfilter/v2 => github.com/AskAlexSharov/bloomfilter/v2 v2.0.9
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
 )
