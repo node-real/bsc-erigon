@@ -251,7 +251,7 @@ jobs:
       if: ${{ inputs.perform_release }}
       env:
         BUILD_VERSION: ${{ inputs.release_version }}
-        DOCKER_URL: ${{ env.DOCKERHUB_REPOSITORY }}
+        DOCKER_URL: ghcr.io/${{ env.DOCKERHUB_REPOSITORY }}
         DOCKER_PUBLISH_LATEST_CONDITION: ${{ inputs.publish_latest_tag && format('--tag {0}:latest ',env.DOCKERHUB_REPOSITORY) || '' }}
       run: |
         pwd
@@ -261,7 +261,7 @@ jobs:
         --build-arg RELEASE_DOCKER_BASE_IMAGE=${{ env.DOCKER_BASE_IMAGE }} \
         --build-arg VERSION=${{ env.BUILD_VERSION }} \
         --build-arg APPLICATION=${{ env.APPLICATION }} \
-        --tag ${{ env.DOCKER_URL }}:${{ env.BUILD_VERSION }} \
+        --tag ghcr.io/${{ env.DOCKER_URL }}:${{ env.BUILD_VERSION }} \
         --target release \
         --attest type=provenance,mode=max \
         --sbom=true \
