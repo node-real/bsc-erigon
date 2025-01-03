@@ -108,8 +108,10 @@ func (p *Parlia) updateValidatorSetV2(chain consensus.ChainHeaderReader, ibs *st
 		return true, err
 	}
 
+	_, historyMode := ibs.StateReader.(*state.HistoryReaderV3)
+
 	// On case exec at middle of block, the cache is nil.
-	if validatorItemsCache == nil && maxElectedValidatorsCache == big.NewInt(0) {
+	if historyMode || (validatorItemsCache == nil && maxElectedValidatorsCache == big.NewInt(0)) {
 		data = (*txs)[*curIndex].GetData()
 	}
 

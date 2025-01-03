@@ -974,7 +974,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		if txIndex == len(txs)-1 && finish {
 			if fs := finality.GetFinalizationService(); fs != nil {
 				curSnap, _ := p.snapshot(chain, number, header.Hash(), nil, true)
-				if curSnap.Attestation != nil {
+				if curSnap != nil && curSnap.Attestation != nil {
 					fs.UpdateFinality(curSnap.Attestation.SourceHash, curSnap.Attestation.TargetHash)
 				}
 			}
