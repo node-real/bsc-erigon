@@ -1437,6 +1437,9 @@ func (p *Parlia) distributeToValidator(val libcommon.Address, ibs *state.IntraBl
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
 
+	if header.Number.Uint64() == 41505600 {
+		log.Info("==================================================================")
+	}
 	if *curIndex == *txIndex {
 		bal, err := ibs.GetBalance(consensus.SystemAddress)
 		if err != nil {
