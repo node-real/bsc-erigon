@@ -5,6 +5,7 @@ import (
 	"fmt"
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
+	"github.com/erigontech/erigon-lib/common/math"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/consensus/parlia"
@@ -322,9 +323,15 @@ func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum
 	if err != nil { // impossible
 		return 0, err
 	}
-	valLen := int64(len(curValidators))
-	if verifiedValidatorNum < 1 || verifiedValidatorNum > valLen {
-		return 0, fmt.Errorf("%d out of range [1,%d]", verifiedValidatorNum, valLen)
+	valLen := len(curValidators)
+	if verifiedValidatorNum == -1 {
+		verifiedValidatorNum = int64(math.CeilDiv(valLen, 2))
+	} else if verifiedValidatorNum == -2 {
+		verifiedValidatorNum = int64(math.CeilDiv(valLen*2, 3))
+	} else if verifiedValidatorNum == -3 {
+		verifiedValidatorNum = int64(valLen)
+	} else if verifiedValidatorNum < 1 || verifiedValidatorNum > int64(valLen) {
+		return 0, fmt.Errorf("%d neither within the range [1,%d] nor the range [-3,-1]", verifiedValidatorNum, valLen)
 	}
 
 	fastFinalizedHeader, err := api.ethApi.headerByRPCNumber(ctx, rpc.FinalizedBlockNumber, tx)
