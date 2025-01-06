@@ -379,6 +379,7 @@ func doHistoryReduce(consumer TraceConsumer, db kv.TemporalRoDB, ctx context.Con
 
 		processedTxNum, _, err := processResultQueueHistorical(consumer, rws, outputTxNum.Load(), tx, true)
 		if err != nil {
+			log.Info("processResultQueueHistorical", "err", err)
 			return fmt.Errorf("processResultQueueHistorical: %w", err)
 		}
 		if processedTxNum > 0 {
