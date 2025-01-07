@@ -419,7 +419,7 @@ func processResultQueueHistorical(consumer TraceConsumer, rws *state.ResultsQueu
 		stopedAtBlockEnd = txTask.Final
 
 		if txTask.Error != nil {
-			log.Error("txTask exec error", "block", txTask.BlockNum, "txNum", txTask.TxNum)
+			log.Error("txTask exec error", "block", txTask.BlockNum, "txIndex", txTask.TxIndex, "err", txTask.Error)
 			return outputTxNum, false, txTask.Error
 		}
 
@@ -427,7 +427,7 @@ func processResultQueueHistorical(consumer TraceConsumer, rws *state.ResultsQueu
 			txTask.CreateReceipt(tx)
 		}
 		if err := consumer.Reduce(txTask, tx); err != nil {
-			log.Error("txTask exec error", "block", txTask.BlockNum, "txNum", txTask.TxNum)
+			log.Error("Reduce exec error", "block", txTask.BlockNum, "txIndex", txTask.TxIndex, "err", err)
 			return outputTxNum, false, err
 		}
 
