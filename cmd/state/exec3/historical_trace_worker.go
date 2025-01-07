@@ -379,7 +379,6 @@ func doHistoryReduce(consumer TraceConsumer, db kv.TemporalRoDB, ctx context.Con
 
 		processedTxNum, _, err := processResultQueueHistorical(consumer, rws, outputTxNum.Load(), tx, true)
 		if err != nil {
-			log.Info("processResultQueueHistorical", "err", err)
 			return fmt.Errorf("processResultQueueHistorical: %w", err)
 		}
 		if processedTxNum > 0 {
@@ -420,6 +419,7 @@ func processResultQueueHistorical(consumer TraceConsumer, rws *state.ResultsQueu
 		stopedAtBlockEnd = txTask.Final
 
 		if txTask.Error != nil {
+			log.Error("txTask exec error", "block", txTask.BlockNum, "txNum", txTask.TxNum)
 			return outputTxNum, false, txTask.Error
 		}
 
@@ -427,6 +427,7 @@ func processResultQueueHistorical(consumer TraceConsumer, rws *state.ResultsQueu
 			txTask.CreateReceipt(tx)
 		}
 		if err := consumer.Reduce(txTask, tx); err != nil {
+			log.Error("txTask exec error", "block", txTask.BlockNum, "txNum", txTask.TxNum)
 			return outputTxNum, false, err
 		}
 
