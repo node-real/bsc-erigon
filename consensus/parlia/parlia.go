@@ -969,10 +969,6 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	// The verification can only be done when the state is ready, it can't be done in VerifyHeader.
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 
-	if number == 41505600 {
-		log.Info("find bad block =========================================")
-	}
-
 	var finish bool
 	defer func() {
 		if txIndex == len(txs)-1 && finish {
@@ -1440,10 +1436,6 @@ func (p *Parlia) distributeToSystem(val libcommon.Address, ibs *state.IntraBlock
 func (p *Parlia) distributeToValidator(val libcommon.Address, ibs *state.IntraBlockState, header *types.Header,
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex, txIndex *int) (bool, error) {
-
-	if header.Number.Uint64() == 41505600 {
-		log.Info("==================================================================")
-	}
 	if *curIndex == *txIndex {
 		bal, err := ibs.GetBalance(consensus.SystemAddress)
 		if err != nil {
