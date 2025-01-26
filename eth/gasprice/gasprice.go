@@ -161,9 +161,6 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 		// Don't need to pop it, just take from the top of the heap
 		price = txPrices[0].ToBig()
 	}
-	if price.Cmp(gaspricecfg.BscMinimalAcceptPrice) < 0 {
-		price = new(big.Int).Set(gaspricecfg.BscMinimalAcceptPrice)
-	}
 	if price.Cmp(oracle.maxPrice) > 0 {
 		price = new(big.Int).Set(oracle.maxPrice)
 	}

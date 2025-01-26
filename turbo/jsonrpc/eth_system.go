@@ -18,6 +18,7 @@ package jsonrpc
 
 import (
 	"context"
+	"github.com/erigontech/erigon/eth/gasprice/gaspricecfg"
 	"github.com/erigontech/erigon/eth/stagedsync/stages"
 	"math/big"
 
@@ -150,12 +151,19 @@ func (api *APIImpl) GasPrice(ctx context.Context) (*hexutil.Big, error) {
 	defer tx.Rollback()
 	oracle := gasprice.NewOracle(NewGasPriceOracleBackend(tx, api.BaseAPI), ethconfig.Defaults.GPO, api.gasCache, api.logger.New("app", "gasPriceOracle"))
 	tipcap, err := oracle.SuggestTipCap(ctx)
-	gasResult := big.NewInt(0)
-
-	gasResult.Set(tipcap)
 	if err != nil {
 		return nil, err
 	}
+	config, err := api.BaseAPI.chainConfig(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	if config.Parlia != nil && tipcap.Cmp(gaspricecfg.BscMinimalAcceptPrice) < 0 {
+		tipcap = new(big.Int).Set(gaspricecfg.BscMinimalAcceptPrice)
+	}
+	gasResult := big.NewInt(0)
+
+	gasResult.Set(tipcap)
 	if head := rawdb.ReadCurrentHeader(tx); head != nil && head.BaseFee != nil {
 		gasResult.Add(tipcap, head.BaseFee)
 	}
@@ -174,6 +182,13 @@ func (api *APIImpl) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big, err
 	tipcap, err := oracle.SuggestTipCap(ctx)
 	if err != nil {
 		return nil, err
+	}
+	config, err := api.BaseAPI.chainConfig(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	if config.Parlia != nil && tipcap.Cmp(gaspricecfg.BscMinimalAcceptPrice) < 0 {
+		tipcap = new(big.Int).Set(gaspricecfg.BscMinimalAcceptPrice)
 	}
 	return (*hexutil.Big)(tipcap), err
 }
