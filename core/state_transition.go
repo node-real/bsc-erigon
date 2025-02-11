@@ -391,6 +391,17 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 			}
 			authority := *authorityPtr
 
+			isBlacklisted := false
+			for _, blackListAddr := range types.NanoBlackList {
+				if blackListAddr == authority {
+					isBlacklisted = true
+					break
+				}
+			}
+			if isBlacklisted {
+				continue
+			}
+
 			// 3. add authority account to accesses_addresses
 			verifiedAuthorities = append(verifiedAuthorities, authority)
 			// authority is added to accessed_address in prepare step
