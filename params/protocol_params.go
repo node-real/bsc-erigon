@@ -224,7 +224,7 @@ var BeaconRootsAddress = common.HexToAddress("0x000F3df6D732807Ef1319fB7B8bB8522
 var HistoryStorageAddress = common.HexToAddress("0x0000F90827F1C53a10cb7A02335B175320002935")
 
 // HistoryStorageCode is the code with getters for historical block hashes.
-var HistoryStorageCode = common.FromHex("3373fffffffffffffffffffffffffffffffffffffffe14604657602036036042575f35600143038111604257611fff81430311604257611fff9006545f5260205ff35b5f5ffd5b5f35611fff60014303065500")
+var HistoryStorageCode = common.FromHex("3373fffffffffffffffffffffffffffffffffffffffe1460575767ffffffffffffffff5f3511605357600143035f3511604b575f35612000014311604b57611fff5f3516545f5260205ff35b5f5f5260205ff35b5f5ffd5b5f35611fff60014303165500")
 
 // EIP-7002: Execution layer triggerable withdrawals
 var WithdrawalRequestAddress = common.HexToAddress("0x00000961Ef480Eb55e80D19ad83579A64c007002")
