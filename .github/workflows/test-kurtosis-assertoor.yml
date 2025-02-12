@@ -1,8 +1,8 @@
 name: Kurtosis Assertoor GitHub Action
 
 env:
-  DOCKERHUB_REPOSITORY: "erigontech/erigon"
-  APP_REPO: "erigontech/erigon"
+  DOCKERHUB_REPOSITORY: "node-real/bsc-erigon"
+  APP_REPO: "node-real/bsc-erigon"
 
 on:
   push:
@@ -21,11 +21,19 @@ jobs:
       - name: Fast checkout git repository
         uses: actions/checkout@v4
 
-      - name: Login to Docker Hub
+#      - name: Login to Docker Hub
+#        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  ## v3.3.0
+#        with:
+#          username: ${{ secrets.ORG_DOCKERHUB_ERIGONTECH_USERNAME }}
+#          password: ${{ secrets.ORG_DOCKERHUB_ERIGONTECH_TOKEN }}
+
+      - name: ghcr-login
         uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567  ## v3.3.0
         with:
-          username: ${{ secrets.ORG_DOCKERHUB_ERIGONTECH_USERNAME }}
-          password: ${{ secrets.ORG_DOCKERHUB_ERIGONTECH_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Docker build current branch
         run: |
