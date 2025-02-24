@@ -670,7 +670,7 @@ func (d *WebSeeds) callTorrentHttpProvider(ctx context.Context, url *url.URL, fi
 	request = request.WithContext(ctx)
 	resp, err := d.client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("webseed.downloadTorrentFile: url=%s, %w", url.String(), err)
+		return nil, nil
 	}
 	defer resp.Body.Close()
 	//protect against too small and too big data
