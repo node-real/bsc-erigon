@@ -1256,18 +1256,17 @@ func (p *Parlia) IsServiceTransaction(sender libcommon.Address, syscall consensu
 }
 
 func (p *Parlia) IsSystemTransaction(tx types.Transaction, header *types.Header) (bool, error) {
-	// deploy a contract
-	if tx.GetTo() == nil {
+	if tx.GetTo() == nil || !core.IsToSystemContract(*tx.GetTo()) {
+		return false, nil
+	}
+	if !tx.GetPrice().IsZero() {
 		return false, nil
 	}
 	sender, err := tx.Sender(*p.signer)
 	if err != nil {
 		return false, errors.New("UnAuthorized transaction")
 	}
-	if sender == header.Coinbase && core.IsToSystemContract(*tx.GetTo()) && tx.GetPrice().IsZero() {
-		return true, nil
-	}
-	return false, nil
+	return sender == header.Coinbase, nil
 }
 
 func (p *Parlia) IsSystemContract(to *libcommon.Address) bool {
