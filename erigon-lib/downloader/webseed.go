@@ -645,7 +645,7 @@ func (d *WebSeeds) DownloadAndSaveTorrentFile(ctx context.Context, name string) 
 			continue // it's ok if some HTTP provider failed - try next one
 		}
 		res, err := d.callTorrentHttpProvider(ctx, parsedUrl, name)
-		if err != nil || res == nil {
+		if err != nil {
 			d.logger.Debug("[snapshots] .torrent from webseed rejected", "name", name, "err", err, "url", urlStr)
 			continue // it's ok if some HTTP provider failed - try next one
 		}
@@ -670,7 +670,7 @@ func (d *WebSeeds) callTorrentHttpProvider(ctx context.Context, url *url.URL, fi
 	request = request.WithContext(ctx)
 	resp, err := d.client.Do(request)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("webseed.downloadTorrentFile: url=%s, %w", url.String(), err)
 	}
 	defer resp.Body.Close()
 	//protect against too small and too big data
