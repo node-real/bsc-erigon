@@ -339,23 +339,29 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 	// build all download requests
 	for _, p := range preverifiedBlockSnapshots {
 		if caplin == NoCaplin && (strings.Contains(p.Name, "beaconblocks") || strings.Contains(p.Name, "blobsidecars") || strings.Contains(p.Name, "caplin")) && !strings.Contains(p.Name, "bscblobsiders") {
+			log.Info("caplin == NoCaplin", "Snapshots", p.Name)
 			continue
 		}
 		if caplin == OnlyCaplin && !strings.Contains(p.Name, "beaconblocks") && !strings.Contains(p.Name, "blobsidecars") && !strings.Contains(p.Name, "caplin") {
+			log.Info("caplin == OnlyCaplin", "Snapshots", p.Name)
 			continue
 		}
 
 		if isStateSnapshot(p.Name) && blockReader.FreezingCfg().DisableDownloadE3 {
+			log.Info("isStateSnapshot", "Snapshots", p.Name)
 			continue
 		}
 		if !blobs && strings.Contains(p.Name, "blobsidecars") {
+			log.Info("!blobs", "Snapshots", p.Name)
 			continue
 		}
 		if !caplinState && strings.Contains(p.Name, "caplin/") {
+			log.Info("!caplinState ", "Snapshots", p.Name)
 			continue
 		}
 		if headerchain &&
 			!(strings.Contains(p.Name, "headers") || strings.Contains(p.Name, "bodies") || p.Name == "salt-blocks.txt") {
+			log.Info("headerchain", "Snapshots", p.Name)
 			continue
 		}
 		if _, ok := blackListForPruning[p.Name]; ok {
