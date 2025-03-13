@@ -362,7 +362,6 @@ func WaitForDownloader(ctx context.Context, logPrefix string, dirs datadir.Dirs,
 			continue
 		}
 
-		log.Info("downloadRequest", "Snapshots", p.Name)
 		downloadRequest = append(downloadRequest, NewDownloadRequest(p.Name, p.Hash))
 	}
 
