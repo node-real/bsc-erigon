@@ -390,6 +390,7 @@ func _addTorrentFile(ctx context.Context, ts *torrent.TorrentSpec, torrentClient
 		db.Update(ctx, torrentInfoUpdater(ts.DisplayName, ts.InfoHash.Bytes(), 0, nil))
 	}
 
+	log.Info("========= add torrent file", "ts.DisplayName", ts.DisplayName)
 	return t, true, nil
 }
 

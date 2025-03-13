@@ -848,6 +848,7 @@ func (d *Downloader) mainLoop(silent bool) error {
 							}
 						}
 					}
+					d.logger.Info("[snapshots] ============= addWebSeedUrls ===========", "url", urls)
 					t.AddWebSeeds(urls)
 				}
 			}
@@ -2014,6 +2015,7 @@ func (d *Downloader) ReCalcStats(interval time.Duration) {
 		torrentInfo++
 		stats.MetadataReady++
 
+		log.Info("==========", "torrentName", torrentName, "torrentComplete", torrentComplete)
 		// call methods once - to reduce internal mutex contention
 		peersOfThisFile := t.PeerConns()
 		weebseedPeersOfThisFile := t.WebseedPeerConns()
