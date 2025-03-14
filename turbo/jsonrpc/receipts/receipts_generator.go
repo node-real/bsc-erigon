@@ -188,18 +188,14 @@ func (g *Generator) GetReceipts(ctx context.Context, cfg *chain.Config, tx kv.Te
 	return receipts, nil
 }
 
-func (g *Generator) GetReceiptsGasUsed(tx kv.TemporalTx, block *types.Block) (types.Receipts, error) {
+func (g *Generator) GetReceiptsGasUsed(tx kv.TemporalTx, block *types.Block, txNumsReader rawdbv3.TxNumsReader) (types.Receipts, error) {
 	if receipts, ok := g.receiptsCache.Get(block.Hash()); ok {
 		return receipts, nil
 	}
 
-	if block == nil || len(block.Transactions()) == 0 {
-		return types.Receipts{}, nil
-	}
-
-	startTxNum, err := rawdbv3.TxNums.Min(tx, block.NumberU64())
+	startTxNum, err := txNumsReader.Min(tx, block.NumberU64())
 	if err != nil {
-		return nil, fmt.Errorf("get min tx num: %w", err)
+		return nil, fmt.Errorf("ReceiptGen.GetReceiptsGasUsed: get  min tx of block %d: %w", block.NumberU64(), err)
 	}
 
 	receipts := make(types.Receipts, len(block.Transactions()))
@@ -210,7 +206,7 @@ func (g *Generator) GetReceiptsGasUsed(tx kv.TemporalTx, block *types.Block) (ty
 		receipt := &types.Receipt{}
 		cumGasUsed, _, _, err := rawtemporaldb.ReceiptAsOf(tx, currentTxNum+1)
 		if err != nil {
-			return nil, fmt.Errorf("get receipt at tx %d (block %d, index %d): %w",
+			return nil, fmt.Errorf("ReceiptGen.GetReceiptsGasUsed: at tx %d (block %d, index %d): %w",
 				currentTxNum, block.NumberU64(), i, err)
 		}
 

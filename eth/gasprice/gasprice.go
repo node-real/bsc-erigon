@@ -46,7 +46,7 @@ type OracleBackend interface {
 
 	GetReceipts(ctx context.Context, block *types.Block) (types.Receipts, error)
 	PendingBlockAndReceipts() (*types.Block, types.Receipts)
-	GetReceiptsGasUsed(block *types.Block) (types.Receipts, error)
+	GetReceiptsGasUsed(ctx context.Context, block *types.Block) (types.Receipts, error)
 }
 
 type Cache interface {
