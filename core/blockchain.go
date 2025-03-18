@@ -576,7 +576,7 @@ func IsToSystemContract(to libcommon.Address) bool {
 
 func BlockInterval(cc *chain.Config, header *types.Header) uint64 {
 	if cc.IsLorentz(header.Number.Uint64(), header.Time) {
-		return params.LorentzBlockInterval
+		return params.LorentzBlockInterval / 1000
 	}
-	return params.DefaultBlockInterval
+	return params.DefaultBlockInterval / 1000
 }
