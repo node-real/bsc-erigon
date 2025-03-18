@@ -2,6 +2,8 @@ package parlia
 
 import (
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon/consensus"
+	"github.com/erigontech/erigon/params"
 	"math/rand"
 
 	"github.com/erigontech/erigon-lib/chain"
@@ -9,12 +11,21 @@ import (
 	"github.com/erigontech/erigon/core/types"
 )
 
-func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, chainConfig *chain.Config) uint64 {
+func backOffTime(snap *Snapshot, parent, header *types.Header, val libcommon.Address, chainConfig *chain.Config) uint64 {
 	if snap.inturn(val) {
 		log.Trace("backOffTime", "blockNumber", header.Number, "in turn validator", val)
 		return 0
 	} else {
-		delay := initialBackOffTime
+		delay := defaultInitialBackOffTime
+		// When mining blocks, `header.Time` is temporarily set to time.Now() + 1.
+		// Therefore, using `header.Time` to determine whether a hard fork has occurred is incorrect.
+		// As a result, during the Bohr and Lorentz hard forks, the network may experience some instability,
+		// So use `parent.Time` instead.
+		isParentLorentz := chainConfig.IsLorentz(parent.Number.Uint64(), parent.Time)
+		if isParentLorentz {
+			// If the in-turn validator has not signed recently, the expected backoff times are [2, 3, 4, ...].
+			delay = lorentzInitialBackOffTime
+		}
 		validators := snap.validators()
 		if chainConfig.IsPlanck(header.Number.Uint64()) {
 			// reverse the key/value of snap.Recents to get recentsMap
@@ -80,7 +91,44 @@ func backOffTime(snap *Snapshot, header *types.Header, val libcommon.Address, ch
 			backOffSteps[i], backOffSteps[j] = backOffSteps[j], backOffSteps[i]
 		})
 
+		if delay == 0 && isParentLorentz {
+			// If the in-turn validator has signed recently, the expected backoff times are [0, 2, 3, ...].
+			if backOffSteps[idx] == 0 {
+				return 0
+			}
+			return lorentzInitialBackOffTime + (backOffSteps[idx]-1)*wiggleTime
+		}
 		delay += backOffSteps[idx] * wiggleTime
 		return delay
 	}
+}
+
+// BlockInterval returns number of blocks in one epoch for the given header
+func (p *Parlia) epochLength(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) (uint64, error) {
+	if header == nil {
+		return params.DefaultEpochLength, errUnknownBlock
+	}
+	if header.Number.Uint64() == 0 {
+		return params.DefaultEpochLength, nil
+	}
+	snap, err := p.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, parents, false)
+	if err != nil {
+		return params.DefaultEpochLength, err
+	}
+	return snap.EpochLength, nil
+}
+
+// BlockInterval returns the block interval in milliseconds for the given header
+func (p *Parlia) BlockInterval(chain consensus.ChainHeaderReader, header *types.Header) (uint64, error) {
+	if header == nil {
+		return params.DefaultBlockInterval, errUnknownBlock
+	}
+	if header.Number.Uint64() == 0 {
+		return params.DefaultBlockInterval, nil
+	}
+	snap, err := p.snapshot(chain, header.Number.Uint64()-1, header.ParentHash, nil, false)
+	if err != nil {
+		return params.DefaultBlockInterval, err
+	}
+	return snap.BlockInterval, nil
 }

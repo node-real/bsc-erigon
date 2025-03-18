@@ -260,6 +260,15 @@ func (api *APIImpl) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber
 		}
 	}
 
+	if chainConfig.Parlia != nil {
+		td, err := rawdb.ReadTd(tx, b.Hash(), b.NumberU64())
+		if err != nil {
+			return nil, err
+		}
+		response["totalDifficulty"] = (*hexutil.Big)(td)
+		response["milliTimestamp"] = hexutil.Uint64(b.Header().MilliTimestamp())
+	}
+
 	return response, err
 }
 
@@ -324,6 +333,15 @@ func (api *APIImpl) GetBlockByHash(ctx context.Context, numberOrHash rpc.BlockNu
 		for _, field := range []string{"hash", "nonce", "miner"} {
 			response[field] = nil
 		}
+	}
+
+	if chainConfig.Parlia != nil {
+		td, err := rawdb.ReadTd(tx, block.Hash(), block.NumberU64())
+		if err != nil {
+			return nil, err
+		}
+		response["totalDifficulty"] = (*hexutil.Big)(td)
+		response["milliTimestamp"] = hexutil.Uint64(block.Header().MilliTimestamp())
 	}
 
 	return response, err

@@ -123,6 +123,7 @@ func (api *BscImpl) GetHeaderByHash(ctx context.Context, hash libcommon.Hash) (m
 		return nil, err
 	}
 	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	fields["milliTimestamp"] = hexutil.Uint64(header.MilliTimestamp())
 	return fields, nil
 }
 
@@ -143,6 +144,7 @@ func (api *BscImpl) GetHeaderByNumber(ctx context.Context, number rpc.BlockNumbe
 		return nil, err
 	}
 	fields["totalDifficulty"] = (*hexutil.Big)(td)
+	fields["milliTimestamp"] = hexutil.Uint64(header.MilliTimestamp())
 	return fields, nil
 }
 
@@ -345,7 +347,8 @@ func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum
 	lastHeader := latestHeader
 	confirmedValSet := make(map[libcommon.Address]struct{}, valLen)
 	confirmedValSet[lastHeader.Coinbase] = struct{}{}
-	for count := 1; int64(len(confirmedValSet)) < verifiedValidatorNum && count <= int(chainConfig.Parlia.Epoch) && lastHeader.Number.Int64() > max(fastFinalizedHeader.Number.Int64(), 1); count++ {
+	epochLength := int(500) // TODO(Blxdyx)(BEP-524 Phase Two): use `maxwellEpochLength` instead
+	for count := 1; int64(len(confirmedValSet)) < verifiedValidatorNum && count <= epochLength && lastHeader.Number.Int64() > max(fastFinalizedHeader.Number.Int64(), 1); count++ {
 		lastHeader, err = api.ethApi._blockReader.HeaderByHash(ctx, tx, lastHeader.ParentHash)
 		if err != nil { // impossible
 			return 0, err

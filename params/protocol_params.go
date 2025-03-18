@@ -194,10 +194,13 @@ const (
 	BlobTxPointEvaluationPrecompileGas = 50000   // Gas price for the point evaluation precompile.
 
 	BlobTxTargetBlobGasPerBlock = 3 * BlobTxBlobGasPerBlob // Target consumable blob gas for data blobs per block (for 1559-like pricing)
-	MaxBlobGasPerBlock          = 6 * BlobTxBlobGasPerBlob // Maximum consumable blob gas for data blobs per block
 
-	MinBlocksForBlobRequests           uint64 = 524288              // it keeps blob data available for ~18.2 days in local, ref: https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-336.md#51-parameters.
-	DefaultExtraReserveForBlobRequests uint64 = 1 * (24 * 3600) / 3 // it adds more time for expired blobs for some request cases, like expiry blob when remote peer is syncing, default 1 day.
+	// lorentzBlockInterval                      = 1.5
+	MinTimeDurationForBlobRequests     uint64 = uint64(float64(24*3600) * 18.2)                       // it keeps blob data available for 18.2 days in local
+	MinBlocksForBlobRequests           uint64 = uint64(float64(MinTimeDurationForBlobRequests) / 1.5) // ref: https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-524.md#421-change-table.
+	DefaultExtraReserveForBlobRequests uint64 = uint64(24 * 3600 / 1.5)                               // it adds more time for expired blobs for some request cases, like expiry blob when remote peer is syncing, default 1 day.
+
+	BreatheBlockInterval uint64 = 24 * 3600 // Controls the interval for updateValidatorSetV2
 
 	// used for testing:
 	//     [1,9] except 2 --> used as turn length directly
@@ -211,6 +214,13 @@ const (
 
 	// EIP-7702
 	SetCodeMagicPrefix = byte(0x05)
+
+	//Bsc
+	DefaultEpochLength   uint64 = 200  // Default number of blocks of checkpoint to update validatorSet from contract
+	LorentzEpochLength   uint64 = 500  // Epoch length starting from the Lorentz hard fork
+	MaxwellEpochLength   uint64 = 1000 // Epoch length starting from the Maxwell hard fork
+	DefaultBlockInterval uint64 = 3000 // Default block interval in milliseconds
+	LorentzBlockInterval uint64 = 1500 // Block interval starting from the Lorentz hard fork
 )
 
 // EIP-7702: Set EOA account code
@@ -243,7 +253,3 @@ var (
 	MinimumDifficulty      = big.NewInt(131072) // The minimum that the difficulty may ever be.
 	DurationLimit          = big.NewInt(13)     // The decision boundary on the blocktime duration used to determine whether difficulty should go up or not.
 )
-
-func ApplyBinanceSmartChainParams() {
-	GasLimitBoundDivisor = 256
-}

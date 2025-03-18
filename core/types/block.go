@@ -25,6 +25,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/holiman/uint256"
 	"io"
 	"math/big"
 	"reflect"
@@ -592,6 +593,20 @@ func (h *Header) Hash() (hash libcommon.Hash) {
 		h.hash.Store(&hash)
 	}
 	return hash
+}
+
+// SetMilliseconds can be called once millisecond representation supported
+func (h *Header) SetMilliseconds(milliseconds uint64) {
+	h.MixDigest = libcommon.Hash(uint256.NewInt(milliseconds % 1000).Bytes32())
+}
+
+// Ensure Milliseconds is less than 1000 when verifying the block header
+func (h *Header) MilliTimestamp() uint64 {
+	milliseconds := uint64(0)
+	if h.MixDigest != (libcommon.Hash{}) {
+		milliseconds = uint256.NewInt(0).SetBytes32(h.MixDigest[:]).Uint64()
+	}
+	return h.Time*1000 + milliseconds
 }
 
 var headerSize = libcommon.StorageSize(reflect.TypeOf(Header{}).Size())

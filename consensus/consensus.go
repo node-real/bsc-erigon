@@ -22,9 +22,8 @@ package consensus
 
 import (
 	"context"
-	"math/big"
-
 	"github.com/holiman/uint256"
+	"math/big"
 
 	"github.com/erigontech/erigon-lib/chain"
 	libcommon "github.com/erigontech/erigon-lib/common"
@@ -223,6 +222,7 @@ type PoSA interface {
 	GetFinalizedHeader(chain ChainHeaderReader, header *types.Header) *types.Header
 	ResetSnapshot(chain ChainHeaderReader, headers []*types.Header) error
 	GetLatestSnapshotHeight() (uint64, error)
+	BlockInterval(chain ChainHeaderReader, header *types.Header) (uint64, error)
 }
 
 type AsyncEngine interface {

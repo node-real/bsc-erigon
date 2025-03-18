@@ -19,8 +19,7 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 	}
 
 	current := chain.CurrentHeader()
-	if header.Number.Uint64()+params.MinBlocksForBlobRequests < max(current.Number.Uint64(), latest) {
-		// if we needn't check DA of this block, just clean it
+	if header.Time+params.MinTimeDurationForBlobRequests < current.Time { // if we needn't check DA of this block, just clean it
 		body.CleanSidecars()
 		return nil
 	}
@@ -64,7 +63,7 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 
 	maxBlobPerBlock := chain.Config().GetMaxBlobsPerBlock(header.Time)
 	if blobCnt > int(maxBlobPerBlock) {
-		return fmt.Errorf("too many blobs in block: have %d, permitted %d", blobCnt, params.MaxBlobGasPerBlock/params.BlobTxBlobGasPerBlob)
+		return fmt.Errorf("too many blobs in block: have %d, permitted %d", blobCnt, maxBlobPerBlock)
 	}
 
 	for i, tx := range blobTxs {

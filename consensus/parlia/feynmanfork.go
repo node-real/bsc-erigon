@@ -3,6 +3,7 @@ package parlia
 import (
 	"container/heap"
 	"errors"
+	"github.com/erigontech/erigon/params"
 	"math/big"
 
 	"github.com/erigontech/erigon-lib/common"
@@ -15,11 +16,9 @@ import (
 	"github.com/erigontech/erigon/core/types"
 )
 
-const SecondsPerDay uint64 = 86400
-
 // the params should be two blocks' time(timestamp)
 func sameDayInUTC(first, second uint64) bool {
-	return first/SecondsPerDay == second/SecondsPerDay
+	return first/params.BreatheBlockInterval == second/params.BreatheBlockInterval
 }
 
 func isBreatheBlock(lastBlockTime, blockTime uint64) bool {

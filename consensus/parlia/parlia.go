@@ -48,28 +48,35 @@ import (
 )
 
 const (
-	inMemorySnapshots  = 256  // Number of recent snapshots to keep in memory
-	inMemorySignatures = 4096 // Number of recent block signatures to keep in memory
+	inMemorySnapshots  = 1280  // Number of recent snapshots to keep in memory; a buffer exceeding the EpochLength
+	inMemorySignatures = 4096  // Number of recent block signatures to keep in memory
+	inMemoryHeaders    = 86400 // Number of recent headers to keep in memory for double sign detection,
 
-	CheckpointInterval = 1024        // Number of blocks after which to save the snapshot to the database
-	defaultEpochLength = uint64(100) // Default number of blocks of checkpoint to update validatorSet from contract
-	defaultTurnLength  = uint8(1)    // Default consecutive number of blocks a validator receives priority for block production
-	extraVanity        = 32          // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal          = 65          // Fixed number of extra-data suffix bytes reserved for signer seal
-	nextForkHashSize   = 4           // Fixed number of extra-data suffix bytes reserved for nextForkHash.
+	CheckpointInterval = 1024 // Number of blocks after which to save the snapshot to the database
+
+	defaultTurnLength uint8 = 1 // Default consecutive number of blocks a validator receives priority for block production
+
+	extraVanity      = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
+	extraSeal        = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
+	nextForkHashSize = 4  // Fixed number of extra-data suffix bytes reserved for nextForkHash.
 
 	validatorBytesLengthBeforeLuban = length.Addr
 	validatorBytesLength            = length.Addr + types.BLSPublicKeyLength
 	validatorNumberSize             = 1 // Fixed number of extra prefix bytes reserved for validator number after Luban
 	turnLengthSize                  = 1 // Fixed number of extra-data suffix bytes reserved for turnLength
 
-	wiggleTime         = uint64(1) // second, Random delay (per signer) to allow concurrent signers
-	initialBackOffTime = uint64(1) // second
-	processBackOffTime = uint64(1) // second
+	wiggleTime                uint64 = 1000 // milliseconds, Random delay (per signer) to allow concurrent signers
+	defaultInitialBackOffTime uint64 = 1000 // milliseconds, Default backoff time for the second validator permitted to produce blocks
+	lorentzInitialBackOffTime uint64 = 2000 // milliseconds, Backoff time for the second validator permitted to produce blocks from the Lorentz hard fork
 
 	systemRewardPercent = 4 // it means 1/2^4 = 1/16 percentage of gas fee incoming will be distributed to system
 
 	collectAdditionalVotesRewardRatio = float64(1) // ratio of additional reward for collecting more votes than needed
+
+	gasLimitBoundDivisorBeforeLorentz uint64 = 256 // The bound divisor of the gas limit, used in update calculations before lorentz hard fork.
+
+	// `finalityRewardInterval` should be smaller than `inMemorySnapshots`, otherwise, it will result in excessive computation.
+	finalityRewardInterval = 200
 )
 
 var (
@@ -233,11 +240,7 @@ func New(
 ) *Parlia {
 	// get parlia config
 	parliaConfig := chainConfig.Parlia
-
-	// Set any missing consensus parameters to their defaults
-	if parliaConfig != nil && parliaConfig.Epoch == 0 {
-		parliaConfig.Epoch = defaultEpochLength
-	}
+	log.Info("Parlia", "chainConfig", chainConfig)
 
 	// Allocate the snapshot caches and create the engine
 	recentSnaps, err := lru.NewARC[libcommon.Hash, *Snapshot](inMemorySnapshots)
@@ -321,23 +324,23 @@ func (p *Parlia) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*typ
 
 // getValidatorBytesFromHeader returns the validators bytes extracted from the header's extra field if exists.
 // The validators bytes would be contained only in the epoch block's header, and its each validator bytes length is fixed.
-// On Luban fork, we introduce vote attestation into the header's extra field, so extra format is different from before.
-// Before Luban fork: |---Extra Vanity---|---Validators Bytes (or Empty)---|---Extra Seal---|
-// After Luban fork:  |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
-// After bohr fork:   |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Turn Length (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
-func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) []byte {
+// On luban fork, we introduce vote attestation into the header's extra field, so extra format is different from before.
+// Before luban fork: |---Extra Vanity---|---Validators Bytes (or Empty)---|---Extra Seal---|
+// After luban fork:  |---Extra Vanity---|---Validators Number and Validators Bytes (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
+// After bohr fork:   |---Extra Vanity---|---Validators Number, Validators Bytes and Turn Length (or Empty)---|---Vote Attestation (or Empty)---|---Extra Seal---|
+func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config, epochLength uint64) []byte {
 	if len(header.Extra) <= extraVanity+extraSeal {
 		return nil
 	}
 
 	if !chainConfig.IsLuban(header.Number.Uint64()) {
-		if header.Number.Uint64()%parliaConfig.Epoch == 0 && (len(header.Extra)-extraSeal-extraVanity)%validatorBytesLengthBeforeLuban != 0 {
+		if header.Number.Uint64()%epochLength == 0 && (len(header.Extra)-extraSeal-extraVanity)%validatorBytesLengthBeforeLuban != 0 {
 			return nil
 		}
 		return header.Extra[extraVanity : len(header.Extra)-extraSeal]
 	}
 
-	if header.Number.Uint64()%parliaConfig.Epoch != 0 {
+	if header.Number.Uint64()%epochLength != 0 {
 		return nil
 	}
 	num := int(header.Extra[extraVanity])
@@ -354,7 +357,7 @@ func getValidatorBytesFromHeader(header *types.Header, chainConfig *chain.Config
 }
 
 // getVoteAttestationFromHeader returns the vote attestation extracted from the header's extra field if exists.
-func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Config, parliaConfig *chain.ParliaConfig) (*types.VoteAttestation, error) {
+func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Config, epochLength uint64) (*types.VoteAttestation, error) {
 	if len(header.Extra) <= extraVanity+extraSeal {
 		return nil, nil
 	}
@@ -364,7 +367,7 @@ func getVoteAttestationFromHeader(header *types.Header, chainConfig *chain.Confi
 	}
 
 	var attestationBytes []byte
-	if header.Number.Uint64()%parliaConfig.Epoch != 0 {
+	if header.Number.Uint64()%epochLength != 0 {
 		attestationBytes = header.Extra[extraVanity : len(header.Extra)-extraSeal]
 	} else {
 		num := int(header.Extra[extraVanity])
@@ -404,7 +407,11 @@ func (p *Parlia) getParent(chain consensus.ChainHeaderReader, header *types.Head
 
 // verifyVoteAttestation checks whether the vote attestation in the header is valid.
 func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
-	attestation, err := getVoteAttestationFromHeader(header, p.chainConfig, p.config)
+	epochLength, err := p.epochLength(chain, header, parents)
+	if err != nil {
+		return err
+	}
+	attestation, err := getVoteAttestationFromHeader(header, p.chainConfig, epochLength)
 	if err != nil {
 		return err
 	}
@@ -517,10 +524,13 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 
 	// check extra data
 	number := header.Number.Uint64()
-	isEpoch := number%p.config.Epoch == 0
-
+	epochLength, err := p.epochLength(chain, header, parents)
+	if err != nil {
+		return err
+	}
 	// Ensure that the extra-data contains a signer list on checkpoint, but none otherwise
-	signersBytes := getValidatorBytesFromHeader(header, p.chainConfig, p.config)
+	signersBytes := getValidatorBytesFromHeader(header, p.chainConfig, epochLength)
+	isEpoch := number%epochLength == 0
 	if !isEpoch && len(signersBytes) != 0 {
 		return errExtraValidators
 	}
@@ -529,9 +539,15 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		return errInvalidSpanValidators
 	}
 
-	// Ensure that the mix digest is zero as we don't have fork protection currently
-	if header.MixDigest != (libcommon.Hash{}) {
-		return errInvalidMixDigest
+	lorentz := chain.Config().IsLorentz(header.Number.Uint64(), header.Time)
+	if !lorentz {
+		if header.MixDigest != (libcommon.Hash{}) {
+			return errInvalidMixDigest
+		}
+	} else {
+		if header.MilliTimestamp()/1000 != header.Time {
+			return fmt.Errorf("invalid MixDigest, have %#x, expected the last two bytes to represent milliseconds", header.MixDigest)
+		}
 	}
 	// Ensure that the block doesn't contain any uncles which are meaningless in PoA
 	if header.UncleHash != uncleHash {
@@ -650,7 +666,11 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	if diff < 0 {
 		diff *= -1
 	}
-	limit := parent.GasLimit / params.GasLimitBoundDivisor
+	gasLimitBoundDivisor := gasLimitBoundDivisorBeforeLorentz
+	if p.chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
+		gasLimitBoundDivisor = params.GasLimitBoundDivisor
+	}
+	limit := parent.GasLimit / gasLimitBoundDivisor
 
 	if uint64(diff) >= limit || header.GasLimit < params.MinGasLimit {
 		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
@@ -742,11 +762,12 @@ func (p *Parlia) snapshot(chain consensus.ChainHeaderReader, number uint64, hash
 		}
 		// If we're at the genesis, snapshot the initial state.
 		if number == 0 {
+			epochLength := params.DefaultEpochLength
 			// Headers included into the snapshots have to be trusted as checkpoints
 			checkpoint := chain.GetHeader(hash, number)
 			if checkpoint != nil {
 				// get validators from headers
-				validators, voteAddrs, err := parseValidators(checkpoint, p.chainConfig, p.config)
+				validators, voteAddrs, err := parseValidators(checkpoint, p.chainConfig, epochLength)
 				if err != nil {
 					return nil, err
 				}
@@ -819,8 +840,12 @@ func (p *Parlia) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 	return nil
 }
 
-func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *state.IntraBlockState) error {
-	if (header.Number.Uint64())%p.config.Epoch != 0 {
+func (p *Parlia) verifyValidators(chain consensus.ChainHeaderReader, header, parentHeader *types.Header, state *state.IntraBlockState) error {
+	epochLength, err := p.epochLength(chain, header, nil)
+	if err != nil {
+		return err
+	}
+	if header.Number.Uint64()%epochLength != 0 {
 		return nil
 	}
 
@@ -857,19 +882,23 @@ func (p *Parlia) verifyValidators(header, parentHeader *types.Header, state *sta
 			copy(validatorsBytes[i*validatorBytesLength+length.Addr:], voteAddressMap[validator].Bytes())
 		}
 	}
-	if !bytes.Equal(getValidatorBytesFromHeader(header, p.chainConfig, p.config), validatorsBytes) {
+	if !bytes.Equal(getValidatorBytesFromHeader(header, p.chainConfig, epochLength), validatorsBytes) {
 		return errMismatchingEpochValidators
 	}
 	return nil
 }
 
 func (p *Parlia) verifyTurnLength(chain consensus.ChainHeaderReader, header *types.Header, ibs *state.IntraBlockState) error {
-	if header.Number.Uint64()%p.config.Epoch != 0 ||
+	epochLength, err := p.epochLength(chain, header, nil)
+	if err != nil {
+		return err
+	}
+	if header.Number.Uint64()%epochLength != 0 ||
 		!p.chainConfig.IsBohr(header.Number.Uint64(), header.Time) {
 		return nil
 	}
 
-	turnLengthFromHeader, err := parseTurnLength(header, p.chainConfig, p.config)
+	turnLengthFromHeader, err := parseTurnLength(header, p.chainConfig, epochLength)
 	if err != nil {
 		return err
 	}
@@ -892,7 +921,7 @@ func (p *Parlia) Initialize(config *chain.Config, chain consensus.ChainHeaderRea
 	state *state.IntraBlockState, syscall consensus.SysCallCustom, logger log.Logger, tracer *tracing.Hooks) error {
 	var err error
 	parentHeader := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
-	if err = p.verifyValidators(header, parentHeader, state); err != nil {
+	if err = p.verifyValidators(chain, header, parentHeader, state); err != nil {
 		return err
 	}
 	if err = p.verifyTurnLength(chain, header, state); err != nil {
@@ -1032,6 +1061,13 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
+	PenalizeForDelayMining, err := p.isIntentionalDelayMining(chain, header)
+	if err != nil {
+		log.Debug("unexpected error happened when detecting intentional delay mining", "err", err)
+	}
+	if PenalizeForDelayMining {
+		log.Warn("intentional delay mining detected", "validator", header.Coinbase, "number", header.Number, "hash", header.Hash())
+	}
 	if !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) {
 		finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 		if err != nil || finish {
@@ -1073,20 +1109,22 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 	txs *types.Transactions, receipts *types.Receipts, systemTxs *types.Transactions,
 	usedGas *uint64, mining bool, systemTxCall consensus.SystemTxCall, curIndex *int, txIndex *int) (bool, error) {
 	currentHeight := header.Number.Uint64()
-	epoch := p.config.Epoch
-	chainConfig := chain.Config()
-	if currentHeight%epoch != 0 {
+	if currentHeight%finalityRewardInterval != 0 {
 		return false, nil
 	}
 
 	head := header
 	accumulatedWeights := make(map[libcommon.Address]uint64)
-	for height := currentHeight - 1; height+epoch >= currentHeight && height >= 1; height-- {
+	for height := currentHeight - 1; height+finalityRewardInterval >= currentHeight && height >= 1; height-- {
 		head = chain.GetHeaderByHash(head.ParentHash)
 		if head == nil {
 			return true, fmt.Errorf("header is nil at height %d", height)
 		}
-		voteAttestation, err := getVoteAttestationFromHeader(head, chainConfig, p.config)
+		epochLength, err := p.epochLength(chain, head, nil)
+		if err != nil {
+			return false, err
+		}
+		voteAttestation, err := getVoteAttestationFromHeader(head, chain.Config(), epochLength)
 		if err != nil {
 			return true, err
 		}
@@ -1339,6 +1377,21 @@ func (p *Parlia) getCurrentValidators(header *types.Header, ibs *state.IntraBloc
 		voteAddrmap[valSet[i]] = &(voteAddrSet)[i]
 	}
 	return valSet, voteAddrmap, nil
+}
+
+func (p *Parlia) isIntentionalDelayMining(chain consensus.ChainHeaderReader, header *types.Header) (bool, error) {
+	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
+	if parent == nil {
+		return false, errors.New("parent not found")
+	}
+	blockInterval, err := p.BlockInterval(chain, header)
+	if err != nil {
+		return false, err
+	}
+	isIntentional := header.Coinbase == parent.Coinbase &&
+		header.Difficulty == diffInTurn && parent.Difficulty == diffInTurn &&
+		parent.MilliTimestamp()+blockInterval < header.MilliTimestamp()
+	return isIntentional, nil
 }
 
 // slash spoiled validators
@@ -1597,8 +1650,8 @@ func (c *Parlia) GetPostApplyMessageFunc() evmtypes.PostApplyMessageFunc {
 
 func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent *types.Header) error {
 	if p.chainConfig.IsRamanujan(header.Number.Uint64()) {
-		if header.Time < parent.Time+p.config.Period+backOffTime(snap, header, header.Coinbase, p.chainConfig) {
-			return fmt.Errorf("header %d, time %d, now %d, period: %d, backof: %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), p.config.Period, backOffTime(snap, header, header.Coinbase, p.chainConfig), consensus.ErrFutureBlock)
+		if header.MilliTimestamp() < parent.MilliTimestamp()+snap.BlockInterval+backOffTime(snap, parent, header, header.Coinbase, p.chainConfig) {
+			return fmt.Errorf("header %d, time %d, now %d, period: %d, backof: %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), snap.BlockInterval, backOffTime(snap, parent, header, header.Coinbase, p.chainConfig), consensus.ErrFutureBlock)
 		}
 	}
 	return nil
@@ -1618,7 +1671,7 @@ func (p *Parlia) ResetSnapshot(chain consensus.ChainHeaderReader, headers []*typ
 	// If we're at the genesis, snapshot the initial state.
 	if checkpoint.Number.Uint64() == 0 {
 		// Headers included into the snapshots have to be trusted as checkpoints get validators from headers
-		validators, voteAddrs, err := parseValidators(checkpoint, p.chainConfig, p.config)
+		validators, voteAddrs, err := parseValidators(checkpoint, p.chainConfig, params.DefaultEpochLength)
 		if err != nil {
 			return err
 		}
@@ -1684,11 +1737,6 @@ func (w rwWrapper) BeginRwNosync(ctx context.Context) (kv.RwTx, error) {
 func NewRo(chainConfig *chain.Config, db kv.RoDB, blockReader services.FullBlockReader, logger log.Logger) *Parlia {
 	// get bor config
 	parliaConfig := chainConfig.Parlia
-
-	// Set any missing consensus parameters to their defaults
-	if parliaConfig != nil && parliaConfig.Epoch == 0 {
-		parliaConfig.Epoch = defaultEpochLength
-	}
 
 	// Allocate the snapshot caches and create the engine
 	recentSnaps, err := lru.NewARC[libcommon.Hash, *Snapshot](inMemorySnapshots)

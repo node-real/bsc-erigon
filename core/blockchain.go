@@ -24,6 +24,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
+	"github.com/erigontech/erigon/params"
 
 	"slices"
 	"time"
@@ -571,4 +572,11 @@ var systemContracts = map[libcommon.Address]struct{}{
 func IsToSystemContract(to libcommon.Address) bool {
 	_, ok := systemContracts[to]
 	return ok
+}
+
+func BlockInterval(cc *chain.Config, header *types.Header) uint64 {
+	if cc.IsLorentz(header.Number.Uint64(), header.Time) {
+		return params.LorentzBlockInterval
+	}
+	return params.DefaultBlockInterval
 }

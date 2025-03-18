@@ -157,7 +157,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 	var lastBlockTime uint64
 	_, isPoSA := rw.execArgs.Engine.(consensus.PoSA)
 	if isPoSA {
-		lastBlockTime = header.Time - rw.execArgs.ChainConfig.Parlia.Period
+		lastBlockTime = header.Time - core.BlockInterval(rw.execArgs.ChainConfig, header)
 	}
 	switch {
 	case txTask.TxIndex == -1:

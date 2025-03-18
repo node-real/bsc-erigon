@@ -76,6 +76,7 @@ type Config struct {
 	PascalTime     *big.Int `json:"pascalTime,omitempty"`
 	PragueTime     *big.Int `json:"pragueTime,omitempty"`
 	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
+	LorentzTime    *big.Int `json:"lorentzTime,omitempty"` // Lorentz switch time (nil = no fork, 0 = already on lorentz)
 
 	// Parlia fork blocks
 	RamanujanBlock  *big.Int `json:"ramanujanBlock,omitempty" toml:",omitempty"`  // ramanujanBlock switch block (nil = no fork, 0 = already activated)
@@ -197,7 +198,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v, Terminal Total Difficulty: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, c.PascalTime %v, c.PragueTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v, Terminal Total Difficulty: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, c.PascalTime %v, c.PragueTime %v, c.LorentzTime %v, Engine: %v}",
 			c.ChainID,
 			c.TerminalTotalDifficulty,
 			timestampToTime(c.ShanghaiTime),
@@ -210,6 +211,7 @@ func (c *Config) String() string {
 			timestampToTime(c.BohrTime),
 			timestampToTime(c.PascalTime),
 			timestampToTime(c.PragueTime),
+			timestampToTime(c.LorentzTime),
 			engine,
 		)
 	}
@@ -607,6 +609,19 @@ func (c *Config) IsOnPascal(currentBlockNumber *big.Int, lastBlockTime uint64, c
 	return !c.IsPascal(lastBlockNumber.Uint64(), lastBlockTime) && c.IsPascal(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
+func (c *Config) IsLorentz(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.LorentzTime, time)
+}
+
+// IsOnLorentz returns whether currentBlockTime is either equal to the Lorentz fork time or greater firstly.
+func (c *Config) IsOnLorentz(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsLorentz(lastBlockNumber.Uint64(), lastBlockTime) && c.IsLorentz(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *Config) CheckCompatible(newcfg *Config, height uint64) *ConfigCompatError {
@@ -803,8 +818,6 @@ func (c *CliqueConfig) String() string {
 type ParliaConfig struct {
 	DBPath     string
 	InMemory   bool
-	Period     uint64                 `json:"period"`     // Number of seconds between blocks to enforce
-	Epoch      uint64                 `json:"epoch"`      // Epoch length to update validatorSet
 	BlockAlloc map[string]interface{} `json:"blockAlloc"` // For systemContract upgrade
 }
 
@@ -852,7 +865,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli                       bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber, IsBohr, IsPascal                                     bool
+	IsHaber, IsBohr, IsPascal, IsLorentz                          bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -890,6 +903,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsHaber:            c.IsHaber(num, time),
 		IsBohr:             c.IsBohr(num, time),
 		IsPascal:           c.IsPascal(num, time),
+		IsLorentz:          c.IsLorentz(num, time),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
 		IsParlia:           c.Parlia != nil,
