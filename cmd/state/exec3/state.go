@@ -216,10 +216,6 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 	rules := txTask.Rules
 	var err error
 	header := txTask.Header
-	var lastBlockTime uint64
-	if rw.isPoSA {
-		lastBlockTime = header.Time - core.BlockInterval(rw.chainConfig, header)
-	}
 	//fmt.Printf("txNum=%d blockNum=%d history=%t\n", txTask.TxNum, txTask.BlockNum, txTask.HistoryExecution)
 
 	switch {
@@ -243,10 +239,10 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 		}
 		if rw.isPoSA {
 			if !rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, txTask.LastBlockTime, header.Time, ibs, rw.logger)
 			}
 			// HistoryStorageAddress is a special system contract in bsc, which can't be upgraded
-			if rw.chainConfig.IsOnPrague(header.Number, lastBlockTime, header.Time) {
+			if rw.chainConfig.IsOnPrague(header.Number, txTask.LastBlockTime, header.Time) {
 				misc.InitializeBlockHashesEip2935(ibs)
 				log.Info("Set code for HistoryStorageAddress", "blockNumber", header.Number.Uint64(), "blockTime", header.Time)
 			}
@@ -264,7 +260,7 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining bool) {
 		if _, isPoSa := rw.engine.(consensus.PoSA); isPoSa {
 			// Is an empty block
 			if rw.chainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
-				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+				systemcontracts.UpgradeBuildInSystemContract(rw.chainConfig, header.Number, txTask.LastBlockTime, header.Time, ibs, rw.logger)
 			}
 			break
 		}

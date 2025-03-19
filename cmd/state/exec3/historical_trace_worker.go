@@ -154,11 +154,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 	rules := txTask.Rules
 	var err error
 	header := txTask.Header
-	var lastBlockTime uint64
 	_, isPoSA := rw.execArgs.Engine.(consensus.PoSA)
-	if isPoSA {
-		lastBlockTime = header.Time - core.BlockInterval(rw.execArgs.ChainConfig, header)
-	}
 	switch {
 	case txTask.TxIndex == -1:
 		if txTask.BlockNum == 0 {
@@ -178,10 +174,10 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		}
 		if isPoSA {
 			if !rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) {
-				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, txTask.LastBlockTime, header.Time, ibs, rw.logger)
 			}
 			// HistoryStorageAddress is a special system contract in bsc, which can't be upgraded
-			if rw.execArgs.ChainConfig.IsOnPrague(header.Number, lastBlockTime, header.Time) {
+			if rw.execArgs.ChainConfig.IsOnPrague(header.Number, txTask.LastBlockTime, header.Time) {
 				misc.InitializeBlockHashesEip2935(ibs)
 				log.Info("Set code for HistoryStorageAddress", "blockNumber", header.Number.Uint64(), "blockTime", header.Time)
 			}
@@ -199,7 +195,7 @@ func (rw *HistoricalTraceWorker) RunTxTask(txTask *state.TxTask) {
 		if _, isPoSa := rw.execArgs.Engine.(consensus.PoSA); isPoSa {
 			// Is an empty block
 			if rw.execArgs.ChainConfig.IsFeynman(header.Number.Uint64(), header.Time) && txTask.TxIndex == 0 {
-				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, lastBlockTime, header.Time, ibs, rw.logger)
+				systemcontracts.UpgradeBuildInSystemContract(rw.execArgs.ChainConfig, header.Number, txTask.LastBlockTime, header.Time, ibs, rw.logger)
 			}
 			break
 		}
@@ -510,6 +506,18 @@ func CustomTraceMapReduce(fromBlock, toBlock uint64, consumer TraceConsumer, ctx
 			// TODO: panic here and see that overall process deadlock
 			return fmt.Errorf("nil block %d", blockNum)
 		}
+		var lastBlockTime uint64
+		var parent *types.Block
+		if blockNum > 0 {
+			parent, err = blockWithSenders(ctx, nil, tx, br, blockNum-1)
+			if err != nil {
+				return err
+			}
+			if parent == nil {
+				return fmt.Errorf("nil parent block %d", blockNum-1)
+			}
+			lastBlockTime = parent.Time()
+		}
 		txs := b.Transactions()
 		header := b.HeaderNoCopy()
 		skipAnalysis := core.SkipAnalysis(chainConfig, blockNum)
@@ -544,6 +552,7 @@ func CustomTraceMapReduce(fromBlock, toBlock uint64, consumer TraceConsumer, ctx
 				GetHashFn:       getHashFn,
 				EvmBlockContext: blockContext,
 				Withdrawals:     b.Withdrawals(),
+				LastBlockTime:   lastBlockTime,
 
 				// use history reader instead of state reader to catch up to the tx where we left off
 				HistoryExecution: true,

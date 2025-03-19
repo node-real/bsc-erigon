@@ -449,6 +449,7 @@ func ExecV3(ctx context.Context,
 	}
 
 	var b *types.Block
+	var parent *types.Block
 
 	// Only needed by bor chains
 	shouldGenerateChangesetsForLastBlocks := cfg.chainConfig.Bor != nil
@@ -490,6 +491,18 @@ Loop:
 		if b == nil {
 			// TODO: panic here and see that overall process deadlock
 			return fmt.Errorf("nil block %d", blockNum)
+		}
+
+		var lastBlockTime uint64
+		if blockNum > 0 {
+			parent, err = blockWithSenders(ctx, cfg.db, executor.tx(), blockReader, blockNum-1)
+			if err != nil {
+				return err
+			}
+			if parent == nil {
+				return fmt.Errorf("nil parent block %d", blockNum-1)
+			}
+			lastBlockTime = parent.Time()
 		}
 
 		txs := b.Transactions()
@@ -545,6 +558,7 @@ Loop:
 				GetHashFn:       getHashFn,
 				EvmBlockContext: blockContext,
 				Withdrawals:     b.Withdrawals(),
+				LastBlockTime:   lastBlockTime,
 
 				// use history reader instead of state reader to catch up to the tx where we left off
 				HistoryExecution: offsetFromBlockBeginning > 0 && txIndex < int(offsetFromBlockBeginning),
