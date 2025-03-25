@@ -1061,11 +1061,11 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 			}
 		}
 	}
-	PenalizeForDelayMining, err := p.isIntentionalDelayMining(chain, header)
+	isIntentionalDelayMining, err := p.isIntentionalDelayMining(chain, header)
 	if err != nil {
 		log.Debug("unexpected error happened when detecting intentional delay mining", "err", err)
 	}
-	if PenalizeForDelayMining {
+	if isIntentionalDelayMining {
 		log.Warn("intentional delay mining detected", "validator", header.Coinbase, "number", header.Number, "hash", header.Hash())
 	}
 	if !p.chainConfig.IsKepler(header.Number.Uint64(), header.Time) {
