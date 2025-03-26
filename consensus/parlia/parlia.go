@@ -571,7 +571,7 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		if header.BaseFee != nil {
 			return fmt.Errorf("invalid baseFee before fork: have %d, expected 'nil'", header.BaseFee)
 		}
-	} else if err := misc.VerifyEip1559Header(chain.Config(), parent, header, false); err != nil {
+	} else if err := misc.VerifyEip1559Header(chain.Config(), parent, header, true); err != nil {
 		// Verify the header's EIP-1559 attributes.
 		return err
 	}
