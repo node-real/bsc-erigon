@@ -510,10 +510,6 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 		return fmt.Errorf("header %d, time %d, now %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), consensus.ErrFutureBlock)
 	}
 
-	if err := ValidateHeaderUnusedFields(header); err != nil {
-		return err
-	}
-
 	// Check that the extra-data contains the vanity, validators and signature.
 	if len(header.Extra) < extraVanity {
 		return errMissingVanity
@@ -608,21 +604,6 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 
 	// All basic checks passed, verify cascading fields
 	return p.verifyCascadingFields(chain, header, parents)
-}
-
-// ValidateHeaderUnusedFields validates that unused fields are empty.
-func ValidateHeaderUnusedFields(header *types.Header) error {
-	// Ensure that the mix digest is zero as we don't have fork protection currently
-	if header.MixDigest != (libcommon.Hash{}) {
-		return errInvalidMixDigest
-	}
-
-	// Ensure that the block doesn't contain any uncles which are meaningless in PoA
-	if header.UncleHash != uncleHash {
-		return errInvalidUncleHash
-	}
-
-	return nil
 }
 
 // verifyCascadingFields verifies all the header fields that are not standalone,
