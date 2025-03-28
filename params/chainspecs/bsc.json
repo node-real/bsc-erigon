@@ -36,6 +36,18 @@
   "pragueTime": 1742436600,
   "pascalTime": 1742436600,
   "lorentzTime": 9999999999,
+  "blobSchedule": {
+    "cancun": {
+      "target": 3,
+      "max": 6,
+      "baseFeeUpdateFraction": 3338477
+    },
+    "prague": {
+      "target": 3,
+      "max": 6,
+      "baseFeeUpdateFraction": 3338477
+    }
+  },
   "parlia": {
     "DBPath": "",
     "InMemory": false,
