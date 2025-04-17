@@ -37,7 +37,8 @@
   "bohrTime": 0,
   "pragueTime": 0,
   "pascalTime": 0,
-  "lorentzTime": 9999999999,
+  "lorentzTime": 0,
+  "maxwellTime": 9999999999,
   "blobSchedule": {
     "cancun": {
       "target": 3,

@@ -195,10 +195,10 @@ const (
 
 	BlobTxTargetBlobGasPerBlock = 3 * BlobTxBlobGasPerBlob // Target consumable blob gas for data blobs per block (for 1559-like pricing)
 
-	// lorentzBlockInterval                      = 1.5
-	MinTimeDurationForBlobRequests     uint64 = uint64(float64(24*3600) * 18.2)                       // it keeps blob data available for 18.2 days in local
-	MinBlocksForBlobRequests           uint64 = uint64(float64(MinTimeDurationForBlobRequests) / 1.5) // ref: https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-524.md#421-change-table.
-	DefaultExtraReserveForBlobRequests uint64 = uint64(24 * 3600 / 1.5)                               // it adds more time for expired blobs for some request cases, like expiry blob when remote peer is syncing, default 1 day.
+	// lorentzBlockInterval                      = 0.75
+	MinTimeDurationForBlobRequests     uint64 = uint64(float64(24*3600) * 18.2)                        // it keeps blob data available for 18.2 days in local
+	MinBlocksForBlobRequests           uint64 = uint64(float64(MinTimeDurationForBlobRequests) / 0.75) // ref: https://github.com/bnb-chain/BEPs/blob/master/BEPs/BEP-524.md#421-change-table.
+	DefaultExtraReserveForBlobRequests uint64 = uint64(24 * 3600 / 0.75)                               // it adds more time for expired blobs for some request cases, like expiry blob when remote peer is syncing, default 1 day.
 
 	BreatheBlockInterval uint64 = 24 * 3600 // Controls the interval for updateValidatorSetV2
 
@@ -221,6 +221,7 @@ const (
 	MaxwellEpochLength   uint64 = 1000 // Epoch length starting from the Maxwell hard fork
 	DefaultBlockInterval uint64 = 3000 // Default block interval in milliseconds
 	LorentzBlockInterval uint64 = 1500 // Block interval starting from the Lorentz hard fork
+	MaxwellBlockInterval uint64 = 750  // Block interval starting from the Maxwell hard fork
 )
 
 // EIP-7702: Set EOA account code

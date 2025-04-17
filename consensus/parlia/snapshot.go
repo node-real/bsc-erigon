@@ -24,9 +24,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon/params"
 	"math"
 	"sort"
+
+	"github.com/erigontech/erigon/params"
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
@@ -241,13 +242,13 @@ func (s *Snapshot) isMajorityFork(forkHash string) bool {
 	return ally > len(s.RecentForkHashes)/2
 }
 
-func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Config, epochLength uint64) {
+func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Config) {
 	if !chainConfig.IsLuban(header.Number.Uint64()) {
 		return
 	}
 
 	// The attestation should have been checked in verify header, update directly
-	attestation, _ := getVoteAttestationFromHeader(header, chainConfig, epochLength)
+	attestation, _ := getVoteAttestationFromHeader(header, chainConfig, s.EpochLength)
 	if attestation == nil {
 		return
 	}
@@ -272,6 +273,13 @@ func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Co
 	} else {
 		s.Attestation = attestation.Data
 	}
+}
+
+func (s *Snapshot) getFinalizedNumber() uint64 {
+	if s.Attestation != nil {
+		return s.Attestation.SourceNumber
+	}
+	return 0
 }
 
 func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderReader, parents []*types.Header, chainConfig *chain.Config, recentSnaps *lru.ARCCache[libcommon.Hash, *Snapshot], verified bool) (*Snapshot, error) {
@@ -336,10 +344,32 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 				}
 			}
 		}
+		snap.updateAttestation(header, chainConfig)
 		snap.Recents[number] = validator
+		if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
+			latestFinalizedBlockNumber := snap.getFinalizedNumber()
+			// BEP-524: Clear entries up to the latest finalized block
+			for blockNumber := range snap.Recents {
+				if blockNumber <= latestFinalizedBlockNumber {
+					delete(snap.Recents, blockNumber)
+				}
+			}
+		}
 		snap.RecentForkHashes[number] = hex.EncodeToString(header.Extra[extraVanity-nextForkHashSize : extraVanity])
+		if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
+			snap.BlockInterval = params.MaxwellBlockInterval
+		} else if chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
+			snap.BlockInterval = params.LorentzBlockInterval
+		}
 		epochLength := snap.EpochLength
-		snap.updateAttestation(header, chainConfig, epochLength)
+		nextBlockNumber := header.Number.Uint64() + 1
+		if snap.EpochLength == params.DefaultEpochLength && chainConfig.IsLorentz(header.Number.Uint64(), header.Time) && nextBlockNumber%params.LorentzEpochLength == 0 {
+			// Without this condition, an incorrect block might be used to parse validators for certain blocks after the Lorentz hard fork.
+			snap.EpochLength = params.LorentzEpochLength
+		}
+		if snap.EpochLength == params.LorentzEpochLength && chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) && nextBlockNumber%params.MaxwellEpochLength == 0 {
+			snap.EpochLength = params.MaxwellEpochLength
+		}
 		if chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
 			// Without this condition, an incorrect block might be used to parse validators for certain blocks after the Lorentz hard fork.
 			if (header.Number.Uint64()+1)%params.LorentzEpochLength == 0 {

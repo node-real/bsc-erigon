@@ -347,7 +347,7 @@ func (api *BscImpl) getFinalizedNumber(ctx context.Context, verifiedValidatorNum
 	lastHeader := latestHeader
 	confirmedValSet := make(map[libcommon.Address]struct{}, valLen)
 	confirmedValSet[lastHeader.Coinbase] = struct{}{}
-	epochLength := int(500) // TODO(Blxdyx)(BEP-524 Phase Two): use `maxwellEpochLength` instead
+	epochLength := int(1000) //maxwellEpochLength
 	for count := 1; int64(len(confirmedValSet)) < verifiedValidatorNum && count <= epochLength && lastHeader.Number.Int64() > max(fastFinalizedHeader.Number.Int64(), 1); count++ {
 		lastHeader, err = api.ethApi._blockReader.HeaderByHash(ctx, tx, lastHeader.ParentHash)
 		if err != nil { // impossible

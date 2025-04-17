@@ -36,6 +36,7 @@
   "pragueTime": 1740452880,
   "pascalTime": 1740452880,
   "lorentzTime": 1744097580,
+  "maxwellTime": 9999999999,
   "blobSchedule": {
     "cancun": {
       "target": 3,
