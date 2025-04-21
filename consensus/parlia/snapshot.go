@@ -370,13 +370,6 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 		if snap.EpochLength == params.LorentzEpochLength && chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) && nextBlockNumber%params.MaxwellEpochLength == 0 {
 			snap.EpochLength = params.MaxwellEpochLength
 		}
-		if chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
-			// Without this condition, an incorrect block might be used to parse validators for certain blocks after the Lorentz hard fork.
-			if (header.Number.Uint64()+1)%params.LorentzEpochLength == 0 {
-				snap.EpochLength = params.LorentzEpochLength
-			}
-			snap.BlockInterval = params.LorentzBlockInterval
-		}
 		// change validator set
 		if number > 0 && number%epochLength == snap.minerHistoryCheckLen() {
 			epochKey := math.MaxUint64 - number/epochLength // impossible used as a block number

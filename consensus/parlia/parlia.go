@@ -1632,7 +1632,7 @@ func (c *Parlia) GetPostApplyMessageFunc() evmtypes.PostApplyMessageFunc {
 func (p *Parlia) blockTimeVerifyForRamanujanFork(snap *Snapshot, header, parent *types.Header) error {
 	if p.chainConfig.IsRamanujan(header.Number.Uint64()) {
 		if header.MilliTimestamp() < parent.MilliTimestamp()+snap.BlockInterval+backOffTime(snap, parent, header, header.Coinbase, p.chainConfig) {
-			return fmt.Errorf("header %d, time %d, now %d, period: %d, backof: %d, %w", header.Number.Uint64(), header.Time, time.Now().Unix(), snap.BlockInterval, backOffTime(snap, parent, header, header.Coinbase, p.chainConfig), consensus.ErrFutureBlock)
+			return fmt.Errorf("header %d, time %d, parentTime %d, BlockInterval: %d, backOffTime: %d, %w", header.Number.Uint64(), header.MilliTimestamp(), parent.MilliTimestamp(), snap.BlockInterval, backOffTime(snap, parent, header, header.Coinbase, p.chainConfig), consensus.ErrFutureBlock)
 		}
 	}
 	return nil
