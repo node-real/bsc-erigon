@@ -971,18 +971,15 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 
 	curIndex := userTxs.Len()
 
-	// Get validator snapshot for the current state
 	number := header.Number.Uint64()
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	// Get parent header for fork determination
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
 	var finish bool
 
-	// Setup deferred function to update finality data if needed
 	defer func() {
 		if txIndex == len(txs)-1 && finish {
 			if fs := finality.GetFinalizationService(); fs != nil {
