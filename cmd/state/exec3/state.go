@@ -19,8 +19,9 @@ package exec3
 import (
 	"context"
 	"fmt"
-	"github.com/erigontech/erigon/consensus/misc"
 	"sync"
+
+	"github.com/erigontech/erigon/consensus/misc"
 
 	"github.com/erigontech/erigon/core/systemcontracts"
 
