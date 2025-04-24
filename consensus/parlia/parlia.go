@@ -1057,10 +1057,12 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		}
 	}
 
-	finish, err = p.distributeToValidator(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
-	if err != nil || finish {
-		//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
-		return nil, nil, nil, err
+	if userTxs.Len() != 0 {
+		finish, err = p.distributeToValidator(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
+		if err != nil || finish {
+			//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
+			return nil, nil, nil, err
+		}
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
