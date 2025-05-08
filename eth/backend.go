@@ -1164,7 +1164,7 @@ func (s *Ethereum) Init(stack *node.Node, config *ethconfig.Config, chainConfig 
 	chainKv := s.chainDB
 	var err error
 
-	if chainConfig.Bor == nil || chainConfig.Parlia == nil {
+	if chainConfig.Bor == nil && chainConfig.Parlia == nil {
 		s.sentriesClient.Hd.StartPoSDownloader(s.sentryCtx, s.sentriesClient.SendHeaderRequest, s.sentriesClient.Penalize)
 	}
 
@@ -1233,7 +1233,7 @@ func (s *Ethereum) Init(stack *node.Node, config *ethconfig.Config, chainConfig 
 		}()
 	}
 
-	if chainConfig.Bor == nil || chainConfig.Parlia == nil || config.PolygonPosSingleSlotFinality {
+	if (chainConfig.Bor == nil && chainConfig.Parlia == nil) || config.PolygonPosSingleSlotFinality {
 		go s.engineBackendRPC.Start(ctx, &httpRpcCfg, s.chainDB, s.blockReader, s.rpcFilters, s.rpcDaemonStateCache, s.engine, s.ethRpcClient, s.txPoolRpcClient, s.miningRpcClient)
 	}
 
