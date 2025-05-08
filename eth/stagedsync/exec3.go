@@ -108,7 +108,7 @@ func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetr
 
 	gasSec := uint64(float64(gas-p.prevGasUsed) / interval.Seconds())
 	txSec := uint64(float64(txCount-p.prevTxCount) / interval.Seconds())
-	diffBlocks := max(int(outputBlockNum)-int(p.prevOutputBlockNum)+1, 0)
+	diffBlocks := max(int(outputBlockNum)-int(p.prevOutputBlockNum), 0)
 
 	p.logger.Info(fmt.Sprintf("[%s]"+suffix, p.logPrefix),
 		"blk", outputBlockNum,
