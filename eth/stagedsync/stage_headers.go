@@ -189,6 +189,9 @@ func HeadersPOW(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, cfg 
 	prevProgress := startProgress
 	var wasProgress bool
 	var lastSkeletonTime time.Time
+	if !s.CurrentSyncCycle.IsInitialCycle {
+		lastSkeletonTime = time.Now()
+	}
 	var peer [64]byte
 	var sentToPeer bool
 Loop:
@@ -237,7 +240,7 @@ Loop:
 		}
 
 		// Send skeleton request if required
-		if time.Since(lastSkeletonTime) > 1*time.Second {
+		if time.Since(lastSkeletonTime) > 3*time.Second {
 			req = cfg.hd.RequestSkeleton()
 			if req != nil {
 				peer, sentToPeer = cfg.headerReqSend(ctx, req)
