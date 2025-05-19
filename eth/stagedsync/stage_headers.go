@@ -190,7 +190,11 @@ func HeadersPOW(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, cfg 
 	var wasProgress bool
 	var lastSkeletonTime time.Time
 	if !s.CurrentSyncCycle.IsInitialCycle {
-		lastSkeletonTime = time.Now()
+		header, err := cfg.blockReader.HeaderByHash(ctx, tx, hash)
+		if err != nil {
+			return err
+		}
+		lastSkeletonTime = time.UnixMilli(int64(header.MilliTimestamp()))
 	}
 	var peer [64]byte
 	var sentToPeer bool
