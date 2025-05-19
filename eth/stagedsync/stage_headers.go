@@ -189,13 +189,6 @@ func HeadersPOW(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, cfg 
 	prevProgress := startProgress
 	var wasProgress bool
 	var lastSkeletonTime time.Time
-	if !s.CurrentSyncCycle.IsInitialCycle {
-		header, err := cfg.blockReader.HeaderByHash(ctx, tx, hash)
-		if err != nil {
-			return err
-		}
-		lastSkeletonTime = time.UnixMilli(int64(header.MilliTimestamp()))
-	}
 	var peer [64]byte
 	var sentToPeer bool
 Loop:
@@ -247,11 +240,13 @@ Loop:
 		if time.Since(lastSkeletonTime) > 1*time.Second {
 			req = cfg.hd.RequestSkeleton()
 			if req != nil {
-				peer, sentToPeer = cfg.headerReqSend(ctx, req)
-				if sentToPeer {
-					logger.Debug(fmt.Sprintf("[%s] Requested skeleton", logPrefix), "from", req.Number, "length", req.Length)
-					cfg.hd.UpdateStats(req, true /* skeleton */, peer)
-					lastSkeletonTime = time.Now()
+				if req.Number > prevProgress+1 {
+					peer, sentToPeer = cfg.headerReqSend(ctx, req)
+					if sentToPeer {
+						logger.Debug(fmt.Sprintf("[%s] Requested skeleton", logPrefix), "from", req.Number, "length", req.Length)
+						cfg.hd.UpdateStats(req, true /* skeleton */, peer)
+						lastSkeletonTime = time.Now()
+					}
 				}
 			}
 		}
