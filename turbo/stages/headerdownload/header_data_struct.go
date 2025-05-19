@@ -315,6 +315,7 @@ type HeaderDownload struct {
 	pendingPayloadHash  common.Hash                 // Header whose status we still should send to PayloadStatusCh
 	unsettledHeadHeight uint64                      // Height of unsettledForkChoice.headBlockHash
 	badPoSHeaders       map[common.Hash]common.Hash // Invalid Tip -> Last Valid Ancestor
+	LastBlockTime       uint64
 	logger              log.Logger
 }
 

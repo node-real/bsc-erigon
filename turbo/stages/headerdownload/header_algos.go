@@ -609,6 +609,7 @@ func (hd *HeaderDownload) InsertHeader(hf FeedHeaderFunc, terminalTotalDifficult
 			}
 			hd.highestInDb = link.blockHeight
 			hd.highestHashInDb = link.hash
+			hd.LastBlockTime = link.header.MilliTimestamp()
 		}
 		lastTime = link.header.Time
 		link.persisted = true

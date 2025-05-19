@@ -237,16 +237,14 @@ Loop:
 		}
 
 		// Send skeleton request if required
-		if time.Since(lastSkeletonTime) > 1*time.Second {
+		if time.Since(lastSkeletonTime) > 1*time.Second && time.Since(time.UnixMilli(int64(cfg.hd.LastBlockTime))) > 1*time.Second {
 			req = cfg.hd.RequestSkeleton()
 			if req != nil {
-				if req.Number > prevProgress+1 {
-					peer, sentToPeer = cfg.headerReqSend(ctx, req)
-					if sentToPeer {
-						logger.Debug(fmt.Sprintf("[%s] Requested skeleton", logPrefix), "from", req.Number, "length", req.Length)
-						cfg.hd.UpdateStats(req, true /* skeleton */, peer)
-						lastSkeletonTime = time.Now()
-					}
+				peer, sentToPeer = cfg.headerReqSend(ctx, req)
+				if sentToPeer {
+					logger.Debug(fmt.Sprintf("[%s] Requested skeleton", logPrefix), "from", req.Number, "length", req.Length)
+					cfg.hd.UpdateStats(req, true /* skeleton */, peer)
+					lastSkeletonTime = time.Now()
 				}
 			}
 		}
