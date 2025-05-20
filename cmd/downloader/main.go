@@ -512,7 +512,7 @@ func manifest(ctx context.Context, logger log.Logger) error {
 		//".kv", ".kvi", ".bt", ".kvei", // e3 domain
 		//".v", ".vi", //e3 hist
 		//".ef", ".efi", //e3 idx
-		".txt", //salt-state.txt, salt-blocks.txt, manifest.txt
+		//".txt", //salt-state.txt, salt-blocks.txt, manifest.txt
 	}
 	l, _ := dir.ListFiles(dirs.Snap, extList...)
 	for _, fPath := range l {
@@ -539,6 +539,14 @@ func manifest(ctx context.Context, logger log.Logger) error {
 			continue
 		}
 		files = append(files, "idx/"+fName)
+	}
+	l, _ = dir.ListFiles(dirs.SnapIdx, extList...)
+	for _, fPath := range l {
+		_, fName := filepath.Split(fPath)
+		if strings.Contains(fName, "commitment") {
+			continue
+		}
+		files = append(files, "accessor/"+fName)
 	}
 
 	sort.Strings(files)
