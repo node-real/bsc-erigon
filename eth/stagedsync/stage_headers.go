@@ -237,7 +237,7 @@ Loop:
 		}
 
 		// Send skeleton request if required
-		if time.Since(lastSkeletonTime) > 1*time.Second && time.Since(time.UnixMilli(int64(cfg.hd.LastBlockTime))) > 1*time.Second {
+		if time.Since(lastSkeletonTime) > 1*time.Second && time.Since(time.UnixMilli(int64(cfg.hd.LastBlockTime))) > 3*time.Second {
 			req = cfg.hd.RequestSkeleton()
 			if req != nil {
 				peer, sentToPeer = cfg.headerReqSend(ctx, req)
