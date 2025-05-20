@@ -753,6 +753,9 @@ func (r *BlockReader) BodyWithTransactions(ctx context.Context, tx kv.Getter, ha
 
 func (r *BlockReader) BodyRlp(ctx context.Context, tx kv.Getter, hash common.Hash, blockHeight uint64) (bodyRlp rlp.RawValue, err error) {
 	body, err := r.BodyWithTransactions(ctx, tx, hash, blockHeight)
+	if body == nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
