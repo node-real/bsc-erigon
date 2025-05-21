@@ -540,7 +540,7 @@ func manifest(ctx context.Context, logger log.Logger) error {
 		}
 		files = append(files, "idx/"+fName)
 	}
-	l, _ = dir.ListFiles(dirs.SnapIdx, extList...)
+	l, _ = dir.ListFiles(dirs.SnapAccessors, extList...)
 	for _, fPath := range l {
 		_, fName := filepath.Split(fPath)
 		if strings.Contains(fName, "commitment") {
