@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/erigontech/erigon-lib/rlp"
+	"github.com/erigontech/erigon-lib/types"
 	"io"
 	"math"
 	"strconv"
 
 	"github.com/erigontech/erigon-lib/chain"
-	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/kv"
-	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/spf13/afero"
 )
@@ -31,7 +31,7 @@ func NewBlobStore(db kv.RwDB, fs afero.Fs, blocksKept uint64, chainConfig *chain
 	return &BlobStore{fs: fs, db: db, blocksKept: blocksKept, chainConfig: chainConfig}
 }
 
-func blobSidecarFilePath(blockNumber uint64, index uint64, hash libcommon.Hash) (folderpath, filepath string) {
+func blobSidecarFilePath(blockNumber uint64, index uint64, hash common.Hash) (folderpath, filepath string) {
 	subdir := blockNumber / subdivision
 	folderpath = strconv.FormatUint(subdir, 10)
 	filepath = fmt.Sprintf("%s/%s_%d", folderpath, hash.String(), index)
@@ -45,7 +45,7 @@ indicies:
 */
 
 // WriteBlobSidecars writes the sidecars on the database. it assumes that all blobSidecars are for the same block and we have all of them.
-func (bs *BlobStore) WriteBlobSidecars(ctx context.Context, blockHash libcommon.Hash, blobSidecars []*types.BlobSidecar) error {
+func (bs *BlobStore) WriteBlobSidecars(ctx context.Context, blockHash common.Hash, blobSidecars []*types.BlobSidecar) error {
 	for i, blobSidecar := range blobSidecars {
 		folderPath, filePath := blobSidecarFilePath(blobSidecar.BlockNumber.Uint64(), uint64(i), blobSidecar.BlockHash)
 		// mkdir the whole folder and subfolders
@@ -83,7 +83,7 @@ func (bs *BlobStore) WriteBlobSidecars(ctx context.Context, blockHash libcommon.
 }
 
 // ReadBlobSidecars reads the sidecars from the database. it assumes that all blobSidecars are for the same blockRoot and we have all of them.
-func (bs *BlobStore) ReadBlobSidecars(ctx context.Context, number uint64, hash libcommon.Hash) (types.BlobSidecars, bool, error) {
+func (bs *BlobStore) ReadBlobSidecars(ctx context.Context, number uint64, hash common.Hash) (types.BlobSidecars, bool, error) {
 	tx, err := bs.db.BeginRo(ctx)
 	if err != nil {
 		return nil, false, err
@@ -138,7 +138,7 @@ func (bs *BlobStore) Prune(current uint64) error {
 	return nil
 }
 
-func (bs *BlobStore) WriteStream(w io.Writer, number uint64, hash libcommon.Hash, idx uint64) error {
+func (bs *BlobStore) WriteStream(w io.Writer, number uint64, hash common.Hash, idx uint64) error {
 	_, filePath := blobSidecarFilePath(number, idx, hash)
 	file, err := bs.fs.Open(filePath)
 	if err != nil {
@@ -149,7 +149,7 @@ func (bs *BlobStore) WriteStream(w io.Writer, number uint64, hash libcommon.Hash
 	return err
 }
 
-func (bs *BlobStore) BlobTxCount(ctx context.Context, hash libcommon.Hash) (uint32, error) {
+func (bs *BlobStore) BlobTxCount(ctx context.Context, hash common.Hash) (uint32, error) {
 	tx, err := bs.db.BeginRo(ctx)
 	if err != nil {
 		return 0, err
@@ -165,7 +165,7 @@ func (bs *BlobStore) BlobTxCount(ctx context.Context, hash libcommon.Hash) (uint
 	return binary.LittleEndian.Uint32(val), nil
 }
 
-func (bs *BlobStore) RemoveBlobSidecars(ctx context.Context, number uint64, hash libcommon.Hash) error {
+func (bs *BlobStore) RemoveBlobSidecars(ctx context.Context, number uint64, hash common.Hash) error {
 	tx, err := bs.db.BeginRw(ctx)
 	if err != nil {
 		return err

@@ -24,7 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -1748,7 +1748,7 @@ func selectDownloadPeer(ctx context.Context, peerUrls []*url.URL, t *torrent.Tor
 		}
 
 	default:
-		peerIndex := rand.Intn(len(peerUrls))
+		peerIndex := rand.IntN(len(peerUrls))
 		peerUrl := peerUrls[peerIndex]
 		downloadUrl := peerUrl.JoinPath(t.Name())
 		peerInfo, err := getWebpeerTorrentInfo(ctx, downloadUrl)
@@ -2444,7 +2444,7 @@ func (d *Downloader) AddNewSeedableFile(ctx context.Context, name string) error 
 			}
 		} else {
 			if ff.Type == nil {
-				panic(fmt.Sprintf("nil ptr after parsing file: %s", name))
+				return fmt.Errorf("nil ptr after parsing file: %s", name)
 			}
 			if !d.cfg.SnapshotConfig.Seedable(ff) {
 				return nil
@@ -2703,7 +2703,6 @@ func (d *Downloader) Close() {
 	if err := d.pieceCompletionDB.Close(); err != nil {
 		d.logger.Warn("[snapshots] pieceCompletionDB.close", "err", err)
 	}
-	d.logger.Info("[snapshots] closing db")
 	d.db.Close()
 	d.logger.Info("[snapshots] downloader stopped")
 }

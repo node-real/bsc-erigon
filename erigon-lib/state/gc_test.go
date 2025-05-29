@@ -29,6 +29,10 @@ import (
 )
 
 func TestGCReadAfterRemoveFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logger := log.New()
 	logEvery := time.NewTicker(30 * time.Second)
 	defer logEvery.Stop()
@@ -65,9 +69,9 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 			require.Equal(lastInView.endTxNum, lastOnFs.endTxNum)
 			if g.HasNext() {
 				k, _ := g.Next(nil)
-				require.Equal(8, len(k))
+				require.Len(k, 8)
 				v, _ := g.Next(nil)
-				require.Equal(8, len(v))
+				require.Len(v, 8)
 			}
 
 			require.NotNil(lastOnFs.decompressor)
@@ -115,6 +119,10 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 }
 
 func TestDomainGCReadAfterRemoveFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logEvery := time.NewTicker(30 * time.Second)
 	defer logEvery.Stop()
 	ctx := context.Background()
@@ -149,9 +157,9 @@ func TestDomainGCReadAfterRemoveFile(t *testing.T) {
 			require.Equal(lastInView.endTxNum, lastOnFs.endTxNum)
 			if g.HasNext() {
 				k, _ := g.Next(nil)
-				require.Equal(8, len(k))
+				require.Len(k, 8)
 				v, _ := g.Next(nil)
-				require.Equal(8, len(v))
+				require.Len(v, 8)
 			}
 
 			require.NotNil(lastOnFs.decompressor)

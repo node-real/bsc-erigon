@@ -25,7 +25,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/event"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/polygon/bor/borcfg"
@@ -168,12 +168,12 @@ func (s *Service) Span(ctx context.Context, id uint64) (*Span, bool, error) {
 	return s.reader.Span(ctx, id)
 }
 
-func (s *Service) SynchronizeCheckpoints(ctx context.Context) (*Checkpoint, error) {
+func (s *Service) SynchronizeCheckpoints(ctx context.Context) (*Checkpoint, bool, error) {
 	s.logger.Info(heimdallLogPrefix("synchronizing checkpoints..."))
 	return s.checkpointScraper.Synchronize(ctx)
 }
 
-func (s *Service) SynchronizeMilestones(ctx context.Context) (*Milestone, error) {
+func (s *Service) SynchronizeMilestones(ctx context.Context) (*Milestone, bool, error) {
 	s.logger.Info(heimdallLogPrefix("synchronizing milestones..."))
 	return s.milestoneScraper.Synchronize(ctx)
 }
@@ -205,8 +205,12 @@ func (s *Service) SynchronizeSpans(ctx context.Context, blockNum uint64) error {
 }
 
 func (s *Service) synchronizeSpans(ctx context.Context) error {
-	if _, err := s.spanScraper.Synchronize(ctx); err != nil {
+	_, ok, err := s.spanScraper.Synchronize(ctx)
+	if err != nil {
 		return err
+	}
+	if !ok {
+		return errors.New("unexpected last entity not available")
 	}
 
 	if err := s.spanBlockProducersTracker.Synchronize(ctx); err != nil {
@@ -231,7 +235,7 @@ func (s *Service) Producers(ctx context.Context, blockNum uint64) (*valset.Valid
 func (s *Service) RegisterMilestoneObserver(callback func(*Milestone), opts ...ObserverOption) event.UnregisterFunc {
 	options := NewObserverOptions(opts...)
 	return s.milestoneScraper.RegisterObserver(func(entities []*Milestone) {
-		for _, entity := range libcommon.SliceTakeLast(entities, options.eventsLimit) {
+		for _, entity := range common.SliceTakeLast(entities, options.eventsLimit) {
 			callback(entity)
 		}
 	})
@@ -240,7 +244,7 @@ func (s *Service) RegisterMilestoneObserver(callback func(*Milestone), opts ...O
 func (s *Service) RegisterCheckpointObserver(callback func(*Checkpoint), opts ...ObserverOption) event.UnregisterFunc {
 	options := NewObserverOptions(opts...)
 	return s.checkpointScraper.RegisterObserver(func(entities []*Checkpoint) {
-		for _, entity := range libcommon.SliceTakeLast(entities, options.eventsLimit) {
+		for _, entity := range common.SliceTakeLast(entities, options.eventsLimit) {
 			callback(entity)
 		}
 	})
@@ -249,7 +253,7 @@ func (s *Service) RegisterCheckpointObserver(callback func(*Checkpoint), opts ..
 func (s *Service) RegisterSpanObserver(callback func(*Span), opts ...ObserverOption) event.UnregisterFunc {
 	options := NewObserverOptions(opts...)
 	return s.spanScraper.RegisterObserver(func(entities []*Span) {
-		for _, entity := range libcommon.SliceTakeLast(entities, options.eventsLimit) {
+		for _, entity := range common.SliceTakeLast(entities, options.eventsLimit) {
 			callback(entity)
 		}
 	})

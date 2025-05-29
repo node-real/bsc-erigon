@@ -3,10 +3,9 @@ package core
 import (
 	"errors"
 	"fmt"
-
-	"github.com/erigontech/erigon/consensus"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/params"
+	params2 "github.com/erigontech/erigon-lib/chain/params"
+	"github.com/erigontech/erigon-lib/types"
+	"github.com/erigontech/erigon/execution/consensus"
 )
 
 // IsDataAvailable it checks that the blobTx block has available blob data
@@ -18,7 +17,7 @@ func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, bo
 		return nil
 	}
 
-	if header.Time+params.MinTimeDurationForBlobRequests < latestBlockTime { // if we needn't check DA of this block, just clean it
+	if header.Time+params2.MinTimeDurationForBlobRequests < latestBlockTime { // if we needn't check DA of this block, just clean it
 		body.CleanSidecars()
 		return nil
 	}

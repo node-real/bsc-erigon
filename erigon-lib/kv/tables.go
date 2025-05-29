@@ -54,10 +54,6 @@ const (
 	//key - contract code hash
 	//value - contract code
 	Code = "Code"
-
-	//key - addressHash+incarnation
-	//value - code hash
-	ContractCode = "HashedCodeHash"
 )
 
 const Witnesses = "witnesses" // block_num_u64 + "_chunk_" + chunk_num_u64 -> witness ( see: docs/programmers_guide/witness_format.md )
@@ -105,8 +101,7 @@ const (
 
 	TxLookup = "BlockTransactionLookup" // hash -> transaction/receipt lookup metadata
 
-	ConfigTable   = "Config"       // config prefix for the db
-	ReceiptsCache = "ReceiptCache" // block_num_u64 + block_hash + txn_index_u32 -> rlp(receipt)
+	ConfigTable = "Config" // config prefix for the db
 
 	// Progress of sync stages: stageName -> stageData
 	SyncStageProgress = "SyncStage"
@@ -168,6 +163,7 @@ const (
 	BorEvents               = "BorEvents"                 // event_id -> event_payload
 	BorEventNums            = "BorEventNums"              // block_num -> event_id (last event_id in that block)
 	BorEventProcessedBlocks = "BorEventProcessedBlocks"   // block_num -> block_time, tracks processed blocks in the bridge, used for unwinds and restarts, gets pruned
+	BorEventTimes           = "BorEventTimes"             // timestamp -> event_id
 	BorSpans                = "BorSpans"                  // span_id -> span (in JSON encoding)
 	BorMilestones           = "BorMilestones"             // milestone_id -> milestone (in JSON encoding)
 	BorMilestoneEnds        = "BorMilestoneEnds"          // start block_num -> milestone_id (first block of milestone)
@@ -316,7 +312,7 @@ const (
 // Keys
 var (
 	// ExperimentalGetProofsLayout is used to keep track whether we store indecies to facilitate eth_getProof
-	CommitmentLayoutFlagKey = []byte("CommitmentLayoutFlag")
+	CommitmentLayoutFlagKey = []byte("CommitmentLayouFlag")
 
 	PruneTypeOlder = []byte("older")
 	PruneHistory   = []byte("pruneHistory")
@@ -348,11 +344,9 @@ var ChaindataTables = []string{
 	E2AccountsHistory,
 	E2StorageHistory,
 	Code,
-	ContractCode,
 	HeaderNumber,
 	BadHeaderNumber,
 	BlockBody,
-	ReceiptsCache,
 	TxLookup,
 	ConfigTable,
 	DatabaseInfo,
@@ -370,8 +364,6 @@ var ChaindataTables = []string{
 	Migrations,
 	Sequence,
 	EthTx,
-	TrieOfAccounts,
-	TrieOfStorage,
 	HeaderCanonical,
 	Headers,
 	HeaderTD,
@@ -383,6 +375,7 @@ var ChaindataTables = []string{
 	BorEvents,
 	BorEventNums,
 	BorEventProcessedBlocks,
+	BorEventTimes,
 	BorSpans,
 	BorMilestones,
 	BorMilestoneEnds,
@@ -505,7 +498,6 @@ var ConsensusTables = append([]string{
 },
 	ChaindataTables..., //TODO: move bor tables from chaintables to `ConsensusTables`
 )
-
 var HeimdallTables = []string{}
 var PolygonBridgeTables = []string{}
 var DownloaderTables = []string{
@@ -535,7 +527,7 @@ type CmpFunc func(k1, k2, v1, v2 []byte) int
 type TableCfg map[string]TableCfgItem
 type Bucket string
 
-type DBI uint
+type DBI uint32
 type TableFlags uint
 
 const (
@@ -626,6 +618,7 @@ var BorTablesCfg = TableCfg{
 	BorEvents:               {Flags: DupSort},
 	BorEventNums:            {Flags: DupSort},
 	BorEventProcessedBlocks: {Flags: DupSort},
+	BorEventTimes:           {Flags: DupSort},
 	BorSpans:                {Flags: DupSort},
 	BorCheckpoints:          {Flags: DupSort},
 	BorCheckpointEnds:       {Flags: DupSort},
@@ -770,41 +763,41 @@ const (
 var StateDomains = []Domain{AccountsDomain, StorageDomain, CodeDomain, CommitmentDomain}
 
 const (
-	AccountsHistoryIdx   InvertedIdx = "AccountsHistoryIdx"
-	StorageHistoryIdx    InvertedIdx = "StorageHistoryIdx"
-	CodeHistoryIdx       InvertedIdx = "CodeHistoryIdx"
-	CommitmentHistoryIdx InvertedIdx = "CommitmentHistoryIdx"
-	ReceiptHistoryIdx    InvertedIdx = "ReceiptHistoryIdx"
-	RCacheHistoryIdx     InvertedIdx = "ReceiptCacheHistoryIdx"
+	AccountsHistoryIdx   InvertedIdx = 0
+	StorageHistoryIdx    InvertedIdx = 1
+	CodeHistoryIdx       InvertedIdx = 2
+	CommitmentHistoryIdx InvertedIdx = 3
+	ReceiptHistoryIdx    InvertedIdx = 4
+	RCacheHistoryIdx     InvertedIdx = 5
 
-	LogTopicIdx   InvertedIdx = "LogTopicIdx"
-	LogAddrIdx    InvertedIdx = "LogAddrIdx"
-	TracesFromIdx InvertedIdx = "TracesFromIdx"
-	TracesToIdx   InvertedIdx = "TracesToIdx"
+	LogTopicIdx   InvertedIdx = 6
+	LogAddrIdx    InvertedIdx = 7
+	TracesFromIdx InvertedIdx = 8
+	TracesToIdx   InvertedIdx = 9
 )
 
 func (idx InvertedIdx) String() string {
 	switch idx {
 	case AccountsHistoryIdx:
-		return "AccountsHistoryIdx"
+		return "accounts"
 	case StorageHistoryIdx:
-		return "StorageHistoryIdx"
+		return "storage"
 	case CodeHistoryIdx:
-		return "CodeHistoryIdx"
+		return "code"
 	case CommitmentHistoryIdx:
-		return "CommitmentHistoryIdx"
+		return "commitment"
 	case ReceiptHistoryIdx:
-		return "ReceiptHistoryIdx"
+		return "receipt"
 	case RCacheHistoryIdx:
-		return "RCacheHistoryIdx"
+		return "rcache"
 	case LogAddrIdx:
-		return "LogAddrIdx"
+		return "logaddrs"
 	case LogTopicIdx:
-		return "LogTopicIdx"
+		return "logtopics"
 	case TracesFromIdx:
-		return "TracesFromIdx"
+		return "tracesfrom"
 	case TracesToIdx:
-		return "TracesToIdx"
+		return "tracesto"
 	default:
 		return "unknown index"
 	}
@@ -812,28 +805,28 @@ func (idx InvertedIdx) String() string {
 
 func String2InvertedIdx(in string) (InvertedIdx, error) {
 	switch in {
-	case "AccountsHistoryIdx":
+	case "accounts":
 		return AccountsHistoryIdx, nil
-	case "StorageHistoryIdx":
+	case "storage":
 		return StorageHistoryIdx, nil
-	case "CodeHistoryIdx":
+	case "code":
 		return CodeHistoryIdx, nil
-	case "CommitmentHistoryIdx":
+	case "commitment":
 		return CommitmentHistoryIdx, nil
-	case "ReceiptHistoryIdx":
+	case "receipt":
 		return ReceiptHistoryIdx, nil
-	case "ReceiptCacheHistoryIdx":
+	case "rcache":
 		return RCacheHistoryIdx, nil
-	case "LogAddrIdx":
+	case "logaddrs":
 		return LogAddrIdx, nil
-	case "LogTopicIdx":
+	case "logtopics":
 		return LogTopicIdx, nil
-	case "TracesFromIdx":
+	case "tracesfrom":
 		return TracesFromIdx, nil
-	case "TracesToIdx":
+	case "tracesto":
 		return TracesToIdx, nil
 	default:
-		return "", fmt.Errorf("unknown inverted index name: %s", in)
+		return InvertedIdx(MaxUint16), fmt.Errorf("unknown inverted index name: %s", in)
 	}
 }
 
@@ -876,7 +869,7 @@ func String2Domain(in string) (Domain, error) {
 	case "rcache":
 		return RCacheDomain, nil
 	default:
-		return Domain(MaxUint16), fmt.Errorf("unknown history name: %s", in)
+		return Domain(MaxUint16), fmt.Errorf("unknown name: %s", in)
 	}
 }
 
@@ -1016,56 +1009,6 @@ const (
 	*/
 	E2AccountsHistory = "AccountHistory"
 	E2StorageHistory  = "StorageHistory"
-
-	/*
-	   TrieOfAccounts and TrieOfStorage
-	   hasState,groups - mark prefixes existing in hashed_account table
-	   hasTree - mark prefixes existing in trie_account table (not related with branchNodes)
-	   hasHash - mark prefixes which hashes are saved in current trie_account record (actually only hashes of branchNodes can be saved)
-	   @see UnmarshalTrieNode
-	   @see integrity.Trie
-
-	   +-----------------------------------------------------------------------------------------------------+
-	   | DB record: 0x0B, hasState: 0b1011, hasTree: 0b1001, hasHash: 0b1001, hashes: [x,x]                  |
-	   +-----------------------------------------------------------------------------------------------------+
-
-	   	|                                           |                               |
-	   	v                                           |                               v
-
-	   +---------------------------------------------+             |            +--------------------------------------+
-	   | DB record: 0x0B00, hasState: 0b10001        |             |            | DB record: 0x0B03, hasState: 0b10010 |
-	   | hasTree: 0, hasHash: 0b10000, hashes: [x]   |             |            | hasTree: 0, hasHash: 0, hashes: []   |
-	   +---------------------------------------------+             |            +--------------------------------------+
-
-	   	|                    |                              |                         |                  |
-	   	v                    v                              v                         v                  v
-
-	   +------------------+    +----------------------+     +---------------+        +---------------+  +---------------+
-	   | Account:         |    | BranchNode: 0x0B0004 |     | Account:      |        | Account:      |  | Account:      |
-	   | 0x0B0000...      |    | has no record in     |     | 0x0B01...     |        | 0x0B0301...   |  | 0x0B0304...   |
-	   | in HashedAccount |    |     TrieAccount      |     |               |        |               |  |               |
-	   +------------------+    +----------------------+     +---------------+        +---------------+  +---------------+
-
-	   	                           |                |
-	   	                           v                v
-	   			           +---------------+  +---------------+
-	   			           | Account:      |  | Account:      |
-	   			           | 0x0B000400... |  | 0x0B000401... |
-	   			           +---------------+  +---------------+
-
-	   Invariants:
-	   - hasTree is subset of hasState
-	   - hasHash is subset of hasState
-	   - first level in account_trie always exists if hasState>0
-	   - TrieStorage record of account.root (length=40) must have +1 hash - it's account.root
-	   - each record in TrieAccount table must have parent (may be not direct) and this parent must have correct bit in hasTree bitmap
-	   - if hasState has bit - then HashedAccount table must have record according to this bit
-	   - each TrieAccount record must cover some state (means hasState is always > 0)
-	   - TrieAccount records with length=1 can satisfy (hasBranch==0&&hasHash==0) condition
-	   - Other records in TrieAccount and TrieStorage must (hasTree!=0 || hasHash!=0)
-	*/
-	TrieOfAccounts = "TrieAccount"
-	TrieOfStorage  = "TrieStorage"
 
 	// IncarnationMap for deleted accounts
 	//key - address

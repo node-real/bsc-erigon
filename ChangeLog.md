@@ -1,55 +1,28 @@
 ChangeLog
 ---------
 
-## v3.0.3 (in development)
-
-### Milestone
-
-https://github.com/erigontech/erigon/milestone/42
-
-## v3.0.2
-
-### Milestone
-
-https://github.com/erigontech/erigon/milestone/41
-
-## v3.0.1 
+## v3.1.0 (in development)
 
 **Improvements:**
 
-- receipts gen: dedup parallel re-exec of same block by @AskAlexSharov in https://github.com/erigontech/erigon/pull/14377
-- Increase maximum open files limit on MacOSX by @AlexeyAkhunov in https://github.com/erigontech/erigon/pull/14427
-- engineeapi, txpool: Implement GetBlobsV1 (#13975) by @somnathb1 in https://github.com/erigontech/erigon/pull/14380
-- cmd: Set default EL extradata to erigon-version (#14419) by @somnathb1 in https://github.com/erigontech/erigon/pull/14435
-- Schedule Pectra hard fork for Ethereum Mainnet (#14424) by @somnathb1 in https://github.com/erigontech/erigon/pull/14436
-- engineapi: Add requests nil check (#14421) by @somnathb1 in https://github.com/erigontech/erigon/pull/14499
+TODO
 
 **Bugfixes:**
 
-- Include execution requests in produced block (#14326) by @domiwei in https://github.com/erigontech/erigon/pull/14395
-- txpool: Fix 7702 signature parsing and simplify auth handling (#14486) by @somnathb1 in https://github.com/erigontech/erigon/pull/14495
+TODO
 
-### Milestone
+### TODO
 
-https://github.com/erigontech/erigon/milestone/40
+- milestones:
+https://github.com/erigontech/erigon/milestone/31
 
-## v3.0.0 
+
+## v3.0.0 (in development)
+
 
 ### Milestone
 
 https://github.com/erigontech/erigon/milestone/30
-
-
-## v3.0.0-rc3
-
-**Bugfixes:**
-
-- fixed txPool panics by @somnathb1 in https://github.com/erigontech/erigon/pull/14096
-- fixed sendRawTransaction and eth_getTransactionByHash by @shohamc1 in https://github.com/erigontech/erigon/pull/14077
-
-### Milestone
-
-https://github.com/erigontech/erigon/milestone/37
 
 ## v3.0.0-rc2
 
@@ -76,7 +49,7 @@ https://github.com/erigontech/erigon/milestone/36
 - polygon/heimdall: fix snapshot store last entity to check in snapshots too (#13845) by @taratorio in https://github.com/erigontech/erigon/pull/13938
 - Implemented wait if heimdall is not synced to the chain (#13807) by @taratorio in https://github.com/erigontech/erigon/pull/13939
 
-**Bugfixes:**
+**Known Problems:**
 
 - polygon: `eth_getLogs` if search by filters - doesn't return state-sync (state-sync events are not indexed yet). Without filter can see state-sync events. In `eth_getReceipts` also can see. [Will](https://github.com/erigontech/erigon/issues/14003) release fixed files in E3.1
 - polygon: `eth_getLogs` state-sync events have incorrect `index` field. [Will](https://github.com/erigontech/erigon/issues/14003) release fixed files in E3.1

@@ -1,7 +1,7 @@
 package public_keys_registry
 
 import (
-	"github.com/Giulio2002/bls"
+	"github.com/erigontech/erigon-lib/bls"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cl/abstract"
 	"github.com/erigontech/erigon/cl/beacon/synced_data"

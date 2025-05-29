@@ -17,9 +17,8 @@
 package state
 
 import (
+	"github.com/erigontech/erigon-lib/bls"
 	"sort"
-
-	"github.com/Giulio2002/bls"
 
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cl/abstract"

@@ -25,12 +25,14 @@ import (
 	"sync"
 	"time"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/mmap"
 )
 
 var (
+	MaxReorgDepth = EnvInt("MAX_REORG_DEPTH", 512)
+
 	doMemstat           = EnvBool("NO_MEMSTAT", true)
 	saveHeapProfile     = EnvBool("SAVE_HEAP_PROFILE", false)
 	heapProfileFilePath = EnvString("HEAP_PROFILE_FILE_PATH", "")
@@ -67,6 +69,21 @@ var (
 	CommitEachStage = EnvBool("COMMIT_EACH_STAGE", false)
 
 	CaplinSyncedDataMangerDeadlockDetection = EnvBool("CAPLIN_SYNCED_DATA_MANAGER_DEADLOCK_DETECTION", false)
+
+	Exec3Parallel = EnvBool("EXEC3_PARALLEL", false)
+	numWorkers    = runtime.NumCPU() / 2
+	Exec3Workers  = EnvInt("EXEC3_WORKERS", numWorkers)
+
+	TraceAccounts        = EnvStrings("TRACE_ACCOUNTS", ",", nil)
+	TraceStateKeys       = EnvStrings("TRACE_STATE_KEYS", ",", nil)
+	TraceInstructions    = EnvBool("TRACE_INSTRUCTIONS", false)
+	TraceTransactionIO   = EnvBool("TRACE_TRANSACTION_IO", false)
+	TraceBlocks          = EnvUints("TRACE_BLOCKS", ",", nil)
+	TraceTxIndexes       = EnvInts("TRACE_TRANSACTIONS", ",", nil)
+	StopAfterBlock       = EnvUint("STOP_AFTER_BLOCK", 0)
+	BatchCommitments     = EnvBool("BATCH_COMMITMENTS", true)
+	CaplinEfficientReorg = EnvBool("CAPLIN_EFFICIENT_REORG", true)
+	UseTxDependencies    = EnvBool("USE_TX_DEPENDENCIES", false)
 )
 
 func ReadMemStats(m *runtime.MemStats) {
@@ -189,8 +206,8 @@ func SaveHeapProfileNearOOM(opts ...SaveHeapOption) {
 	if logger != nil {
 		logger.Info(
 			"[Experiment] heap profile threshold check",
-			"alloc", libcommon.ByteCount(memStats.Alloc),
-			"total", libcommon.ByteCount(totalMemory),
+			"alloc", common.ByteCount(memStats.Alloc),
+			"total", common.ByteCount(totalMemory),
 		)
 	}
 	if memStats.Alloc < (totalMemory/100)*45 {

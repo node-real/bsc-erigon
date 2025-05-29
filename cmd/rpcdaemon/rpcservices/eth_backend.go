@@ -17,7 +17,6 @@
 package rpcservices
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -29,20 +28,19 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/erigontech/erigon-lib/log/v3"
-
+	"github.com/erigontech/erigon-db/rawdb"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/gointerfaces"
 	remote "github.com/erigontech/erigon-lib/gointerfaces/remoteproto"
 	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon/core/rawdb"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/types"
+	p2p "github.com/erigontech/erigon-p2p"
 	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/ethdb/privateapi"
-	"github.com/erigontech/erigon/p2p"
 	"github.com/erigontech/erigon/polygon/heimdall"
+	"github.com/erigontech/erigon/turbo/privateapi"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
 )
@@ -115,8 +113,10 @@ func (back *RemoteBackend) BlockByHash(ctx context.Context, db kv.Tx, hash commo
 	block, _, err := back.BlockWithSenders(ctx, db, hash, *number)
 	return block, err
 }
-func (back *RemoteBackend) TxsV3Enabled() bool                        { panic("not implemented") }
-func (back *RemoteBackend) Snapshots() snapshotsync.BlockSnapshots    { panic("not implemented") }
+func (back *RemoteBackend) TxsV3Enabled() bool { panic("not implemented") }
+func (back *RemoteBackend) Snapshots() snapshotsync.BlockSnapshots {
+	return back.blockReader.Snapshots()
+}
 func (back *RemoteBackend) BorSnapshots() snapshotsync.BlockSnapshots { panic("not implemented") }
 func (back *RemoteBackend) BscSnapshots() snapshotsync.BlockSnapshots { panic("not implemented") }
 
@@ -211,7 +211,7 @@ func (back *RemoteBackend) PendingBlock(ctx context.Context) (*types.Block, erro
 	}
 
 	var block types.Block
-	err = rlp.Decode(bytes.NewReader(blockRlp.BlockRlp), &block)
+	err = rlp.DecodeBytes(blockRlp.BlockRlp, &block)
 	if err != nil {
 		return nil, fmt.Errorf("decoding block from %x: %w", blockRlp.BlockRlp, err)
 	}

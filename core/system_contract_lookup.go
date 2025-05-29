@@ -21,17 +21,16 @@ import (
 	"strconv"
 
 	"github.com/erigontech/erigon-lib/chain/networkname"
-	libcommon "github.com/erigontech/erigon-lib/common"
-
+	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/core/systemcontracts"
-	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/params"
 )
 
 func init() {
 	// Initialise SystemContractCodeLookup
 	for _, chainName := range []string{networkname.BSC, networkname.Chapel, networkname.Rialto, networkname.BorMainnet, networkname.BorDevnet} {
-		byChain := map[libcommon.Address][]libcommon.CodeRecord{}
+		byChain := map[common.Address][]common.CodeRecord{}
 		systemcontracts.SystemContractCodeLookup[chainName] = byChain
 		// Apply genesis with the block number 0
 		genesisBlock := GenesisBlockByChainName(chainName)
@@ -63,18 +62,18 @@ func init() {
 
 }
 
-func allocToCodeRecords(alloc types.GenesisAlloc, byChain map[libcommon.Address][]libcommon.CodeRecord, blockNum, blockTime uint64) {
+func allocToCodeRecords(alloc types.GenesisAlloc, byChain map[common.Address][]common.CodeRecord, blockNum, blockTime uint64) {
 	for addr, account := range alloc {
 		if len(account.Code) > 0 {
 			list := byChain[addr]
-			codeHash, err := libcommon.HashData(account.Code)
+			codeHash, err := common.HashData(account.Code)
 			if err != nil {
 				panic(fmt.Errorf("failed to hash system contract code: %s", err.Error()))
 			}
 			if blockTime == 0 {
-				list = append(list, libcommon.CodeRecord{BlockNumber: blockNum, CodeHash: codeHash})
+				list = append(list, common.CodeRecord{BlockNumber: blockNum, CodeHash: codeHash})
 			} else {
-				list = append(list, libcommon.CodeRecord{BlockTime: blockTime, CodeHash: codeHash})
+				list = append(list, common.CodeRecord{BlockTime: blockTime, CodeHash: codeHash})
 			}
 			byChain[addr] = list
 		}

@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/bls"
 	"slices"
 	"time"
 
@@ -31,8 +32,6 @@ import (
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cl/cltypes/solid"
 	"github.com/erigontech/erigon/cl/phase1/core/state"
-
-	"github.com/Giulio2002/bls"
 
 	"github.com/erigontech/erigon-lib/log/v3"
 

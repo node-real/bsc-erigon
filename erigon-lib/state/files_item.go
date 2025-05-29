@@ -28,9 +28,11 @@ import (
 
 	"github.com/erigontech/erigon-lib/common/dir"
 	"github.com/erigontech/erigon-lib/config3"
+	"github.com/erigontech/erigon-lib/datastruct/existence"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/recsplit"
 	"github.com/erigontech/erigon-lib/seg"
+	ee "github.com/erigontech/erigon-lib/state/entity_extras"
 )
 
 // filesItem is "dirty" file - means file which can be:
@@ -48,7 +50,7 @@ type filesItem struct {
 	decompressor         *seg.Decompressor
 	index                *recsplit.Index
 	bindex               *BtIndex
-	existence            *ExistenceFilter
+	existence            *existence.Filter
 	startTxNum, endTxNum uint64 //[startTxNum, endTxNum)
 
 	// Frozen: file of size StepsInFrozenFile. Completely immutable.
@@ -62,15 +64,57 @@ type filesItem struct {
 	canDelete atomic.Bool
 }
 
+type FilesItem interface {
+	Segment() *seg.Decompressor
+	AccessorIndex() *recsplit.Index
+	BtIndex() *BtIndex
+	ExistenceFilter() *existence.Filter
+	Range() (startTxNum, endTxNum uint64)
+}
+
+var _ FilesItem = (*filesItem)(nil)
+
 func newFilesItem(startTxNum, endTxNum, stepSize uint64) *filesItem {
+	return newFilesItemWithFrozenSteps(startTxNum, endTxNum, stepSize, config3.StepsInFrozenFile)
+}
+
+func newFilesItemWithSnapConfig(startTxNum, endTxNum uint64, snapConfig *ee.SnapshotConfig) *filesItem {
+	return newFilesItemWithFrozenSteps(startTxNum, endTxNum, snapConfig.RootNumPerStep, snapConfig.StepsInFrozenFile())
+}
+
+func newFilesItemWithFrozenSteps(startTxNum, endTxNum, stepSize uint64, stepsInFrozenFile uint64) *filesItem {
 	startStep := startTxNum / stepSize
 	endStep := endTxNum / stepSize
-	frozen := endStep-startStep == config3.StepsInFrozenFile
+	frozen := endStep-startStep >= stepsInFrozenFile
 	return &filesItem{startTxNum: startTxNum, endTxNum: endTxNum, frozen: frozen}
 }
 
-// isSubsetOf - when `j` covers `i` but not equal `i`
-func (i *filesItem) isSubsetOf(j *filesItem) bool {
+func (i *filesItem) Segment() *seg.Decompressor { return i.decompressor }
+
+func (i *filesItem) AccessorIndex() *recsplit.Index { return i.index }
+
+func (i *filesItem) BtIndex() *BtIndex { return i.bindex }
+
+func (i *filesItem) ExistenceFilter() *existence.Filter { return i.existence }
+func (i *filesItem) MadvNormal() {
+	i.decompressor.MadvNormal()
+	i.index.MadvNormal()
+	//i.bindex.MadvNormal()
+	//i.existence.MadvNormal()
+}
+func (i *filesItem) DisableReadAhead() {
+	i.decompressor.DisableReadAhead()
+	i.index.DisableReadAhead()
+	//i.bindex.DisableReadAhead()
+	//i.existence.DisableReadAhead()
+}
+
+func (i *filesItem) Range() (startTxNum, endTxNum uint64) {
+	return i.startTxNum, i.endTxNum
+}
+
+// isProperSubsetOf - when `j` covers `i` but not equal `i`
+func (i *filesItem) isProperSubsetOf(j *filesItem) bool {
 	return (j.startTxNum <= i.startTxNum && i.endTxNum <= j.endTxNum) && (j.startTxNum != i.startTxNum || i.endTxNum != j.endTxNum)
 }
 func (i *filesItem) isBefore(j *filesItem) bool { return i.endTxNum <= j.startTxNum }
@@ -151,7 +195,7 @@ func (i *filesItem) closeFilesAndRemove() {
 }
 
 func scanDirtyFiles(fileNames []string, stepSize uint64, filenameBase, ext string, logger log.Logger) (res []*filesItem) {
-	re := regexp.MustCompile("^v([0-9]+)-" + filenameBase + ".([0-9]+)-([0-9]+)." + ext + "$")
+	re := regexp.MustCompile(`^v(\d+(?:\.\d+)?)-` + filenameBase + `\.(\d+)-(\d+)\.` + ext + `$`)
 	var err error
 
 	for _, name := range fileNames {
@@ -190,21 +234,6 @@ func scanDirtyFiles(fileNames []string, stepSize uint64, filenameBase, ext strin
 	return res
 }
 
-func ParseStepsFromFileName(fileName string) (from, to uint64, err error) {
-	rangeString := strings.Split(fileName, ".")[1]
-	rangeNums := strings.Split(rangeString, "-")
-	// convert the range to uint64
-	from, err = strconv.ParseUint(rangeNums[0], 10, 64)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to parse to %s: %w", rangeNums[1], err)
-	}
-	to, err = strconv.ParseUint(rangeNums[1], 10, 64)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to parse to %s: %w", rangeNums[1], err)
-	}
-	return from, to, nil
-}
-
 func deleteMergeFile(dirtyFiles *btree2.BTreeG[*filesItem], outs []*filesItem, filenameBase string, logger log.Logger) {
 	for _, out := range outs {
 		if out == nil {
@@ -241,8 +270,17 @@ type visibleFile struct {
 	src *filesItem
 }
 
-func (i *visibleFile) isSubSetOf(j *visibleFile) bool { return i.src.isSubsetOf(j.src) } //nolint
-func (i *visibleFile) isSubsetOf(j *visibleFile) bool { return i.src.isSubsetOf(j.src) } //nolint
+func (i visibleFile) Filename() string {
+	return i.src.decompressor.FilePath()
+}
+
+func (i visibleFile) StartRootNum() uint64 {
+	return i.startTxNum
+}
+
+func (i visibleFile) EndRootNum() uint64 {
+	return i.endTxNum
+}
 
 func calcVisibleFiles(files *btree2.BTreeG[*filesItem], l Accessors, trace bool, toTxNum uint64) (roItems []visibleFile) {
 	newVisibleFiles := make([]visibleFile, 0, files.Len())
@@ -272,21 +310,21 @@ func calcVisibleFiles(files *btree2.BTreeG[*filesItem], l Accessors, trace bool,
 				}
 				continue
 			}
-			if (l&AccessorBTree != 0) && item.bindex == nil {
+			if l.Has(AccessorBTree) && item.bindex == nil {
 				if trace {
 					log.Warn("[dbg] calcVisibleFiles: BTindex not opened", "f", item.decompressor.FileName())
 				}
 				//panic(fmt.Errorf("btindex nil: %s", item.decompressor.FileName()))
 				continue
 			}
-			if (l&AccessorHashMap != 0) && item.index == nil {
+			if l.Has(AccessorHashMap) && item.index == nil {
 				if trace {
 					log.Warn("[dbg] calcVisibleFiles: RecSplit not opened", "f", item.decompressor.FileName())
 				}
 				//panic(fmt.Errorf("index nil: %s", item.decompressor.FileName()))
 				continue
 			}
-			if (l&AccessorExistence != 0) && item.existence == nil {
+			if l.Has(AccessorExistence) && item.existence == nil {
 				if trace {
 					log.Warn("[dbg] calcVisibleFiles: Existence not opened", "f", item.decompressor.FileName())
 				}
@@ -296,7 +334,7 @@ func calcVisibleFiles(files *btree2.BTreeG[*filesItem], l Accessors, trace bool,
 
 			// `kill -9` may leave small garbage files, but if big one already exists we assume it's good(fsynced) and no reason to merge again
 			// see super-set file, just drop sub-set files from list
-			for len(newVisibleFiles) > 0 && newVisibleFiles[len(newVisibleFiles)-1].src.isSubsetOf(item) {
+			for len(newVisibleFiles) > 0 && newVisibleFiles[len(newVisibleFiles)-1].src.isProperSubsetOf(item) {
 				if trace {
 					log.Warn("[dbg] calcVisibleFiles: marked as garbage (is subset)", "item", item.decompressor.FileName(),
 						"of", newVisibleFiles[len(newVisibleFiles)-1].src.decompressor.FileName())
@@ -332,6 +370,13 @@ func (files visibleFiles) EndTxNum() uint64 {
 	return files[len(files)-1].endTxNum
 }
 
+func (files visibleFiles) StartTxNum() uint64 {
+	if len(files) == 0 {
+		return 0
+	}
+	return files[0].startTxNum
+}
+
 func (files visibleFiles) LatestMergedRange() MergeRange {
 	if len(files) == 0 {
 		return MergeRange{}
@@ -350,6 +395,17 @@ func (files visibleFiles) String(stepSize uint64) string {
 		res = append(res, fmt.Sprintf("%d-%d", file.startTxNum/stepSize, file.endTxNum/stepSize))
 	}
 	return strings.Join(res, ",")
+}
+func (files visibleFiles) Len() int {
+	return len(files)
+}
+
+func (files visibleFiles) VisibleFiles() []VisibleFile {
+	res := make([]VisibleFile, 0, len(files))
+	for _, file := range files {
+		res = append(res, file)
+	}
+	return res
 }
 
 // fileItemsWithMissedAccessors returns list of files with missed accessors

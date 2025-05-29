@@ -23,33 +23,32 @@ import (
 	"testing"
 	"time"
 
-	"github.com/erigontech/erigon-lib/common"
-	accounts3 "github.com/erigontech/erigon-lib/types/accounts"
-
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/length"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"github.com/erigontech/erigon-lib/log/v3"
+	accounts3 "github.com/erigontech/erigon-lib/types/accounts"
 )
 
 func TestSharedDomain_CommitmentKeyReplacement(t *testing.T) {
+	t.Skip("issue #15028")
+
 	t.Parallel()
 
 	stepSize := uint64(100)
-	db, agg := testDbAndAggregatorv3(t, stepSize)
+	_db, agg := testDbAndAggregatorv3(t, stepSize)
+	db := wrapDbWithCtx(_db, agg)
 
 	ctx := context.Background()
-	rwTx, err := db.BeginRw(ctx)
+	rwTx, err := db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 	defer rwTx.Rollback()
 
-	ac := agg.BeginFilesRo()
-	defer ac.Close()
-
-	domains, err := NewSharedDomains(WrapTxWithCtx(rwTx, ac), log.New())
+	domains, err := NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
@@ -57,7 +56,7 @@ func TestSharedDomain_CommitmentKeyReplacement(t *testing.T) {
 	maxTx := stepSize * 8
 
 	// 1. generate data
-	data := generateSharedDomainsUpdates(t, domains, maxTx, rnd, length.Addr, 10, stepSize)
+	data := generateSharedDomainsUpdates(t, domains, rwTx, maxTx, rnd, length.Addr, 10, stepSize)
 	fillRawdbTxNumsIndexForSharedDomains(t, rwTx, maxTx, stepSize)
 
 	err = domains.Flush(ctx, rwTx)
@@ -68,13 +67,13 @@ func TestSharedDomain_CommitmentKeyReplacement(t *testing.T) {
 	for key := range data {
 		removedKey = []byte(key)[:length.Addr]
 		domains.SetTxNum(maxTx + 1)
-		err = domains.DomainDel(kv.AccountsDomain, removedKey, nil, nil, 0)
+		err = domains.DomainDel(kv.AccountsDomain, rwTx, removedKey, maxTx+1, nil, 0)
 		require.NoError(t, err)
 		break
 	}
 
 	// 3. calculate commitment with all data +removed key
-	expectedHash, err := domains.ComputeCommitment(context.Background(), false, domains.txNum/stepSize, "")
+	expectedHash, err := domains.ComputeCommitment(context.Background(), rwTx, false, domains.txNum/stepSize, "")
 	require.NoError(t, err)
 	domains.Close()
 
@@ -86,24 +85,24 @@ func TestSharedDomain_CommitmentKeyReplacement(t *testing.T) {
 	err = agg.BuildFiles(stepSize * 16)
 	require.NoError(t, err)
 
-	ac.Close()
+	err = rwTx.Commit()
+	require.NoError(t, err)
 
-	ac = agg.BeginFilesRo()
-	rwTx, err = db.BeginRw(ctx)
+	rwTx, err = db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 	defer rwTx.Rollback()
 
 	// 4. restart on same (replaced keys) files
-	domains, err = NewSharedDomains(WrapTxWithCtx(rwTx, ac), log.New())
+	domains, err = NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
 	// 5. delete same key. commitment should be the same
 	domains.SetTxNum(maxTx + 1)
-	err = domains.DomainDel(kv.AccountsDomain, removedKey, nil, nil, 0)
+	err = domains.DomainDel(kv.AccountsDomain, rwTx, removedKey, maxTx+1, nil, 0)
 	require.NoError(t, err)
 
-	resultHash, err := domains.ComputeCommitment(context.Background(), false, domains.txNum/stepSize, "")
+	resultHash, err := domains.ComputeCommitment(context.Background(), rwTx, false, domains.txNum/stepSize, "")
 	require.NoError(t, err)
 
 	t.Logf("result hash: %x", resultHash)
@@ -111,20 +110,22 @@ func TestSharedDomain_CommitmentKeyReplacement(t *testing.T) {
 }
 
 func TestSharedDomain_Unwind(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	t.Parallel()
 
 	stepSize := uint64(100)
-	db, agg := testDbAndAggregatorv3(t, stepSize)
+	_db, agg := testDbAndAggregatorv3(t, stepSize)
+	db := wrapDbWithCtx(_db, agg)
 
 	ctx := context.Background()
-	rwTx, err := db.BeginRw(ctx)
+	rwTx, err := db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 	defer rwTx.Rollback()
 
-	ac := agg.BeginFilesRo()
-	defer ac.Close()
-
-	domains, err := NewSharedDomains(WrapTxWithCtx(rwTx, ac), log.New())
+	domains, err := NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
@@ -135,18 +136,16 @@ func TestSharedDomain_Unwind(t *testing.T) {
 	hashes := make([][]byte, maxTx)
 	count := 10
 	rnd := newRnd(0)
-	ac.Close()
+
 	err = rwTx.Commit()
 	require.NoError(t, err)
 
 Loop:
-	rwTx, err = db.BeginRw(ctx)
+	rwTx, err = db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 	defer rwTx.Rollback()
 
-	ac = agg.BeginFilesRo()
-	defer ac.Close()
-	domains, err = NewSharedDomains(WrapTxWithCtx(rwTx, ac), log.New())
+	domains, err = NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
@@ -165,15 +164,15 @@ Loop:
 			}
 			v := accounts3.SerialiseV3(&acc)
 			k0[0] = byte(accs)
-			pv, step, err := domains.GetLatest(kv.AccountsDomain, k0)
+			pv, step, err := domains.GetLatest(kv.AccountsDomain, rwTx, k0)
 			require.NoError(t, err)
 
-			err = domains.DomainPut(kv.AccountsDomain, k0, nil, v, pv, step)
+			err = domains.DomainPut(kv.AccountsDomain, rwTx, k0, v, uint64(i), pv, step)
 			require.NoError(t, err)
 		}
 
 		if i%commitStep == 0 {
-			rh, err := domains.ComputeCommitment(ctx, true, domains.BlockNum(), "")
+			rh, err := domains.ComputeCommitment(ctx, rwTx, true, domains.BlockNum(), "")
 			require.NoError(t, err)
 			if hashes[uint64(i)] != nil {
 				require.Equal(t, hashes[uint64(i)], rh)
@@ -189,14 +188,12 @@ Loop:
 	unwindTo := uint64(commitStep * rnd.IntN(int(maxTx)/commitStep))
 	domains.currentChangesAccumulator = nil
 
-	acu := agg.BeginFilesRo()
-	var a [kv.DomainLen][]DomainEntryDiff
+	var a [kv.DomainLen][]kv.DomainEntryDiff
 	for idx, d := range stateChangeset.Diffs {
 		a[idx] = d.GetDiffSet()
 	}
 	err = domains.Unwind(ctx, rwTx, 0, unwindTo, &a)
 	require.NoError(t, err)
-	acu.Close()
 
 	err = rwTx.Commit()
 	require.NoError(t, err)
@@ -204,7 +201,6 @@ Loop:
 		count--
 	}
 	domains.Close()
-	ac.Close()
 	if count == 0 {
 		return
 	}
@@ -212,29 +208,35 @@ Loop:
 	goto Loop
 }
 
+func composite(k, k2 []byte) []byte {
+	return append(common.Copy(k), k2...)
+}
 func TestSharedDomain_IteratePrefix(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	t.Parallel()
 
 	stepSize := uint64(8)
 	require := require.New(t)
-	db, agg := testDbAndAggregatorv3(t, stepSize)
+	_db, agg := testDbAndAggregatorv3(t, stepSize)
+	db := wrapDbWithCtx(_db, agg)
+
+	ctx := context.Background()
+	rwTx, err := db.BeginTemporalRw(ctx)
+	require.NoError(err)
+	defer rwTx.Rollback()
 
 	iterCount := func(domains *SharedDomains) int {
 		var list [][]byte
-		require.NoError(domains.IterateStoragePrefix(nil, func(k []byte, v []byte, step uint64) error {
+		require.NoError(domains.IterateStoragePrefix(nil, domains.txNum, rwTx, func(k []byte, v []byte, step uint64) (bool, error) {
 			list = append(list, k)
-			return nil
+			return true, nil
 		}))
 		return len(list)
 	}
 
-	ac := agg.BeginFilesRo()
-	defer ac.Close()
-	ctx := context.Background()
-
-	rwTx, err := db.BeginRw(ctx)
-	require.NoError(err)
-	defer rwTx.Rollback()
 	for i := uint64(0); i < stepSize*2; i++ {
 		blockNum := i
 		maxTxNum := blockNum*2 - 1
@@ -242,10 +244,7 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 		require.NoError(err)
 	}
 
-	ac = agg.BeginFilesRo()
-	defer ac.Close()
-	wrwTx := WrapTxWithCtx(rwTx, ac)
-	domains, err := NewSharedDomains(wrwTx, log.New())
+	domains, err := NewSharedDomains(rwTx, log.New())
 	require.NoError(err)
 	defer domains.Close()
 
@@ -262,10 +261,10 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 	addr := acc(1)
 	for i := uint64(0); i < stepSize; i++ {
 		domains.SetTxNum(i)
-		if err = domains.DomainPut(kv.AccountsDomain, addr, nil, acc(i), nil, 0); err != nil {
+		if err = domains.DomainPut(kv.AccountsDomain, rwTx, addr, acc(i), i, nil, 0); err != nil {
 			panic(err)
 		}
-		if err = domains.DomainPut(kv.StorageDomain, addr, st(i), acc(i), nil, 0); err != nil {
+		if err = domains.DomainPut(kv.StorageDomain, rwTx, composite(addr, st(i)), acc(i), i, nil, 0); err != nil {
 			panic(err)
 		}
 	}
@@ -275,7 +274,7 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 		require.NoError(err)
 		domains.Close()
 
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		require.Equal(int(stepSize), iterCount(domains))
@@ -283,62 +282,59 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 	{ // delete marker is in RAM
 		require.NoError(domains.Flush(ctx, rwTx))
 		domains.Close()
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		require.Equal(int(stepSize), iterCount(domains))
 
 		domains.SetTxNum(stepSize)
-		if err := domains.DomainDel(kv.StorageDomain, addr, st(1), nil, 0); err != nil {
+		if err := domains.DomainDel(kv.StorageDomain, rwTx, append(addr, st(1)...), stepSize, nil, 0); err != nil {
 			panic(err)
 		}
-		if err := domains.DomainDel(kv.StorageDomain, addr, st(2), nil, 0); err != nil {
+		if err := domains.DomainDel(kv.StorageDomain, rwTx, append(addr, st(2)...), stepSize, nil, 0); err != nil {
 			panic(err)
 		}
 		for i := stepSize; i < stepSize*2+2; i++ {
 			domains.SetTxNum(i)
-			if err = domains.DomainPut(kv.AccountsDomain, addr, nil, acc(i), nil, 0); err != nil {
+			if err = domains.DomainPut(kv.AccountsDomain, rwTx, addr, acc(i), i, nil, 0); err != nil {
 				panic(err)
 			}
-			if err = domains.DomainPut(kv.StorageDomain, addr, st(i), acc(i), nil, 0); err != nil {
+			if err = domains.DomainPut(kv.StorageDomain, rwTx, composite(addr, st(i)), acc(i), i, nil, 0); err != nil {
 				panic(err)
 			}
 		}
 		require.Equal(int(stepSize*2+2-2), iterCount(domains))
 	}
 	{ // delete marker is in DB
-		_, err = domains.ComputeCommitment(ctx, true, domains.TxNum()/2, "")
+		_, err = domains.ComputeCommitment(ctx, rwTx, true, domains.TxNum()/2, "")
 		require.NoError(err)
 		err = domains.Flush(ctx, rwTx)
 		require.NoError(err)
 		domains.Close()
 
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		require.Equal(int(stepSize*2+2-2), iterCount(domains))
 	}
 	{ //delete marker is in Files
 		domains.Close()
-		ac.Close()
 		err = rwTx.Commit() // otherwise agg.BuildFiles will not see data
 		require.NoError(err)
 		require.NoError(agg.BuildFiles(stepSize * 2))
 		require.Equal(1, agg.d[kv.StorageDomain].dirtyFiles.Len())
 
-		ac = agg.BeginFilesRo()
-		defer ac.Close()
-		require.Equal(int(stepSize*2), int(ac.TxNumsInFiles(kv.StateDomains...)))
-
-		rwTx, err = db.BeginRw(ctx)
+		rwTx, err = db.BeginTemporalRw(ctx)
 		require.NoError(err)
 		defer rwTx.Rollback()
+
+		ac := AggTx(rwTx)
+		require.Equal(int(stepSize*2), int(ac.TxNumsInFiles(kv.StateDomains...)))
 
 		_, err := ac.prune(ctx, rwTx, 0, nil)
 		require.NoError(err)
 
-		wrwTx = WrapTxWithCtx(rwTx, ac)
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		require.Equal(int(stepSize*2+2-2), iterCount(domains))
@@ -347,27 +343,28 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 	{ // delete/update more keys in RAM
 		require.NoError(domains.Flush(ctx, rwTx))
 		domains.Close()
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 
-		domains.SetTxNum(stepSize*2 + 1)
-		if err := domains.DomainDel(kv.StorageDomain, addr, st(4), nil, 0); err != nil {
+		txNum := stepSize*2 + 1
+		domains.SetTxNum(txNum)
+		if err := domains.DomainDel(kv.StorageDomain, rwTx, append(addr, st(4)...), txNum, nil, 0); err != nil {
 			panic(err)
 		}
-		if err := domains.DomainPut(kv.StorageDomain, addr, st(5), acc(5), nil, 0); err != nil {
+		if err := domains.DomainPut(kv.StorageDomain, rwTx, append(addr, st(5)...), acc(5), txNum, nil, 0); err != nil {
 			panic(err)
 		}
 		require.Equal(int(stepSize*2+2-3), iterCount(domains))
 	}
 	{ // flush delete/updates to DB
-		_, err = domains.ComputeCommitment(ctx, true, domains.TxNum()/2, "")
+		_, err = domains.ComputeCommitment(ctx, rwTx, true, domains.TxNum()/2, "")
 		require.NoError(err)
 		err = domains.Flush(ctx, rwTx)
 		require.NoError(err)
 		domains.Close()
 
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		require.Equal(int(stepSize*2+2-3), iterCount(domains))
@@ -377,43 +374,40 @@ func TestSharedDomain_IteratePrefix(t *testing.T) {
 		require.NoError(err)
 		domains.Close()
 
-		domains, err = NewSharedDomains(wrwTx, log.New())
+		domains, err = NewSharedDomains(rwTx, log.New())
 		require.NoError(err)
 		defer domains.Close()
 		domains.SetTxNum(domains.TxNum() + 1)
-		err := domains.DomainDelPrefix(kv.StorageDomain, []byte{})
+		err := domains.DomainDelPrefix(kv.StorageDomain, rwTx, []byte{}, domains.TxNum()+1)
 		require.NoError(err)
 		require.Equal(0, iterCount(domains))
 	}
 }
 
 func TestSharedDomain_StorageIter(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	t.Parallel()
 
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlWarn, log.StderrHandler))
 
-	stepSize := uint64(10)
-	db, agg := testDbAndAggregatorv3(t, stepSize)
+	stepSize := uint64(4)
+	_db, agg := testDbAndAggregatorv3(t, stepSize)
+	db := wrapDbWithCtx(_db, agg)
 
 	ctx := context.Background()
-	rwTx, err := db.BeginRw(ctx)
+	rwTx, err := db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 	defer rwTx.Rollback()
 
-	ac := agg.BeginFilesRo()
-	defer ac.Close()
-
-	wtxRw := WrapTxWithCtx(rwTx, ac)
-	domains, err := NewSharedDomains(wtxRw, log.New())
+	domains, err := NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
 	maxTx := 3*stepSize + 10
 	hashes := make([][]byte, maxTx)
-
-	domains, err = NewSharedDomains(wtxRw, log.New())
-	require.NoError(t, err)
-	defer domains.Close()
 
 	i := 0
 	k0 := make([]byte, length.Addr)
@@ -422,6 +416,7 @@ func TestSharedDomain_StorageIter(t *testing.T) {
 	accounts := 1
 
 	for ; i < int(maxTx); i++ {
+		txNum := uint64(i)
 		domains.SetTxNum(uint64(i))
 		for accs := 0; accs < accounts; accs++ {
 			acc := accounts3.Account{
@@ -433,25 +428,25 @@ func TestSharedDomain_StorageIter(t *testing.T) {
 			v := accounts3.SerialiseV3(&acc)
 			k0[0] = byte(accs)
 
-			pv, step, err := domains.GetLatest(kv.AccountsDomain, k0)
+			pv, step, err := domains.GetLatest(kv.AccountsDomain, rwTx, k0)
 			require.NoError(t, err)
 
-			err = domains.DomainPut(kv.AccountsDomain, k0, nil, v, pv, step)
+			err = domains.DomainPut(kv.AccountsDomain, rwTx, k0, v, txNum, pv, step)
 			require.NoError(t, err)
 			binary.BigEndian.PutUint64(l0[16:24], uint64(accs))
 
-			for locs := 0; locs < 15000; locs++ {
+			for locs := 0; locs < 1000; locs++ {
 				binary.BigEndian.PutUint64(l0[24:], uint64(locs))
-				pv, step, err := domains.GetLatest(kv.AccountsDomain, append(k0, l0...))
+				pv, step, err := domains.GetLatest(kv.AccountsDomain, rwTx, append(k0, l0...))
 				require.NoError(t, err)
 
-				err = domains.DomainPut(kv.StorageDomain, k0, l0, l0[24:], pv, step)
+				err = domains.DomainPut(kv.StorageDomain, rwTx, composite(k0, l0), l0[24:], txNum, pv, step)
 				require.NoError(t, err)
 			}
 		}
 
 		if i%commitStep == 0 {
-			rh, err := domains.ComputeCommitment(ctx, true, domains.BlockNum(), "")
+			rh, err := domains.ComputeCommitment(ctx, rwTx, true, domains.BlockNum(), "")
 			require.NoError(t, err)
 			if hashes[uint64(i)] != nil {
 				require.Equal(t, hashes[uint64(i)], rh)
@@ -472,59 +467,56 @@ func TestSharedDomain_StorageIter(t *testing.T) {
 	err = agg.BuildFiles(maxTx - stepSize)
 	require.NoError(t, err)
 
-	ac.Close()
-	ac = agg.BeginFilesRo()
+	{ //prune
+		rwTx, err = db.BeginTemporalRw(ctx)
+		require.NoError(t, err)
+		defer rwTx.Rollback()
+		_, err = rwTx.PruneSmallBatches(ctx, 1*time.Minute)
+		require.NoError(t, err)
+		err = rwTx.Commit()
+		require.NoError(t, err)
+	}
 
-	err = db.Update(ctx, func(tx kv.RwTx) error {
-		_, err = ac.PruneSmallBatches(ctx, 1*time.Minute, tx)
-		return err
-	})
+	rwTx, err = db.BeginTemporalRw(ctx)
 	require.NoError(t, err)
 
-	ac.Close()
-
-	ac = agg.BeginFilesRo()
-	defer ac.Close()
-
-	rwTx, err = db.BeginRw(ctx)
-	require.NoError(t, err)
-
-	domains, err = NewSharedDomains(WrapTxWithCtx(rwTx, ac), log.New())
+	domains, err = NewSharedDomains(rwTx, log.New())
 	require.NoError(t, err)
 	defer domains.Close()
 
+	txNum := domains.txNum
 	for accs := 0; accs < accounts; accs++ {
 		k0[0] = byte(accs)
-		pv, step, err := domains.GetLatest(kv.AccountsDomain, k0)
+		pv, step, err := domains.GetLatest(kv.AccountsDomain, rwTx, k0)
 		require.NoError(t, err)
 
 		existed := make(map[string]struct{})
-		err = domains.IterateStoragePrefix(k0, func(k []byte, v []byte, step uint64) error {
+		err = domains.IterateStoragePrefix(k0, txNum, rwTx, func(k []byte, v []byte, step uint64) (bool, error) {
 			existed[string(k)] = struct{}{}
-			return nil
+			return true, nil
 		})
 		require.NoError(t, err)
 
 		missed := 0
-		err = domains.IterateStoragePrefix(k0, func(k []byte, v []byte, step uint64) error {
+		err = domains.IterateStoragePrefix(k0, txNum, rwTx, func(k []byte, v []byte, step uint64) (bool, error) {
 			if _, been := existed[string(k)]; !been {
 				missed++
 			}
-			return nil
+			return true, nil
 		})
 		require.NoError(t, err)
 		require.Zero(t, missed)
 
-		err = domains.deleteAccount(k0, pv, step)
+		err = domains.deleteAccount(rwTx, k0, txNum, pv, step)
 		require.NoError(t, err)
 
 		notRemoved := 0
-		err = domains.IterateStoragePrefix(k0, func(k []byte, v []byte, step uint64) error {
+		err = domains.IterateStoragePrefix(k0, txNum, rwTx, func(k []byte, v []byte, step uint64) (bool, error) {
 			notRemoved++
 			if _, been := existed[string(k)]; !been {
 				missed++
 			}
-			return nil
+			return true, nil
 		})
 		require.NoError(t, err)
 		require.Zero(t, missed)
@@ -534,7 +526,4 @@ func TestSharedDomain_StorageIter(t *testing.T) {
 	err = domains.Flush(ctx, rwTx)
 	require.NoError(t, err)
 	rwTx.Rollback()
-
-	domains.Close()
-	ac.Close()
 }

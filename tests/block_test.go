@@ -17,8 +17,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Erigon. If not, see <http://www.gnu.org/licenses/>.
 
-//go:build integration
-
 package tests
 
 import (
@@ -30,6 +28,10 @@ import (
 )
 
 func TestLegacyBlockchain(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	defer log.Root().SetHandler(log.Root().GetHandler())
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StderrHandler))
 	if runtime.GOOS == "windows" {
@@ -37,6 +39,8 @@ func TestLegacyBlockchain(t *testing.T) {
 	}
 
 	bt := new(testMatcher)
+	bt.skipLoad(`^.meta/`)
+
 	// General state tests are 'exported' as blockchain tests, but we can run them natively.
 	// For speedier CI-runs those are skipped.
 	bt.skipLoad(`^GeneralStateTests/`)
@@ -63,6 +67,10 @@ func TestLegacyBlockchain(t *testing.T) {
 }
 
 func TestExecutionSpecBlockchain(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	defer log.Root().SetHandler(log.Root().GetHandler())
 	log.Root().SetHandler(log.LvlFilterHandler(log.LvlError, log.StderrHandler))
 

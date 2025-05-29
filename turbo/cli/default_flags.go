@@ -139,7 +139,6 @@ var DefaultFlags = []cli.Flag{
 	&utils.DeveloperPeriodFlag,
 	&utils.VMEnableDebugFlag,
 	&utils.NetworkIdFlag,
-	&utils.PersistReceiptsFlag,
 	&utils.PersistReceiptsV2Flag,
 	&utils.FakePoWFlag,
 	&utils.GpoBlocksFlag,
@@ -155,6 +154,7 @@ var DefaultFlags = []cli.Flag{
 	&utils.MinerNotifyFlag,
 	&utils.MinerGasLimitFlag,
 	&utils.MinerEtherbaseFlag,
+	&utils.MinerGasPriceFlag,
 	&utils.MinerExtraDataFlag,
 	&utils.MinerNoVerfiyFlag,
 	&utils.MinerSigningKeyFileFlag,
@@ -176,7 +176,7 @@ var DefaultFlags = []cli.Flag{
 	&utils.WithHeimdallWaypoints,
 	&utils.PolygonSyncFlag,
 	&utils.PolygonSyncStageFlag,
-	&utils.PolygonLogIndex,
+	&utils.AAFlag,
 	&utils.EthStatsURLFlag,
 	&utils.OverridePragueFlag,
 
@@ -232,12 +232,12 @@ var DefaultFlags = []cli.Flag{
 	&utils.CaplinValidatorMonitorFlag,
 	&utils.CaplinCustomConfigFlag,
 	&utils.CaplinCustomGenesisFlag,
+	&utils.CaplinUseEngineApiFlag,
 
 	&utils.TrustedSetupFile,
 	&utils.RPCSlowFlag,
 
 	&utils.TxPoolGossipDisableFlag,
-
 	&SyncLoopBlockLimitFlag,
 	&SyncLoopBreakAfterFlag,
 	&SyncParallelStateFlushing,
@@ -250,4 +250,7 @@ var DefaultFlags = []cli.Flag{
 
 	&utils.PolygonPosSingleSlotFinalityFlag,
 	&utils.PolygonPosSingleSlotFinalityBlockAtFlag,
+	&utils.GDBMeFlag,
+
+	&utils.ExperimentalConcurrentCommitmentFlag,
 }
