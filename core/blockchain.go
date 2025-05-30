@@ -263,7 +263,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-func SysCallContract(contract common.Address, data []byte, chainConfig *chain.Config, ibs *state.IntraBlockState, header *types.Header, engine consensus.EngineReader, constCall bool, tracing *tracing.Hooks, vmCfg vm.Config) (result []byte, logs []*types.Log, err error) {
+func SysCallContract(contract common.Address, data []byte, chainConfig *chain.Config, ibs *state.IntraBlockState, header *types.Header, engine consensus.EngineReader, constCall bool, tracing *tracing.Hooks, vmCfg vm.Config) (result []byte, err error) {
 	isBor := chainConfig.Bor != nil
 	var author *common.Address
 	if isBor {
@@ -275,28 +275,8 @@ func SysCallContract(contract common.Address, data []byte, chainConfig *chain.Co
 	return SysCallContractWithBlockContext(contract, data, chainConfig, ibs, blockContext, constCall, tracing, vmCfg)
 }
 
-func SysCallContractWithBlockContext(contract common.Address, data []byte, chainConfig *chain.Config, ibs *state.IntraBlockState, blockContext evmtypes.BlockContext, constCall bool, tracer *tracing.Hooks, vmCfg vm.Config) (result []byte, logs []*types.Log, err error) {
-	innerTracer := &tracing.Hooks{}
-	if tracer != nil {
-		//innerTracer = tracer
-		if tracer.OnSystemCallStart != nil {
-			tracer.OnSystemCallStart()
-		}
-		if tracer.OnSystemCallEnd != nil {
-			defer tracer.OnSystemCallEnd()
-		}
-	}
-
+func SysCallContractWithBlockContext(contract common.Address, data []byte, chainConfig *chain.Config, ibs *state.IntraBlockState, blockContext evmtypes.BlockContext, constCall bool, tracer *tracing.Hooks, vmCfg vm.Config) (result []byte, err error) {
 	isBor := chainConfig.Bor != nil
-	if isBor {
-		innerTracer.OnLog = func(log *types.Log) {
-			logs = append(logs, log)
-			if tracer != nil && tracer.OnLog != nil {
-				tracer.OnLog(log)
-			}
-		}
-	}
-
 	msg := types.NewMessage(
 		state.SystemAddress,
 		&contract,
@@ -308,12 +288,9 @@ func SysCallContractWithBlockContext(contract common.Address, data []byte, chain
 		true, // isFree
 		nil,  // maxFeePerBlobGas
 	)
-	ibs.SetHooks(innerTracer)
-	defer ibs.SetHooks(tracer)
 	vmConfig := vmCfg
 	vmConfig.NoReceipts = true
 	vmConfig.RestoreState = constCall
-	vmConfig.Tracer = innerTracer
 	// Create a new context to be used in the EVM environment
 	var txContext evmtypes.TxContext
 	if isBor {
@@ -332,10 +309,10 @@ func SysCallContractWithBlockContext(contract common.Address, data []byte, chain
 		false,
 	)
 	if isBor && err != nil {
-		return nil, nil, nil
+		return nil, nil
 	}
 
-	return ret, logs, err
+	return ret, err
 }
 
 // SysCreate is a special (system) contract creation methods for genesis constructors.
@@ -379,7 +356,7 @@ func FinalizeBlockExecution(
 	tracer *tracing.Hooks,
 ) (newBlock *types.Block, newTxs types.Transactions, newReceipt types.Receipts, retRequests types.FlatRequests, err error) {
 	syscall := func(contract common.Address, data []byte) ([]byte, error) {
-		ret, _, err := SysCallContract(contract, data, cc, ibs, header, engine, false /* constCall */, tracer, vm.Config{})
+		ret, err := SysCallContract(contract, data, cc, ibs, header, engine, false /* constCall */, tracer, vm.Config{})
 		return ret, err
 	}
 
@@ -407,7 +384,7 @@ func InitializeBlockExecution(engine consensus.Engine, chain consensus.ChainHead
 		return nil
 	}
 	engine.Initialize(cc, chain, header, ibs, func(contract common.Address, data []byte, ibState *state.IntraBlockState, header *types.Header, constCall bool) ([]byte, error) {
-		ret, _, err := SysCallContract(contract, data, cc, ibState, header, engine, constCall, tracer, vm.Config{})
+		ret, err := SysCallContract(contract, data, cc, ibState, header, engine, constCall, tracer, vm.Config{})
 		return ret, err
 	}, logger, tracer)
 	if stateWriter == nil {

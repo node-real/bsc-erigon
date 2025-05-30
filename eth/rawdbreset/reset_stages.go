@@ -127,9 +127,6 @@ func ResetBorHeimdall(ctx context.Context, tx kv.RwTx, db kv.RwDB) error {
 	if err := tx.ClearTable(kv.BorSpans); err != nil {
 		return err
 	}
-	if err := clearStageProgress(tx, stages.BorHeimdall); err != nil {
-		return err
-	}
 	if !useExternalTx {
 		return tx.Commit()
 	}

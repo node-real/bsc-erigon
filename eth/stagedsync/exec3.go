@@ -457,16 +457,13 @@ Loop:
 		// set shouldGenerateChangesets=true if we are at last n blocks from maxBlockNum. this is as a safety net in chains
 		// where during initial sync we can expect bogus blocks to be imported.
 		if !shouldGenerateChangesets && shouldGenerateChangesetsForLastBlocks && blockNum > cfg.blockReader.FrozenBlocks() && blockNum+changesetSafeRange >= maxBlockNum {
-			aggTx := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
-			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
 			executor.domains().SetChangesetAccumulator(nil) // Make sure we don't have an active changeset accumulator
 			// First compute and commit the progress done so far
-			if _, err := executor.domains().ComputeCommitment(ctx, applyTx, true, blockNum, execStage.LogPrefix()); err != nil {
+			if _, err := executor.domains().ComputeCommitment(ctx, true, blockNum, inputTxNum, execStage.LogPrefix()); err != nil {
 				return err
 			}
 			ts += time.Since(start)
-			aggTx.RestrictSubsetFileDeletions(false)
 			shouldGenerateChangesets = true // now we can generate changesets for the safety net
 		}
 		changeset := &state2.StateChangeSet{}
@@ -704,13 +701,11 @@ Loop:
 		mxExecBlocks.Add(1)
 
 		if shouldGenerateChangesets || cfg.syncCfg.KeepExecutionProofs {
-			aggTx := executor.tx().(state2.HasAggTx).AggTx().(*state2.AggregatorRoTx)
-			aggTx.RestrictSubsetFileDeletions(true)
 			start := time.Now()
 			if dbg.DiscardCommitment() {
 				_ = executor.domains().SaveCommitment(blockNum, executor.domains().TxNum(), b.Root().Bytes())
 			} else {
-				_ /*rh*/, err := executor.domains().ComputeCommitment(ctx, executor.tx(), true, blockNum, execStage.LogPrefix())
+				_ /*rh*/, err := executor.domains().ComputeCommitment(ctx, true, blockNum, inputTxNum, execStage.LogPrefix())
 				if err != nil {
 					return err
 				}
@@ -722,7 +717,6 @@ Loop:
 			//}
 
 			ts += time.Since(start)
-			aggTx.RestrictSubsetFileDeletions(false)
 			if shouldGenerateChangesets {
 				executor.domains().SavePastChangesetAccumulator(b.Hash(), blockNum, changeset)
 				if !inMemExec {
@@ -806,8 +800,8 @@ Loop:
 					break Loop
 				}
 				logger.Info("Committed", "time", time.Since(commitStart),
-					"block", executor.domains().BlockNum(), "txNum", executor.domains().TxNum(),
-					"step", fmt.Sprintf("%.1f", float64(executor.domains().TxNum())/float64(agg.StepSize())),
+					"block", outputBlockNum.GetValueUint64(), "txNum", inputTxNum,
+					"step", fmt.Sprintf("%.1f", float64(inputTxNum)/float64(agg.StepSize())),
 					"flush+commitment", t1, "tx.commit", t2, "prune", t3)
 			default:
 			}
@@ -962,15 +956,13 @@ func flushAndCheckCommitmentV3(ctx context.Context, header *types.Header, applyT
 		panic(fmt.Errorf("%d != %d", doms.BlockNum(), header.Number.Uint64()))
 	}
 
-	var computedRootHash []byte
-	var err error
 	if dbg.DiscardCommitment() {
 		doms.ResetCommitment()
 		_ = doms.SaveCommitment(doms.BlockNum(), doms.TxNum(), header.Root.Bytes())
 	} else {
-		computedRootHash, err = doms.ComputeCommitment(ctx, applyTx, true, header.Number.Uint64(), e.LogPrefix())
+		computedRootHash, err := doms.ComputeCommitment(ctx, true, header.Number.Uint64(), doms.TxNum(), e.LogPrefix())
 		if err != nil {
-			return false, fmt.Errorf("StateV3.Apply: %w", err)
+			return false, fmt.Errorf("ParallelExecutionState.Apply: %w", err)
 		}
 		if cfg.blockProduction {
 			header.Root = common.BytesToHash(computedRootHash)
