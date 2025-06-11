@@ -26,6 +26,6 @@ const StepsInFrozenFile = 64
 
 const EnableHistoryV4InTest = true
 
-const MaxReorgDepthV3 = 512
+const MaxReorgDepthV3 = 8
 
 const DefaultPruneDistance = 100_000
