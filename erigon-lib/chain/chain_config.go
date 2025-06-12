@@ -181,6 +181,8 @@ type BorConfig interface {
 	GetNapoliBlock() *big.Int
 	IsAhmedabad(number uint64) bool
 	GetAhmedabadBlock() *big.Int
+	IsBhilai(num uint64) bool
+	GetBhilaiBlock() *big.Int
 	StateReceiverContractAddress() common.Address
 	CalculateSprintNumber(number uint64) uint64
 	CalculateSprintLength(number uint64) uint64
@@ -328,6 +330,11 @@ func (c *Config) IsAgra(num uint64) bool {
 // Refer to https://forum.polygon.technology/t/pip-33-napoli-upgrade
 func (c *Config) IsNapoli(num uint64) bool {
 	return (c != nil) && (c.Bor != nil) && c.Bor.IsNapoli(num)
+}
+
+// Refer to https://forum.polygon.technology/t/pip-63-bhilai-hardfork
+func (c *Config) IsBhilai(num uint64) bool {
+	return (c != nil) && (c.Bor != nil) && c.Bor.IsBhilai(num)
 }
 
 // IsCancun returns whether time is either equal to the Cancun fork time or greater.
@@ -880,7 +887,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli                       bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber, IsBohr, IsPascal, IsLorentz, IsMaxwell               bool
+	IsHaber, IsBohr, IsPascal, IsLorentz, IsMaxwell, IsBhilai     bool
 }
 
 // Rules ensures c's ChainID is not nil and returns a new Rules instance
@@ -920,6 +927,7 @@ func (c *Config) Rules(num uint64, time uint64) *Rules {
 		IsPascal:           c.IsPascal(num, time),
 		IsLorentz:          c.IsLorentz(num, time),
 		IsMaxwell:          c.IsMaxwell(num, time),
+		IsBhilai:           c.IsBhilai(num),
 		IsOsaka:            c.IsOsaka(time),
 		IsAura:             c.Aura != nil,
 		IsParlia:           c.Parlia != nil,
