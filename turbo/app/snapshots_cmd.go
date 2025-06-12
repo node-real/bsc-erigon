@@ -230,6 +230,15 @@ var snapshotCommand = cli.Command{
 			Flags: joinFlags([]cli.Flag{&utils.DataDirFlag}),
 		},
 		{
+			Name:  "reset-to-3.0",
+			Usage: "change all the snapshots to 3.0 file format",
+			Action: func(cliCtx *cli.Context) error {
+				dirs := datadir.New(cliCtx.String(utils.DataDirFlag.Name))
+				return dirs.RenameNewVersions()
+			},
+			Flags: joinFlags([]cli.Flag{&utils.DataDirFlag}),
+		},
+		{
 			Name:    "rm-state-snapshots",
 			Aliases: []string{"rm-state-segments", "rm-state"},
 			Action:  doRmStateSnapshots,
@@ -688,6 +697,10 @@ func doIntegrity(cliCtx *cli.Context) error {
 		switch chk {
 		case integrity.BlocksTxnID:
 			if err := blockReader.(*freezeblocks.BlockReader).IntegrityTxnID(failFast); err != nil {
+				return err
+			}
+		case integrity.HeaderNoGaps:
+			if err := integrity.NoGapsInCanonicalHeaders(ctx, db, blockReader, failFast); err != nil {
 				return err
 			}
 		case integrity.Blocks:
@@ -1351,7 +1364,7 @@ func openSnaps(ctx context.Context, cfg ethconfig.BlocksFreezing, dirs datadir.D
 	}
 	defer tx.Rollback()
 	stats.LogStats(tx, logger, func(endTxNumMinimax uint64) (uint64, error) {
-		_, histBlockNumProgress, err := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, blockReader)).FindBlockNum(tx, endTxNumMinimax)
+		histBlockNumProgress, _, err := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, blockReader)).FindBlockNum(tx, endTxNumMinimax)
 		return histBlockNumProgress, err
 	})
 
@@ -1782,7 +1795,7 @@ func doRetireCommand(cliCtx *cli.Context, dirs datadir.Dirs) error {
 		return err
 	}
 
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, blockReader))
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, blockReader))
 	var lastTxNum uint64
 	if err := db.Update(ctx, func(tx kv.RwTx) error {
 		execProgress, _ := stages.GetStageProgress(tx, stages.Execution)

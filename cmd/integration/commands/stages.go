@@ -46,7 +46,6 @@ import (
 	"github.com/erigontech/erigon-lib/config3"
 	"github.com/erigontech/erigon-lib/downloader"
 	"github.com/erigontech/erigon-lib/kv"
-	"github.com/erigontech/erigon-lib/kv/backup"
 	"github.com/erigontech/erigon-lib/kv/kvcfg"
 	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"github.com/erigontech/erigon-lib/kv/temporal"
@@ -671,11 +670,8 @@ func stageHeaders(db kv.TemporalRwDB, ctx context.Context, logger log.Logger) er
 	chainConfig := fromdb.ChainConfig(db)
 
 	if integritySlow {
-		if err := db.View(ctx, func(tx kv.Tx) error {
-			log.Info("[integrity] no gaps in canonical headers")
-			integrity.NoGapsInCanonicalHeaders(tx, ctx, br)
-			return nil
-		}); err != nil {
+		log.Info("[integrity] no gaps in canonical headers")
+		if err := integrity.NoGapsInCanonicalHeaders(ctx, db, br, true); err != nil {
 			return err
 		}
 		return nil
@@ -880,7 +876,7 @@ func stagePolygonSync(db kv.TemporalRwDB, ctx context.Context, logger log.Logger
 
 		stageState := stage(stageSync, tx, nil, stages.PolygonSync)
 		cfg := stagedsync.NewPolygonSyncStageCfg(&ethconfig.Defaults, logger, chainConfig, nil, heimdallClient,
-			heimdallStore, bridgeStore, nil, 0, nil, blockReader, nil, 0, unwindTypes, nil /* notifications */, nil)
+			heimdallStore, bridgeStore, nil, 0, nil, blockReader, nil, 0, unwindTypes, nil /* notifications */, nil, nil)
 		// we only need blockReader and blockWriter (blockWriter is constructed in NewPolygonSyncStageCfg)
 		if unwind > 0 {
 			u := stageSync.NewUnwindState(stageState.ID, stageState.BlockNumber-unwind, stageState.BlockNumber, true, false)
@@ -1019,7 +1015,7 @@ func stageExec(db kv.TemporalRwDB, ctx context.Context, logger log.Logger) error
 		s.CurrentSyncCycle.IsInitialCycle = false
 	}
 
-	genesis := core.GenesisBlockByChainName(chain)
+	genesis := readGenesis(chain)
 	br, _ := blocksIO(db, logger)
 
 	notifications := shards.NewNotifications(nil)
@@ -1030,7 +1026,7 @@ func stageExec(db kv.TemporalRwDB, ctx context.Context, logger log.Logger) error
 
 	if unwind > 0 {
 		if err := db.View(ctx, func(tx kv.Tx) error {
-			minUnwindableBlockNum, _, err := tx.(libstate.HasAggTx).AggTx().(*libstate.AggregatorRoTx).CanUnwindBeforeBlockNum(s.BlockNumber-unwind, tx)
+			minUnwindableBlockNum, _, err := libstate.AggTx(tx).CanUnwindBeforeBlockNum(s.BlockNumber-unwind, tx)
 			if err != nil {
 				return err
 			}
@@ -1149,45 +1145,18 @@ func stageCustomTrace(db kv.TemporalRwDB, ctx context.Context, logger log.Logger
 	must(sync.SetCurrentStage(stages.Execution))
 
 	chainConfig := fromdb.ChainConfig(db)
-	genesis := core.GenesisBlockByChainName(chain)
+	genesis := readGenesis(chain)
 	blockReader, _ := blocksIO(db, logger)
 
-	cfg := stagedsync.StageCustomTraceCfg(strings.Split(domain, ","), db, dirs, blockReader, chainConfig, engine, genesis, &syncCfg)
+	cfg := stagedsync.StageCustomTraceCfg(strings.Split(domain, ","), db, dirs, blockReader, chainConfig, engine, genesis, syncCfg)
 	if reset {
-		tx, err := db.BeginTemporalRw(ctx)
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-		var tables []string
-		if cfg.Produce.ReceiptDomain {
-			tables = append(tables, db.Debug().DomainTables(kv.ReceiptDomain)...)
-		}
-		if cfg.Produce.RCacheDomain {
-			tables = append(tables, db.Debug().DomainTables(kv.RCacheDomain)...)
-		}
-		if cfg.Produce.LogAddr {
-			tables = append(tables, db.Debug().InvertedIdxTables(kv.LogAddrIdx)...)
-		}
-		if cfg.Produce.LogTopic {
-			tables = append(tables, db.Debug().InvertedIdxTables(kv.LogTopicIdx)...)
-		}
-		if cfg.Produce.TraceFrom {
-			tables = append(tables, db.Debug().InvertedIdxTables(kv.TracesFromIdx)...)
-		}
-		if cfg.Produce.TraceTo {
-			tables = append(tables, db.Debug().InvertedIdxTables(kv.TracesToIdx)...)
-		}
-		if err := backup.ClearTables(ctx, tx, tables...); err != nil {
-			return err
-		}
-		if err := tx.Commit(); err != nil {
+		if err := stagedsync.StageCustomTraceReset(ctx, db, cfg.Produce); err != nil {
 			return err
 		}
 
-		if err := reset2.Reset(ctx, db, stages.CustomTrace); err != nil {
-			return err
-		}
+		//		if err := reset2.Reset(ctx, db, stages.CustomTrace); err != nil {
+		//			return err
+		//		}
 		return nil
 	}
 
@@ -1368,7 +1337,7 @@ func allSnapshots(ctx context.Context, db kv.RwDB, logger log.Logger) (*freezebl
 		_heimdallStoreSingleton = heimdall.NewSnapshotStore(heimdall.NewDbStore(db), _allBorSnapshotsSingleton)
 		_allBscSnapshotsSingleton = freezeblocks.NewBscRoSnapshots(snapCfg, dirs.Snap, 0, logger)
 		blockReader := freezeblocks.NewBlockReader(_allSnapshotsSingleton, _allBorSnapshotsSingleton, _heimdallStoreSingleton, _bridgeStoreSingleton, _allBscSnapshotsSingleton)
-		txNums := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, blockReader))
+		txNums := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, blockReader))
 
 		_aggSingleton, err = libstate.NewAggregator2(ctx, dirs, config3.DefaultStepSize, db, logger)
 		if err != nil {
@@ -1435,7 +1404,7 @@ func allSnapshots(ctx context.Context, db kv.RwDB, logger log.Logger) (*freezebl
 		defer tx.Rollback()
 
 		stats.LogStats(tx, log.New(), func(endTxNumMinimax uint64) (uint64, error) {
-			_, histBlockNumProgress, err := txNums.FindBlockNum(tx, endTxNumMinimax)
+			histBlockNumProgress, _, err := txNums.FindBlockNum(tx, endTxNumMinimax)
 			if err != nil {
 				return histBlockNumProgress, fmt.Errorf("findBlockNum(%d) fails: %w", endTxNumMinimax, err)
 			}
@@ -1477,7 +1446,7 @@ func newSync(ctx context.Context, db kv.TemporalRwDB, miningConfig *params.Minin
 
 	events := shards.NewEvents()
 
-	genesis := core.GenesisBlockByChainName(chain)
+	genesis := readGenesis(chain)
 	chainConfig, genesisBlock, genesisErr := core.CommitGenesisBlock(db, genesis, dirs, logger)
 	if _, ok := genesisErr.(*chain2.ConfigCompatError); genesisErr != nil && !ok {
 		panic(genesisErr)
@@ -1605,6 +1574,7 @@ func newSync(ctx context.Context, db kv.TemporalRwDB, miningConfig *params.Minin
 			stagedsync.StageSendersCfg(db, sentryControlServer.ChainConfig, cfg.Sync, false, dirs.Tmp, cfg.Prune, blockReader, sentryControlServer.Hd),
 			stagedsync.StageMiningExecCfg(db, miner, events, *chainConfig, engine, &vm.Config{}, dirs.Tmp, nil, 0, nil, blockReader),
 			stagedsync.StageMiningFinishCfg(db, *chainConfig, engine, miner, miningCancel, blockReader, builder.NewLatestBlockBuiltStore()),
+			false,
 		),
 		stagedsync.MiningUnwindOrder,
 		stagedsync.MiningPruneOrder,
@@ -1652,4 +1622,13 @@ func initConsensusEngine(ctx context.Context, cc *chain2.Config, dir string, db 
 	}
 	return ethconsensusconfig.CreateConsensusEngine(ctx, &nodecfg.Config{Dirs: datadir.New(dir)}, cc, consensusConfig, config.Miner.Notify, config.Miner.Noverify,
 		heimdallClient, config.WithoutHeimdall, config.DisableBlobPrune, blockReader, db.ReadOnly(), logger, nil, nil), heimdallClient
+}
+
+func readGenesis(chain string) *types.Genesis {
+	genesis := core.GenesisBlockByChainName(chain)
+	if genesis == nil {
+		panic("genesis is nil. probably you passed wrong --chain")
+	}
+	_ = genesis.Alloc // nil check
+	return genesis
 }

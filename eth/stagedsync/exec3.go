@@ -43,7 +43,6 @@ import (
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/rawdb"
 	"github.com/erigontech/erigon/core/rawdb/rawdbhelpers"
-	"github.com/erigontech/erigon/core/rawdb/rawtemporaldb"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/eth/ethconfig/estimate"
@@ -140,7 +139,7 @@ func (p *Progress) Log(suffix string, rs *state.StateV3, in *state.QueueWithRetr
 func restoreTxNum(ctx context.Context, cfg *ExecuteBlockCfg, applyTx kv.Tx, doms *state2.SharedDomains, maxBlockNum uint64) (
 	inputTxNum uint64, maxTxNum uint64, offsetFromBlockBeginning uint64, err error) {
 
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, cfg.blockReader))
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, cfg.blockReader))
 
 	inputTxNum = doms.TxNum()
 
@@ -155,7 +154,7 @@ func restoreTxNum(ctx context.Context, cfg *ExecuteBlockCfg, applyTx kv.Tx, doms
 		return 0, 0, 0, err
 	}
 
-	ok, _blockNum, err := txNumsReader.FindBlockNum(applyTx, doms.TxNum())
+	_blockNum, ok, err := txNumsReader.FindBlockNum(applyTx, doms.TxNum())
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -536,7 +535,6 @@ Loop:
 		// Thus, we need to skip the first txs in the block, however, this causes the GasUsed to be incorrect.
 		// So we skip that check for the first block, if we find half-executed data.
 		skipPostEvaluation := false
-		var usedGas uint64
 		var systemTxIndex int
 
 		var txTasks []*state.TxTask
@@ -565,12 +563,6 @@ Loop:
 				BlockReceipts: blockReceipts,
 
 				Config: chainConfig,
-			}
-			if txTask.HistoryExecution && usedGas == 0 {
-				usedGas, _, _, err = rawtemporaldb.ReceiptAsOf(executor.tx().(kv.TemporalTx), txTask.TxNum)
-				if err != nil {
-					return err
-				}
 			}
 
 			if txIndex >= 0 && !txTask.Final && isPoSa {

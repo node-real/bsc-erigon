@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/erigontech/erigon/eth/ethconfig/estimate"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/erigontech/erigon-lib/kv"
@@ -42,6 +43,7 @@ func HistoryCheckNoSystemTxs(ctx context.Context, db kv.TemporalRwDB, blockReade
 	defer logEvery.Stop()
 	agg := db.(state.HasAgg).Agg().(*state.Aggregator)
 	g := &errgroup.Group{}
+	g.SetLimit(estimate.AlmostAllCPUs())
 	for j := 0; j < 256; j++ {
 		j := j
 		for jj := 0; jj < 255; jj++ {
@@ -54,13 +56,13 @@ func HistoryCheckNoSystemTxs(ctx context.Context, db kv.TemporalRwDB, blockReade
 				defer tx.Rollback()
 
 				var minStep uint64 = math.MaxUint64
-				keys, err := tx.(state.HasAggTx).AggTx().(*state.AggregatorRoTx).DebugRangeLatest(tx, kv.AccountsDomain, []byte{byte(j), byte(jj)}, []byte{byte(j), byte(jj + 1)}, -1)
+				keys, err := state.AggTx(tx).DebugRangeLatest(tx, kv.AccountsDomain, []byte{byte(j), byte(jj)}, []byte{byte(j), byte(jj + 1)}, -1)
 				if err != nil {
 					return err
 				}
 				defer keys.Close()
 
-				txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, blockReader))
+				txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, blockReader))
 
 				for keys.HasNext() {
 					key, _, err := keys.Next()
@@ -76,7 +78,7 @@ func HistoryCheckNoSystemTxs(ctx context.Context, db kv.TemporalRwDB, blockReade
 						if err != nil {
 							return err
 						}
-						ok, blockNum, err := txNumsReader.FindBlockNum(tx, txNum)
+						blockNum, ok, err := txNumsReader.FindBlockNum(tx, txNum)
 						if err != nil {
 							return err
 						}
@@ -92,15 +94,15 @@ func HistoryCheckNoSystemTxs(ctx context.Context, db kv.TemporalRwDB, blockReade
 							log.Info(fmt.Sprintf("[integrity] HistoryNoSystemTxs: minStep=%d, step=%d, txNum=%d, blockNum=%d, key=%x", minStep, txNum/agg.StepSize(), txNum, blockNum, key))
 							break
 						}
-
-						select {
-						case <-logEvery.C:
-							log.Info(fmt.Sprintf("[integrity] HistoryNoSystemTxs: checked=%dK keys", count.Load()/1_000))
-						default:
-						}
 					}
 					it.Close()
 					count.Add(1)
+
+					select {
+					case <-logEvery.C:
+						log.Info(fmt.Sprintf("[integrity] HistoryNoSystemTxs: checked=%.2fm keys", float64(count.Load())/1_000_000))
+					default:
+					}
 				}
 				return nil
 			})

@@ -166,12 +166,21 @@ func (api *APIImpl) EstimateGas(ctx context.Context, argsOrNil *ethapi2.CallArgs
 		return 0, err
 	}
 
-	// try and get the block from the lru cache first then try DB before failing
 	block := api.tryBlockFromLru(blockHash)
+
+	// try and get the block from the lru cache first then try DB before failing
 	if block == nil {
 		block, err = api.blockWithSenders(ctx, dbtx, blockHash, blockNum)
 		if err != nil {
 			return 0, err
+		}
+	}
+
+	// try to check if it is a pending block
+	if block == nil {
+		b := api.filters.LastPendingBlock()
+		if b != nil && blockNum == b.NumberU64() {
+			block = b
 		}
 	}
 
@@ -180,7 +189,7 @@ func (api *APIImpl) EstimateGas(ctx context.Context, argsOrNil *ethapi2.CallArgs
 	}
 	header := block.HeaderNoCopy()
 
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, api._blockReader))
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, api._blockReader))
 	stateReader, err := rpchelper.CreateStateReaderFromBlockNumber(ctx, dbtx, txNumsReader, blockNum, isLatest, 0, api.stateCache, chainConfig.ChainName)
 	if err != nil {
 		return 0, err
@@ -351,7 +360,7 @@ func (api *APIImpl) getProof(ctx context.Context, roTx kv.Tx, address libcommon.
 	}
 	if blockNrOrHash.BlockNumber.Uint64() < latestBlock {
 		// Get first txnum of blockNumber+1 to ensure that correct state root will be restored as of blockNumber has been executed
-		lastTxnInBlock, err := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, api._blockReader)).Min(tx, blockNrOrHash.BlockNumber.Uint64()+1)
+		lastTxnInBlock, err := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, api._blockReader)).Min(tx, blockNrOrHash.BlockNumber.Uint64()+1)
 		if err != nil {
 			return nil, err
 		}
@@ -748,7 +757,7 @@ func (api *APIImpl) CreateAccessList(ctx context.Context, args ethapi2.CallArgs,
 		return nil, nil
 	}
 	var stateReader state.StateReader
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, api._blockReader))
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, api._blockReader))
 
 	if latest {
 		cacheView, err := api.stateCache.View(ctx, tx)
