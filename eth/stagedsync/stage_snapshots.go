@@ -187,6 +187,7 @@ func SpawnStageSnapshots(
 		defer tx.Rollback()
 	}
 	if err := DownloadAndIndexSnapshotsIfNeed(s, ctx, tx, cfg, logger); err != nil {
+		log.Error("DownloadAndIndexSnapshotsIfNeed", "err", err)
 		return err
 	}
 	var minProgress uint64
