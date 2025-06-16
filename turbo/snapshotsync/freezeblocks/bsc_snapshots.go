@@ -3,6 +3,8 @@ package freezeblocks
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
@@ -18,7 +20,6 @@ import (
 	"github.com/erigontech/erigon/eth/ethconfig"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
-	"reflect"
 )
 
 const (
@@ -249,7 +250,7 @@ func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar
 		return nil, nil
 	}
 
-	buf, _ = gg.Next(buf)
+	buf, _ = gg.Next(buf[:0])
 	if len(buf) == 0 {
 		return nil, nil
 	}
