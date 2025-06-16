@@ -187,6 +187,7 @@ func SpawnStageSnapshots(
 		defer tx.Rollback()
 	}
 	if err := DownloadAndIndexSnapshotsIfNeed(s, ctx, tx, cfg, logger); err != nil {
+		log.Error("DownloadAndIndexSnapshotsIfNeed", "err", err)
 		return err
 	}
 	var minProgress uint64
@@ -222,6 +223,9 @@ func SpawnStageSnapshots(
 	}
 	if cfg.chainConfig.Bor != nil && !cfg.blockReader.BorSnapshots().DownloadReady() {
 		cfg.blockReader.BorSnapshots().DownloadComplete()
+	}
+	if cfg.chainConfig.Parlia != nil && !cfg.blockReader.BscSnapshots().DownloadReady() {
+		cfg.blockReader.BscSnapshots().DownloadComplete()
 	}
 
 	return nil
@@ -278,6 +282,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		List:  subStages,
 	})
 
+	logger.Info(fmt.Sprintf("[%s] Download header-chain", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Download header-chain"})
 	agg := cfg.db.(*temporal.DB).Agg().(*state2.Aggregator)
 	// Download only the snapshots that are for the header chain.
@@ -289,6 +294,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		return err
 	}
 
+	logger.Info(fmt.Sprintf("[%s] Download snapshots", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Download snapshots"})
 	if err := snapshotsync.WaitForDownloader(ctx, s.LogPrefix(), cfg.dirs, false, cfg.blobs, cfg.caplinState, cfg.prune, cstate, agg, tx, cfg.blockReader, &cfg.chainConfig, cfg.snapshotDownloader, cfg.syncConfig); err != nil {
 		return err
@@ -297,6 +303,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		cfg.notifier.Events.OnNewSnapshot()
 	}
 
+	logger.Info(fmt.Sprintf("[%s] E2 Indexing", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "E2 Indexing"})
 	if err := cfg.blockRetire.BuildMissedIndicesIfNeed(ctx, s.LogPrefix(), cfg.notifier.Events); err != nil {
 		return err
@@ -308,6 +315,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		}
 	}
 
+	logger.Info(fmt.Sprintf("[%s] E3 Indexing", s.LogPrefix()))
 	indexWorkers := estimate.IndexSnapshot.Workers()
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "E3 Indexing"})
 	if err := agg.BuildMissedIndices(ctx, indexWorkers); err != nil {
@@ -331,6 +339,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		s.BlockNumber = frozenBlocks
 	}
 
+	logger.Info(fmt.Sprintf("[%s] Fill DB", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Fill DB"})
 	if err := FillDBFromSnapshots(s.LogPrefix(), ctx, tx, cfg.dirs, cfg.blockReader, cfg.chainConfig, cfg.engine, logger); err != nil {
 		return fmt.Errorf("FillDBFromSnapshots: %w", err)
