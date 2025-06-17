@@ -237,7 +237,6 @@ var (
 	MinerGasLimitFlag = cli.Uint64Flag{
 		Name:  "miner.gaslimit",
 		Usage: "Target gas limit for mined blocks",
-		Value: ethconfig.Defaults.Miner.GasLimit,
 	}
 	MinerGasPriceFlag = flags.BigFlag{
 		Name:  "miner.gasprice",
@@ -1676,9 +1675,12 @@ func SetupMinerCobra(cmd *cobra.Command, cfg *params.MiningConfig) {
 		panic(err)
 	}
 	cfg.ExtraData = []byte(extraDataStr)
-	cfg.GasLimit, err = flags.GetUint64(MinerGasLimitFlag.Name)
-	if err != nil {
-		panic(err)
+	if flags.Changed(MinerGasLimitFlag.Name) {
+		gasLimit, err := flags.GetUint64(MinerGasLimitFlag.Name)
+		if err != nil {
+			panic(err)
+		}
+		cfg.GasLimit = &gasLimit
 	}
 	price, err := flags.GetInt64(MinerGasPriceFlag.Name)
 	if err != nil {
@@ -1753,7 +1755,7 @@ func setBorConfig(ctx *cli.Context, cfg *ethconfig.Config, nodeConfig *nodecfg.C
 }
 
 func setMiner(ctx *cli.Context, cfg *params.MiningConfig) {
-	cfg.Enabled = ctx.IsSet(MiningEnabledFlag.Name)
+	cfg.Enabled = ctx.Bool(MiningEnabledFlag.Name)
 	cfg.EnabledPOS = !ctx.IsSet(ProposingDisableFlag.Name)
 
 	if cfg.Enabled && len(cfg.Etherbase.Bytes()) == 0 {
@@ -1775,7 +1777,9 @@ func setMiner(ctx *cli.Context, cfg *params.MiningConfig) {
 	}
 
 	if ctx.IsSet(MinerGasLimitFlag.Name) {
-		cfg.GasLimit = ctx.Uint64(MinerGasLimitFlag.Name)
+		if gasLimit := ctx.Uint64(MinerGasLimitFlag.Name); gasLimit != 0 {
+			cfg.GasLimit = &gasLimit
+		}
 	}
 	if ctx.IsSet(MinerGasPriceFlag.Name) {
 		cfg.GasPrice = flags.GlobalBig(ctx, MinerGasPriceFlag.Name)

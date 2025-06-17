@@ -181,7 +181,7 @@ func unwindExec3(u *UnwindState, s *StageState, txc wrap.TxContainer, ctx contex
 	}
 	rs := state.NewStateV3(domains, cfg.syncCfg, cfg.chainConfig.Bor != nil, logger)
 
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, br))
+	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, br))
 
 	// unwind all txs of u.UnwindPoint block. 1 txn in begin/end of block - system txs
 	txNum, err := txNumsReader.Min(txc.Tx, u.UnwindPoint+1)
@@ -242,10 +242,6 @@ func stageProgress(tx kv.Tx, db kv.RoDB, stage stages.SyncStage) (prevStageProgr
 		}
 	}
 	return prevStageProgress, nil
-}
-
-func BorHeimdallStageProgress(tx kv.Tx, cfg BorHeimdallCfg) (prevStageProgress uint64, err error) {
-	return stageProgress(tx, cfg.db, stages.BorHeimdall)
 }
 
 // ================ Erigon3 End ================

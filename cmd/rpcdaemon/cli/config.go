@@ -461,7 +461,7 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 		}
 
 		blockReader = freezeblocks.NewBlockReader(allSnapshots, allBorSnapshots, heimdallStore, bridgeStore, allBscSnapshots)
-		txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.ReadTxNumFuncFromBlockReader(ctx, blockReader))
+		txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, blockReader))
 
 		agg, err := libstate.NewAggregator2(ctx, cfg.Dirs, config3.DefaultStepSize, rawDB, logger)
 		if err != nil {
@@ -527,7 +527,7 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 					}
 					defer tx.Rollback()
 					stats.LogStats(tx, logger, func(endTxNumMinimax uint64) (uint64, error) {
-						_, histBlockNumProgress, err := txNumsReader.FindBlockNum(tx, endTxNumMinimax)
+						histBlockNumProgress, _, err := txNumsReader.FindBlockNum(tx, endTxNumMinimax)
 						return histBlockNumProgress, err
 					})
 				}
@@ -552,7 +552,7 @@ func RemoteServices(ctx context.Context, cfg *httpcfg.HttpCfg, logger log.Logger
 			defer tx.Rollback()
 
 			stats.LogStats(tx, logger, func(endTxNumMinimax uint64) (uint64, error) {
-				_, histBlockNumProgress, err := txNumsReader.FindBlockNum(tx, endTxNumMinimax)
+				histBlockNumProgress, _, err := txNumsReader.FindBlockNum(tx, endTxNumMinimax)
 				return histBlockNumProgress, err
 			})
 		}
