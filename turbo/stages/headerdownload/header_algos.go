@@ -24,7 +24,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon-lib/chain"
 	"io"
 	"math/big"
 	"slices"
@@ -32,6 +31,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/erigontech/erigon-lib/chain"
 
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/common/metrics"
@@ -1090,6 +1091,9 @@ func (hi *HeaderInserter) BestHeaderChanged() bool {
 }
 
 func (hd *HeaderDownload) ProcessHeader(sh ChainSegmentHeader, newBlock bool, peerID [64]byte) bool {
+	if sh.Number > 20_000_000 {
+		return false // Do not process headers that are too far in the future
+	}
 	hd.lock.Lock()
 	defer hd.lock.Unlock()
 	//log.Debug("Process header", "Number", sh.Number, "Hash", sh.Hash, "peer", fmt.Sprintf("%x", peerID)[:8])
