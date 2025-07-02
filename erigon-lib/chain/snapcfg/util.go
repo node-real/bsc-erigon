@@ -457,7 +457,7 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 		return snaptype.CaplinMergeLimit
 	}
 	if hasType {
-		return snaptype.Erigon2MergeLimit
+		return snaptype.Erigon2OldMergeLimit
 	}
 
 	return c.MergeLimit(snaptype.MinCoreEnum, fromBlock)

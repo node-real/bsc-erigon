@@ -3,6 +3,8 @@ package freezeblocks
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/erigontech/erigon-lib/chain"
@@ -107,6 +109,115 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	return blocksRetired, nil
+}
+
+func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
+	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	snapshots := br.bscSnapshots()
+	chainConfig := fromdb.ChainConfig(br.db)
+	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, chainConfig, logger)
+	rangesToMerge := merger.FindMergeRanges(snapshots.Ranges(), snapshots.BlocksAvailable())
+	if len(rangesToMerge) > 0 {
+		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
+	}
+	if len(rangesToMerge) == 0 {
+		return false, nil
+	}
+	onMerge := func(r snapshotsync.Range) error {
+		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
+			notifier.OnNewSnapshot()
+		}
+
+		if seedNewSnapshots != nil {
+			downloadRequest := []snapshotsync.DownloadRequest{
+				snapshotsync.NewDownloadRequest("", ""),
+			}
+			if err := seedNewSnapshots(downloadRequest); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err := merger.Merge(ctx, &snapshots.RoSnapshots, coresnaptype.BscSnapshotTypes, rangesToMerge, snapshots.Dir(), true /* doIndex */, onMerge, onDelete); err != nil {
+		return false, err
+	}
+
+	{
+		files, _, err := snapshotsync.TypedSegments(br.bscSnapshots().Dir(), br.bscSnapshots().SegmentsMin(), coresnaptype.BscSnapshotTypes, false)
+		if err != nil {
+			return true, err
+		}
+
+		// this is one off code to fix an issue in 2.49.x->2.52.x which missed
+		// removal of intermediate segments after a merge operation
+		removeBscOverlaps(br.bscSnapshots().Dir(), files, br.bscSnapshots().BlocksAvailable())
+	}
+
+	return true, nil
+}
+
+// this is one off code to fix an issue in 2.49.x->2.52.x which missed
+// removal of intermediate segments after a merge operation
+func removeBscOverlaps(dir string, active []snaptype.FileInfo, _max uint64) {
+	list, err := snaptype.Segments(dir)
+
+	if err != nil {
+		return
+	}
+
+	var toDel []string
+	l := make([]snaptype.FileInfo, 0, len(list))
+
+	for _, f := range list {
+		if !(f.Type.Enum() == coresnaptype.Enums.BscBlobs) {
+			continue
+		}
+		l = append(l, f)
+	}
+
+	// added overhead to make sure we don't delete in the
+	// current 500k block segment
+	if _max > 500_001 {
+		_max -= 500_001
+	}
+
+	for _, f := range l {
+		if _max < f.From {
+			continue
+		}
+
+		for _, a := range active {
+			if a.Type.Enum() != coresnaptype.Enums.BscBlobs {
+				continue
+			}
+
+			if f.From < a.From {
+				continue
+			}
+
+			if f.From == a.From {
+				if f.To < a.To {
+					toDel = append(toDel, f.Path)
+				}
+
+				break
+			}
+
+			if f.From < a.To {
+				toDel = append(toDel, f.Path)
+				break
+			}
+		}
+	}
+
+	for _, f := range toDel {
+		_ = os.Remove(f)
+		_ = os.Remove(f + ".torrent")
+		ext := filepath.Ext(f)
+		withoutExt := f[:len(f)-len(ext)]
+		_ = os.Remove(withoutExt + ".idx")
+		_ = os.Remove(withoutExt + ".idx.torrent")
+	}
 }
 
 type BscRoSnapshots struct {
