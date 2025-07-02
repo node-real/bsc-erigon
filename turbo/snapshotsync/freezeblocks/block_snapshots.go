@@ -517,6 +517,12 @@ func (br *BlockRetire) RemoveOverlaps() error {
 		}
 	}
 
+	if br.chainConfig.Parlia != nil {
+		if err := br.bscSnapshots().RoSnapshots.RemoveOverlaps(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -525,6 +531,9 @@ func (br *BlockRetire) MadvNormal() *BlockRetire {
 	if br.chainConfig.Bor != nil {
 		br.borSnapshots().RoSnapshots.MadvNormal()
 	}
+	if br.chainConfig.Parlia != nil {
+		br.bscSnapshots().RoSnapshots.MadvNormal()
+	}
 	return br
 }
 
@@ -532,6 +541,9 @@ func (br *BlockRetire) DisableReadAhead() {
 	br.snapshots().DisableReadAhead()
 	if br.chainConfig.Bor != nil {
 		br.borSnapshots().RoSnapshots.DisableReadAhead()
+	}
+	if br.chainConfig.Parlia != nil {
+		br.bscSnapshots().RoSnapshots.DisableReadAhead()
 	}
 }
 
