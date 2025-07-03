@@ -10,6 +10,7 @@ import (
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/kv"
@@ -54,21 +55,31 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	blocksRetired := false
 
 	for _, snap := range blockReader.BscSnapshots().Types() {
-		minSnapBlockNum := max(snapshots.BlocksAvailable(), minBlockNum, minimumBlob)
+		minSnapBlockNum := max(snapshots.DirtyBlocksAvailable(snap.Enum()), minBlockNum, minimumBlob)
 
-		if maxBlockNum <= minSnapBlockNum || maxBlockNum-minSnapBlockNum < snaptype.Erigon2MergeLimit {
+		if maxBlockNum <= minSnapBlockNum {
 			continue
 		}
 
-		blockFrom := minSnapBlockNum + 1
-		blockTo := maxBlockNum
+		blockFrom, blockTo, ok := CanRetire(maxBlockNum, minSnapBlockNum, snap.Enum(), br.chainConfig)
+		if ok {
+			blocksRetired = true
 
-		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blobs", "type", snap,
-			"range", fmt.Sprintf("%d-%d", blockFrom, blockTo))
+			if has, err := br.dbHasEnoughDataForBscRetire(ctx); err != nil {
+				return false, err
+			} else if !has {
+				return false, nil
+			}
 
-		blocksRetired = true
-		if err := DumpBlobs(ctx, blockFrom, blockTo, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
-			return blocksRetired, fmt.Errorf("DumpBlobs: %w", err)
+			logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
+				"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
+
+			for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig) {
+				end := chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig)
+				if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
+					return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
+				}
+			}
 		}
 	}
 
@@ -79,27 +90,6 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		snapshots.LogStat("bsc:retire")
 		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
 			notifier.OnNewSnapshot()
-		}
-
-		// now prune blobs from the database
-		blockTo := (maxBlockNum / snaptype.Erigon2OldMergeLimit) * snaptype.Erigon2OldMergeLimit
-		roTx, err := db.BeginRo(ctx)
-		if err != nil {
-			return blocksRetired, err
-		}
-		defer roTx.Rollback()
-
-		for i := minBlockNum; i < blockTo; i++ {
-			if i%10000 == 0 {
-				logger.Info("remove sidecars", "blockNum", i)
-			}
-			blockHash, _, err := blockReader.CanonicalHash(ctx, roTx, i)
-			if err != nil {
-				return blocksRetired, err
-			}
-			if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
-				logger.Error("remove sidecars", "blockNum", i, "err", err)
-			}
 		}
 
 		if seedNewSnapshots != nil {

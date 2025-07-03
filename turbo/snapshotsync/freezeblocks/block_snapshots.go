@@ -388,6 +388,36 @@ func (br *BlockRetire) PruneAncientBlocks(tx kv.RwTx, limit int) (deleted int, e
 
 	}
 
+	if br.chainConfig.Parlia != nil {
+		if canDeleteTo := CanDeleteTo(currentProgress, br.blockReader.FrozenBscBlobs()); canDeleteTo > 0 {
+			// PruneBscBlobs - [1, to) old blob sidecars after moving it to snapshots.
+			deletedBscBlocks, err := func() (deleted int, err error) {
+				ctx := context.Background()
+
+				for i := uint64(1); i < canDeleteTo && deleted < limit; i++ {
+					blockHash, _, err := br.blockReader.CanonicalHash(ctx, tx, i)
+					if err != nil {
+						return deleted, err
+					}
+					if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
+						br.logger.Error("remove blob sidecars", "blockNum", i, "err", err)
+						continue
+					}
+					deleted++
+					if i%10000 == 0 {
+						br.logger.Debug("Pruning BSC blob sidecars", "progress", i, "to", canDeleteTo)
+					}
+				}
+				return deleted, nil
+			}()
+			br.logger.Debug("[snapshots] Prune BSC Blobs", "to", canDeleteTo, "limit", limit, "deleted", deletedBscBlocks, "err", err)
+			if err != nil {
+				return deleted, err
+			}
+			deleted += deletedBscBlocks
+		}
+	}
+
 	return deleted, nil
 }
 
