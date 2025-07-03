@@ -41,36 +41,40 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	snapshots := br.bscSnapshots()
-
 	chainConfig := fromdb.ChainConfig(br.db)
-	var minimumBlob uint64
 	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+
+	var minimumBlob uint64
 	if chainConfig.ChainName == networkname.BSC {
 		minimumBlob = bscMinSegFrom
 	} else {
 		minimumBlob = chapelMinSegFrom
 	}
-	blockFrom := max(blockReader.FrozenBscBlobs()+1, minimumBlob)
+
 	blocksRetired := false
+
 	for _, snap := range blockReader.BscSnapshots().Types() {
-		if maxBlockNum <= blockFrom || maxBlockNum-blockFrom < snaptype.Erigon2MergeLimit {
+		minSnapBlockNum := max(snapshots.BlocksAvailable(), minBlockNum, minimumBlob)
+
+		if maxBlockNum <= minSnapBlockNum || maxBlockNum-minSnapBlockNum < snaptype.Erigon2MergeLimit {
 			continue
 		}
 
+		blockFrom := minSnapBlockNum + 1
 		blockTo := maxBlockNum
 
-		logger.Log(lvl, "[bsc snapshot] Retire Bsc Blobs", "type", snap,
+		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blobs", "type", snap,
 			"range", fmt.Sprintf("%d-%d", blockFrom, blockTo))
 
 		blocksRetired = true
 		if err := DumpBlobs(ctx, blockFrom, blockTo, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
-			return true, fmt.Errorf("DumpBlobs: %w", err)
+			return blocksRetired, fmt.Errorf("DumpBlobs: %w", err)
 		}
 	}
 
 	if blocksRetired {
 		if err := snapshots.OpenFolder(); err != nil {
-			return true, fmt.Errorf("reopen: %w", err)
+			return blocksRetired, fmt.Errorf("reopen: %w", err)
 		}
 		snapshots.LogStat("bsc:retire")
 		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
@@ -78,37 +82,38 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		}
 
 		// now prune blobs from the database
-		blockTo := (maxBlockNum / snaptype.Erigon2MergeLimit) * snaptype.Erigon2MergeLimit
+		blockTo := (maxBlockNum / snaptype.Erigon2OldMergeLimit) * snaptype.Erigon2OldMergeLimit
 		roTx, err := db.BeginRo(ctx)
 		if err != nil {
-			return false, nil
+			return blocksRetired, err
 		}
 		defer roTx.Rollback()
 
-		for i := blockFrom; i < blockTo; i++ {
+		for i := minBlockNum; i < blockTo; i++ {
 			if i%10000 == 0 {
 				logger.Info("remove sidecars", "blockNum", i)
 			}
 			blockHash, _, err := blockReader.CanonicalHash(ctx, roTx, i)
 			if err != nil {
-				return false, err
+				return blocksRetired, err
 			}
 			if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
 				logger.Error("remove sidecars", "blockNum", i, "err", err)
 			}
-
 		}
+
 		if seedNewSnapshots != nil {
 			downloadRequest := []snapshotsync.DownloadRequest{
 				snapshotsync.NewDownloadRequest("", ""),
 			}
 			if err := seedNewSnapshots(downloadRequest); err != nil {
-				return false, err
+				return blocksRetired, err
 			}
 		}
 	}
 
-	return blocksRetired, nil
+	merged, err := br.MergeBscBlocks(ctx, lvl, seedNewSnapshots, onDelete)
+	return blocksRetired || merged, err
 }
 
 func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
