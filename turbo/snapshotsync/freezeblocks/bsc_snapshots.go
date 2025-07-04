@@ -2,6 +2,7 @@ package freezeblocks
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
+	"github.com/erigontech/erigon-lib/common/hexutility"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
@@ -262,65 +264,74 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	}
 	defer sn.Close()
 
-	tx, err := chainDB.BeginRo(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 	noCompress := (f.To - f.From) < (snaptype.Erigon2OldMergeLimit - 1)
 
-	// Generate .seg file, which is just the list of beacon blocks.
-	for i := blockFrom; i < blockTo; i++ {
-		// read root.
-		blockHash, _, err := blockReader.CanonicalHash(ctx, tx, i)
-		if err != nil {
-			return err
+	// Use BigChunks pattern to avoid long transactions
+	from := hexutility.EncodeTs(blockFrom)
+	if err := kv.BigChunks(chainDB, kv.HeaderCanonical, from, func(tx kv.Tx, k, v []byte) (bool, error) {
+		blockNum := binary.BigEndian.Uint64(k)
+		if blockNum >= blockTo {
+			return false, nil
 		}
+
+		blockHash := common.BytesToHash(v)
 
 		blobTxCount, err := blobStore.BlobTxCount(ctx, blockHash)
 		if err != nil {
-			return err
+			return false, err
 		}
+
 		if blobTxCount == 0 {
 			if noCompress {
-				sn.AddUncompressedWord(nil)
+				if err := sn.AddUncompressedWord(nil); err != nil {
+					return false, err
+				}
 			} else {
-				sn.AddWord(nil)
+				if err := sn.AddWord(nil); err != nil {
+					return false, err
+				}
 			}
-			continue
+			return true, nil
 		}
-		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
+
+		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, blockNum, blockHash)
 		if err != nil {
-			return fmt.Errorf("read blob sidecars: blockNum = %d, blobTxcount = %d, err = %v", i, blobTxCount, err)
+			return false, fmt.Errorf("read blob sidecars: blockNum = %d, blobTxcount = %d, err = %v", blockNum, blobTxCount, err)
 		}
 		if !found {
-			return fmt.Errorf("blob sidecars not found for block %d", i)
+			return false, fmt.Errorf("blob sidecars not found for block %d", blockNum)
 		}
+
 		dataRLP, err := rlp.EncodeToBytes(sidecars)
 		if err != nil {
-			return err
+			return false, err
 		}
+
 		if noCompress {
 			if err := sn.AddUncompressedWord(dataRLP); err != nil {
-				return err
+				return false, err
 			}
 		} else {
 			if err := sn.AddWord(dataRLP); err != nil {
-				return err
+				return false, err
 			}
 		}
-		if i%20_000 == 0 {
-			logger.Log(lvl, "Dumping bsc blobs", "progress", i)
+
+		if blockNum%20_000 == 0 {
+			logger.Log(lvl, "Dumping bsc blobs", "progress", blockNum)
 		}
 
+		return true, nil
+	}); err != nil {
+		return err
 	}
-	tx.Rollback()
+
 	if err := sn.Compress(); err != nil {
 		return fmt.Errorf("compress: %w", err)
 	}
+
 	// Generate .idx file, which is the slot => offset mapping.
 	p := &background.Progress{}
-
 	if err := f.Type.BuildIndexes(ctx, f, nil, chainConfig, tmpDir, p, lvl, logger); err != nil {
 		return err
 	}
