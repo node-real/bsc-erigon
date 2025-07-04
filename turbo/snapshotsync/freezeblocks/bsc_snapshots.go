@@ -9,7 +9,6 @@ import (
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
-	"github.com/erigontech/erigon-lib/chain/snapcfg"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
@@ -268,6 +267,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 		return err
 	}
 	defer tx.Rollback()
+	noCompress := (f.To - f.From) < (snaptype.Erigon2OldMergeLimit - 1)
 
 	// Generate .seg file, which is just the list of beacon blocks.
 	for i := blockFrom; i < blockTo; i++ {
@@ -282,7 +282,11 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			return err
 		}
 		if blobTxCount == 0 {
-			sn.AddWord(nil)
+			if noCompress {
+				sn.AddUncompressedWord(nil)
+			} else {
+				sn.AddWord(nil)
+			}
 			continue
 		}
 		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, i, blockHash)
@@ -296,8 +300,14 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 		if err != nil {
 			return err
 		}
-		if err := sn.AddWord(dataRLP); err != nil {
-			return err
+		if noCompress {
+			if err := sn.AddUncompressedWord(dataRLP); err != nil {
+				return err
+			}
+		} else {
+			if err := sn.AddWord(dataRLP); err != nil {
+				return err
+			}
 		}
 		if i%20_000 == 0 {
 			logger.Log(lvl, "Dumping bsc blobs", "progress", i)
@@ -319,17 +329,8 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 }
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
-	for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig) {
-		blocksPerFile := snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(""), coresnaptype.Enums.BscBlobs, i)
-		if blockTo-i < blocksPerFile {
-			break
-		}
-		logger.Log(lvl, "Dumping blobs sidecars", "from", i, "to", blockTo)
-		if err := dumpBlobsRange(ctx, i, chooseSegmentEnd(i, blockTo, coresnaptype.Enums.BscBlobs, chainConfig), tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger); err != nil {
-			return err
-		}
-	}
-	return nil
+	logger.Log(lvl, "Dumping blobs sidecars", "from", blockFrom, "to", blockTo)
+	return dumpBlobsRange(ctx, blockFrom, blockTo, tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger)
 }
 
 func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar, error) {
