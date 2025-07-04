@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
@@ -42,6 +43,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	default:
 	}
 
+	startTime := time.Now()
 	snapshots := br.bscSnapshots()
 	chainConfig := fromdb.ChainConfig(br.db)
 	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
@@ -54,6 +56,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	blocksRetired := false
+	totalSegments := 0
 
 	for _, snap := range blockReader.BscSnapshots().Types() {
 		minSnapBlockNum := max(snapshots.DirtyBlocksAvailable(snap.Enum()), minBlockNum, minimumBlob)
@@ -75,12 +78,19 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
 				"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
 
+			segmentStartTime := time.Now()
 			for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig) {
 				end := chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig)
+				dumpStartTime := time.Now()
 				if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
 					return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
 				}
+				dumpDuration := time.Since(dumpStartTime)
+				logger.Log(lvl, "[bsc snapshots] Segment dumped", "range", fmt.Sprintf("%s-%s", common.PrettyCounter(i), common.PrettyCounter(end)), "duration", dumpDuration)
+				totalSegments++
 			}
+			segmentDuration := time.Since(segmentStartTime)
+			logger.Log(lvl, "[bsc snapshots] All segments dumped for type", "type", snap, "duration", segmentDuration, "segments", totalSegments)
 		}
 	}
 
@@ -103,11 +113,25 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		}
 	}
 
+	retireDuration := time.Since(startTime)
+	logger.Log(lvl, "[bsc snapshots] BSC retirement completed", "duration", retireDuration, "segments", totalSegments, "blocksRetired", blocksRetired)
+
+	mergeStartTime := time.Now()
 	merged, err := br.MergeBscBlocks(ctx, lvl, seedNewSnapshots, onDelete)
+	mergeDuration := time.Since(mergeStartTime)
+
+	if merged {
+		logger.Log(lvl, "[bsc snapshots] BSC merge completed", "duration", mergeDuration)
+	}
+
+	totalDuration := time.Since(startTime)
+	logger.Log(lvl, "[bsc snapshots] BSC total operation completed", "totalDuration", totalDuration, "retireDuration", retireDuration, "mergeDuration", mergeDuration)
+
 	return blocksRetired || merged, err
 }
 
 func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
+	startTime := time.Now()
 	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
 	snapshots := br.bscSnapshots()
 	chainConfig := fromdb.ChainConfig(br.db)
@@ -117,8 +141,11 @@ func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewS
 		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
 	}
 	if len(rangesToMerge) == 0 {
+		logger.Log(lvl, "[bsc snapshots] No ranges to merge", "duration", time.Since(startTime))
 		return false, nil
 	}
+
+	mergeOperationStart := time.Now()
 	onMerge := func(r snapshotsync.Range) error {
 		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
 			notifier.OnNewSnapshot()
@@ -137,7 +164,10 @@ func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewS
 	if err := merger.Merge(ctx, &snapshots.RoSnapshots, coresnaptype.BscSnapshotTypes, rangesToMerge, snapshots.Dir(), true /* doIndex */, onMerge, onDelete); err != nil {
 		return false, err
 	}
+	mergeOperationDuration := time.Since(mergeOperationStart)
+	logger.Log(lvl, "[bsc snapshots] Merge operation completed", "duration", mergeOperationDuration, "rangesCount", len(rangesToMerge))
 
+	cleanupStart := time.Now()
 	{
 		files, _, err := snapshotsync.TypedSegments(br.bscSnapshots().Dir(), br.bscSnapshots().SegmentsMin(), coresnaptype.BscSnapshotTypes, false)
 		if err != nil {
@@ -148,6 +178,11 @@ func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewS
 		// removal of intermediate segments after a merge operation
 		removeBscOverlaps(br.bscSnapshots().Dir(), files, br.bscSnapshots().BlocksAvailable())
 	}
+	cleanupDuration := time.Since(cleanupStart)
+	logger.Log(lvl, "[bsc snapshots] Cleanup completed", "duration", cleanupDuration)
+
+	totalDuration := time.Since(startTime)
+	logger.Log(lvl, "[bsc snapshots] MergeBscBlocks completed", "totalDuration", totalDuration, "mergeOperation", mergeOperationDuration, "cleanup", cleanupDuration)
 
 	return true, nil
 }
@@ -257,6 +292,7 @@ func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*snapshotsync.VisibleSeg
 }
 
 func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger) (err error) {
+	startTime := time.Now()
 	f := coresnaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
 	sn, err := seg.NewCompressor(ctx, "Snapshot "+f.Type.Name(), f.Path, tmpDir, seg.DefaultCfg, log.LvlTrace, logger)
 	if err != nil {
@@ -268,6 +304,12 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 
 	// Use BigChunks pattern to avoid long transactions
 	from := hexutility.EncodeTs(blockFrom)
+
+	dataProcessingStart := time.Now()
+	processedBlocks := uint64(0)
+	emptyBlocks := uint64(0)
+	blobBlocks := uint64(0)
+
 	if err := kv.BigChunks(chainDB, kv.HeaderCanonical, from, func(tx kv.Tx, k, v []byte) (bool, error) {
 		blockNum := binary.BigEndian.Uint64(k)
 		if blockNum >= blockTo {
@@ -282,6 +324,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 		}
 
 		if blobTxCount == 0 {
+			emptyBlocks++
 			if noCompress {
 				if err := sn.AddUncompressedWord(nil); err != nil {
 					return false, err
@@ -291,9 +334,11 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 					return false, err
 				}
 			}
+			processedBlocks++
 			return true, nil
 		}
 
+		blobBlocks++
 		sidecars, found, err := blobStore.ReadBlobSidecars(ctx, blockNum, blockHash)
 		if err != nil {
 			return false, fmt.Errorf("read blob sidecars: blockNum = %d, blobTxcount = %d, err = %v", blockNum, blobTxCount, err)
@@ -317,6 +362,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			}
 		}
 
+		processedBlocks++
 		if blockNum%20_000 == 0 {
 			logger.Log(lvl, "Dumping bsc blobs", "progress", blockNum)
 		}
@@ -326,22 +372,42 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 		return err
 	}
 
+	dataProcessingDuration := time.Since(dataProcessingStart)
+	logger.Log(lvl, "[bsc snapshots] Data processing completed", "duration", dataProcessingDuration, "processedBlocks", processedBlocks, "emptyBlocks", emptyBlocks, "blobBlocks", blobBlocks, "blocks/sec", float64(processedBlocks)/dataProcessingDuration.Seconds())
+
+	compressionStart := time.Now()
 	if err := sn.Compress(); err != nil {
 		return fmt.Errorf("compress: %w", err)
 	}
+	compressionDuration := time.Since(compressionStart)
+	logger.Log(lvl, "[bsc snapshots] Compression completed", "duration", compressionDuration)
 
 	// Generate .idx file, which is the slot => offset mapping.
+	indexingStart := time.Now()
 	p := &background.Progress{}
 	if err := f.Type.BuildIndexes(ctx, f, nil, chainConfig, tmpDir, p, lvl, logger); err != nil {
 		return err
 	}
+	indexingDuration := time.Since(indexingStart)
+	logger.Log(lvl, "[bsc snapshots] Indexing completed", "duration", indexingDuration)
+
+	totalDuration := time.Since(startTime)
+	logger.Log(lvl, "[bsc snapshots] dumpBlobsRange completed", "totalDuration", totalDuration, "dataProcessing", dataProcessingDuration, "compression", compressionDuration, "indexing", indexingDuration)
 
 	return nil
 }
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
+	startTime := time.Now()
 	logger.Log(lvl, "Dumping blobs sidecars", "from", blockFrom, "to", blockTo)
-	return dumpBlobsRange(ctx, blockFrom, blockTo, tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger)
+
+	err := dumpBlobsRange(ctx, blockFrom, blockTo, tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger)
+
+	duration := time.Since(startTime)
+	blockCount := blockTo - blockFrom
+	logger.Log(lvl, "Dumping blobs sidecars completed", "from", blockFrom, "to", blockTo, "duration", duration, "blocks", blockCount, "blocks/sec", float64(blockCount)/duration.Seconds())
+
+	return err
 }
 
 func (s *BscRoSnapshots) ReadBlobSidecars(blockNum uint64) ([]*types.BlobSidecar, error) {
