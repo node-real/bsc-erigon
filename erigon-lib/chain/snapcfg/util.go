@@ -442,7 +442,7 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 			continue
 		}
 
-		if info.Len() == snaptype.Erigon2OldMergeLimit || info.Len() == snaptype.Erigon2MergeLimit {
+		if info.Len() == snaptype.Erigon2MergeLimit || info.Len() == snaptype.Erigon2OldMergeLimit {
 			return info.Len()
 		}
 

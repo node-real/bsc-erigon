@@ -56,41 +56,39 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 	blocksRetired := false
 	totalSegments := 0
+	var blockFrom uint64
 
 	for _, snap := range blockReader.BscSnapshots().Types() {
 		minSnapBlockNum := max(snapshots.DirtyBlocksAvailable(snap.Enum()), minBlockNum, minimumBlob)
 
-		if maxBlockNum <= minSnapBlockNum {
+		if maxBlockNum <= minSnapBlockNum || maxBlockNum-minSnapBlockNum < snaptype.Erigon2OldMergeLimit {
 			continue
 		}
 
-		blockFrom, blockTo, ok := CanRetire(maxBlockNum, minSnapBlockNum, snap.Enum(), br.chainConfig)
-		if ok {
-			blocksRetired = true
+		blockFrom = minSnapBlockNum + 1
+		blockTo := maxBlockNum
 
-			if has, err := br.dbHasEnoughDataForBscRetire(ctx); err != nil {
-				return false, err
-			} else if !has {
-				return false, nil
+		blocksRetired = true
+
+		logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
+			"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
+
+		segmentStartTime := time.Now()
+		for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig) {
+			end := chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig)
+			if end-i < snaptype.Erigon2OldMergeLimit {
+				break
 			}
-
-			logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
-				"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
-
-			segmentStartTime := time.Now()
-			for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig) {
-				end := chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig)
-				dumpStartTime := time.Now()
-				if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
-					return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
-				}
-				dumpDuration := time.Since(dumpStartTime)
-				logger.Log(lvl, "[bsc snapshots] Segment dumped", "range", fmt.Sprintf("%s-%s", common.PrettyCounter(i), common.PrettyCounter(end)), "duration", dumpDuration)
-				totalSegments++
+			dumpStartTime := time.Now()
+			if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
+				return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
 			}
-			segmentDuration := time.Since(segmentStartTime)
-			logger.Log(lvl, "[bsc snapshots] All segments dumped for type", "type", snap, "duration", segmentDuration, "segments", totalSegments)
+			dumpDuration := time.Since(dumpStartTime)
+			logger.Log(lvl, "[bsc snapshots] Segment dumped", "range", fmt.Sprintf("%s-%s", common.PrettyCounter(i), common.PrettyCounter(end)), "duration", dumpDuration)
+			totalSegments++
 		}
+		segmentDuration := time.Since(segmentStartTime)
+		logger.Log(lvl, "[bsc snapshots] All segments dumped for type", "type", snap, "duration", segmentDuration, "segments", totalSegments)
 	}
 
 	if blocksRetired {
@@ -100,6 +98,24 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		snapshots.LogStat("bsc:retire")
 		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
 			notifier.OnNewSnapshot()
+		}
+
+		// now prune blobs from the database
+		blockTo := (maxBlockNum / snaptype.Erigon2OldMergeLimit) * snaptype.Erigon2OldMergeLimit
+		roTx, err := db.BeginRo(ctx)
+		if err != nil {
+			return false, nil
+		}
+		defer roTx.Rollback()
+
+		for i := blockFrom; i < blockTo; i++ {
+			blockHash, _, err := blockReader.CanonicalHash(ctx, roTx, i)
+			if err != nil {
+				return false, err
+			}
+			if err = br.bs.RemoveBlobSidecars(ctx, i, blockHash); err != nil {
+				logger.Error("remove sidecars", "blockNum", i, "err", err)
+			}
 		}
 
 		if seedNewSnapshots != nil {
@@ -298,8 +314,6 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	}
 	defer sn.Close()
 
-	noCompress := (f.To - f.From) < (snaptype.Erigon2OldMergeLimit - 1)
-
 	// Use BigChunks pattern to avoid long transactions
 	from := hexutility.EncodeTs(blockFrom)
 
@@ -323,14 +337,8 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 
 		if blobTxCount == 0 {
 			emptyBlocks++
-			if noCompress {
-				if err := sn.AddUncompressedWord(nil); err != nil {
-					return false, err
-				}
-			} else {
-				if err := sn.AddWord(nil); err != nil {
-					return false, err
-				}
+			if err := sn.AddWord(nil); err != nil {
+				return false, err
 			}
 			processedBlocks++
 			return true, nil
@@ -350,14 +358,8 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 			return false, err
 		}
 
-		if noCompress {
-			if err := sn.AddUncompressedWord(dataRLP); err != nil {
-				return false, err
-			}
-		} else {
-			if err := sn.AddWord(dataRLP); err != nil {
-				return false, err
-			}
+		if err := sn.AddWord(dataRLP); err != nil {
+			return false, err
 		}
 
 		processedBlocks++
