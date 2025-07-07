@@ -442,7 +442,7 @@ func (st *StateTransition) TransitionDb(refunds bool, gasBailout bool) (*evmtype
 				return nil, fmt.Errorf("%w: %w", ErrStateTransitionFailed, err)
 			}
 			if authorityNonce != auth.Nonce {
-				log.Debug("invalid nonce, skipping", "auth index", i)
+				log.Trace("invalid nonce, skipping", "auth index", i)
 				continue
 			}
 
