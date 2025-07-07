@@ -107,7 +107,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			return false, nil
 		}
 		defer roTx.Rollback()
-
+		cleanupStart := time.Now()
 		for i := blockFrom; i < blockTo; i++ {
 			blockHash, _, err := blockReader.CanonicalHash(ctx, roTx, i)
 			if err != nil {
@@ -117,6 +117,8 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 				logger.Error("remove sidecars", "blockNum", i, "err", err)
 			}
 		}
+		cleanupDuration := time.Since(cleanupStart)
+		logger.Log(lvl, "[bsc snapshots] Blob cleanup completed", "duration", cleanupDuration)
 
 		if seedNewSnapshots != nil {
 			downloadRequest := []snapshotsync.DownloadRequest{
