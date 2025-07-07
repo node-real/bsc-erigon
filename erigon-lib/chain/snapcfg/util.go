@@ -420,6 +420,10 @@ func (c Cfg) IsFrozen(info snaptype.FileInfo) bool {
 func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 	hasType := t == snaptype.MinCoreEnum
 
+	if c.networkName == networkname.BSC {
+		return snaptype.Erigon2OldMergeLimit
+	}
+
 	for _, info := range c.PreverifiedParsed {
 		if info == nil {
 			continue
@@ -438,7 +442,7 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 			continue
 		}
 
-		if info.Len() == snaptype.Erigon2OldMergeLimit {
+		if info.Len() == snaptype.Erigon2OldMergeLimit || info.Len() == snaptype.Erigon2MergeLimit {
 			return info.Len()
 		}
 
@@ -456,7 +460,7 @@ func (c Cfg) MergeLimit(t snaptype.Enum, fromBlock uint64) uint64 {
 		return snaptype.CaplinMergeLimit
 	}
 	if hasType {
-		return snaptype.Erigon2OldMergeLimit
+		return snaptype.Erigon2MergeLimit
 	}
 
 	return c.MergeLimit(snaptype.MinCoreEnum, fromBlock)

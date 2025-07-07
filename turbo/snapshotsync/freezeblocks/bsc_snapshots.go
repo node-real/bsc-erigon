@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"time"
 
@@ -244,8 +243,7 @@ func removeBscOverlaps(dir string, active []snaptype.FileInfo, _max uint64) {
 	for _, f := range toDel {
 		_ = os.Remove(f)
 		_ = os.Remove(f + ".torrent")
-		ext := filepath.Ext(f)
-		withoutExt := f[:len(f)-len(ext)]
+		withoutExt := "blocksidecars"
 		_ = os.Remove(withoutExt + ".idx")
 		_ = os.Remove(withoutExt + ".idx.torrent")
 	}
