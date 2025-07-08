@@ -131,8 +131,6 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	retireDuration := time.Since(startTime)
-	logger.Log(lvl, "[bsc snapshots] BSC retirement completed", "duration", retireDuration, "segments", totalSegments, "blocksRetired", blocksRetired)
-
 	mergeStartTime := time.Now()
 	merged, err := br.MergeBscBlocks(ctx, lvl, seedNewSnapshots, onDelete)
 	mergeDuration := time.Since(mergeStartTime)
@@ -142,7 +140,9 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	totalDuration := time.Since(startTime)
-	logger.Log(lvl, "[bsc snapshots] BSC total operation completed", "totalDuration", totalDuration, "retireDuration", retireDuration, "mergeDuration", mergeDuration)
+	if blocksRetired || merged {
+		logger.Log(lvl, "[bsc snapshots] BSC total operation completed", "totalDuration", totalDuration, "retireDuration", retireDuration, "mergeDuration", mergeDuration)
+	}
 
 	return blocksRetired || merged, err
 }
@@ -158,7 +158,6 @@ func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewS
 		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
 	}
 	if len(rangesToMerge) == 0 {
-		logger.Log(lvl, "[bsc snapshots] No ranges to merge", "duration", time.Since(startTime))
 		return false, nil
 	}
 
