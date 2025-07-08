@@ -18,7 +18,6 @@ import (
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/seg"
-	"github.com/erigontech/erigon/cmd/hack/tool/fromdb"
 	coresnaptype "github.com/erigontech/erigon/core/snaptype"
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
@@ -44,11 +43,10 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 	startTime := time.Now()
 	snapshots := br.bscSnapshots()
-	chainConfig := fromdb.ChainConfig(br.db)
 	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
 
 	var minimumBlob uint64
-	if chainConfig.ChainName == networkname.BSC {
+	if br.chainConfig.ChainName == networkname.BSC {
 		minimumBlob = bscMinSegFrom
 	} else {
 		minimumBlob = chapelMinSegFrom
@@ -74,8 +72,8 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
 
 		segmentStartTime := time.Now()
-		for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig) {
-			end := chooseSegmentEnd(i, blockTo, snap.Enum(), chainConfig)
+		for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig) {
+			end := chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig)
 			if end-i < snaptype.Erigon2OldMergeLimit {
 				break
 			}
@@ -151,8 +149,7 @@ func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewS
 	startTime := time.Now()
 	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
 	snapshots := br.bscSnapshots()
-	chainConfig := fromdb.ChainConfig(br.db)
-	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, chainConfig, logger)
+	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, br.chainConfig, logger)
 	rangesToMerge := merger.FindMergeRanges(snapshots.Ranges(), snapshots.BlocksAvailable())
 	if len(rangesToMerge) > 0 {
 		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
