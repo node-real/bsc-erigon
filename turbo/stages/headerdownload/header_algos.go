@@ -512,8 +512,8 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	defer hd.lock.RUnlock()
 
 	var stride uint64
-	if hd.initialCycle {
-		stride = 192
+	if hd.InitialCycle() || time.Since(time.UnixMilli(int64(hd.LastBlockTime))) > 200*time.Second {
+		stride = uint64(hd.loopBlockLimit / 192)
 	}
 	var length uint64 = 192
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain
