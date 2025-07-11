@@ -1225,7 +1225,7 @@ func allSnapshots(ctx context.Context, db kv.RwDB, logger log.Logger) (*freezebl
 		_bridgeStoreSingleton = bridge.NewSnapshotStore(bridge.NewDbStore(db), _allBorSnapshotsSingleton, chainConfig.Bor)
 		_heimdallStoreSingleton = heimdall.NewSnapshotStore(heimdall.NewDbStore(db), _allBorSnapshotsSingleton)
 		_allBscSnapshotsSingleton = freezeblocks.NewBscRoSnapshots(snapCfg, dirs.Snap, 0, logger)
-		blockReader := freezeblocks.NewBlockReader(_allSnapshotsSingleton, _allBorSnapshotsSingleton, _allBscSnapshotsSingleton, _heimdallStoreSingleton, _bridgeStoreSingleton)
+		blockReader := freezeblocks.NewBlockReader(_allSnapshotsSingleton, _allBorSnapshotsSingleton, _heimdallStoreSingleton, _bridgeStoreSingleton, _allBscSnapshotsSingleton)
 		txNums := blockReader.TxnumReader(ctx)
 
 		_aggSingleton, err = libstate.NewAggregator2(ctx, dirs, config3.DefaultStepSize, db, logger)
