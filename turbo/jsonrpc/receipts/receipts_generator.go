@@ -23,7 +23,6 @@ import (
 	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/erigontech/erigon/turbo/services"
-	"github.com/erigontech/erigon/turbo/snapshotsync/freezeblocks"
 	"github.com/erigontech/erigon/turbo/transactions"
 )
 
@@ -66,12 +65,12 @@ func NewGenerator(blockReader services.FullBlockReader, engine consensus.EngineR
 		panic(err)
 	}
 
-	receiptCache, err := lru.New[common.Hash, *types.Receipt](receiptsCacheLimit * 1000) // think they should be connected in some of that way
+	receiptCache, err := lru.New[common.Hash, *types.Receipt](receiptsCacheLimit * 100) // think they should be connected in some of that way
 	if err != nil {
 		panic(err)
 	}
 
-	txNumReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(context.Background(), blockReader))
+	txNumReader := blockReader.TxnumReader(context.Background())
 
 	return &Generator{
 		receiptsCache:      receiptsCache,
@@ -104,7 +103,7 @@ func (g *Generator) GetCachedReceipt(ctx context.Context, hash common.Hash) (*ty
 }
 
 func (g *Generator) PrepareEnv(ctx context.Context, header *types.Header, cfg *chain.Config, tx kv.TemporalTx, txIndex int) (*ReceiptEnv, error) {
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, g.blockReader))
+	txNumsReader := g.blockReader.TxnumReader(ctx)
 	ibs, _, _, _, _, err := transactions.ComputeBlockContext(ctx, g.engine, header, cfg, g.blockReader, txNumsReader, tx, txIndex)
 	if err != nil {
 		return nil, fmt.Errorf("ReceiptsGen: PrepareEnv: bn=%d, %w", header.Number.Uint64(), err)
@@ -135,11 +134,13 @@ func (g *Generator) PrepareEnv(ctx context.Context, header *types.Header, cfg *c
 }
 
 func (g *Generator) addToCacheReceipts(header *types.Header, receipts types.Receipts) {
-	g.receiptsCache.Add(header.Hash(), receipts.Copy()) // .Copy() helps pprof to attribute memory to cache - instead of evm (where it was allocated).
+	//g.receiptsCache.Add(header.Hash(), receipts.Copy()) // .Copy() helps pprof to attribute memory to cache - instead of evm (where it was allocated). but 5% perf
+	g.receiptsCache.Add(header.Hash(), receipts)
 }
 
 func (g *Generator) addToCacheReceipt(hash common.Hash, receipt *types.Receipt) {
-	g.receiptCache.Add(hash, receipt.Copy()) // .Copy() helps pprof to attribute memory to cache - instead of evm (where it was allocated).
+	//g.receiptCache.Add(hash, receipt.Copy()) // .Copy() helps pprof to attribute memory to cache - instead of evm (where it was allocated). but 5% perf
+	g.receiptCache.Add(hash, receipt)
 }
 
 func (g *Generator) GetReceipt(ctx context.Context, cfg *chain.Config, tx kv.TemporalTx, header *types.Header, txn types.Transaction, index int, txNum uint64) (*types.Receipt, error) {
@@ -149,15 +150,6 @@ func (g *Generator) GetReceipt(ctx context.Context, cfg *chain.Config, tx kv.Tem
 
 	//if can find in DB - then don't need store in `receiptsCache` - because DB it's already kind-of cache (small, mmaped, hot file)
 	receiptFromDB, ok, err := rawdb.ReadReceiptCache(tx, blockNum, blockHash, uint32(index), txnHash)
-	if err != nil {
-		return nil, err
-	}
-	if ok && receiptFromDB != nil && !dbg.AssertEnabled {
-		return receiptFromDB, nil
-	}
-
-	//if can find in DB - then don't need store in `receiptsCache` - because DB it's already kind-of cache (small, mmaped, hot file)
-	receiptFromDB, ok, err = rawdb.ReadReceiptCacheV2(tx, blockNum, blockHash, txNum-1, txnHash)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +168,16 @@ func (g *Generator) GetReceipt(ctx context.Context, cfg *chain.Config, tx kv.Tem
 			return receipt, nil
 		}
 		g.receiptCache.Remove(txnHash) // remove old receipt with same hash, but different blockHash
+	}
+
+	//if can find in DB - then don't need store in `receiptsCache` - because DB it's already kind-of cache (small, mmaped, hot file)
+	receiptFromDB, ok, err = rawdb.ReadReceiptCacheV2(tx, blockNum, blockHash, txNum-1, txnHash)
+	if err != nil {
+		return nil, err
+	}
+	if ok && receiptFromDB != nil && !dbg.AssertEnabled {
+		g.addToCacheReceipt(txnHash, receiptFromDB)
+		return receiptFromDB, nil
 	}
 
 	var receipt *types.Receipt
@@ -205,7 +207,7 @@ func (g *Generator) GetReceipt(ctx context.Context, cfg *chain.Config, tx kv.Tem
 		receipt.Logs[i].Index = uint(firstLogIndex + uint32(i))
 	}
 
-	g.addToCacheReceipt(receipt.TxHash, receipt)
+	g.addToCacheReceipt(txnHash, receipt)
 
 	if dbg.AssertEnabled && receiptFromDB != nil {
 		g.assertEqualReceipts(receipt, receiptFromDB)
@@ -225,19 +227,20 @@ func (g *Generator) GetReceipts(ctx context.Context, cfg *chain.Config, tx kv.Te
 		return receiptsFromDB, nil
 	}
 
+	mu := g.blockExecMutex.lock(blockHash) // parallel requests of same blockNum will executed only once
+	defer g.blockExecMutex.unlock(mu, blockHash)
+	if receipts, ok := g.receiptsCache.Get(blockHash); ok {
+		return receipts, nil
+	}
+
 	//if can find in DB - then don't need store in `receiptsCache` - because DB it's already kind-of cache (small, mmaped, hot file)
 	receiptsFromDB, err = rawdb.ReadReceiptsCacheV2(tx, block, g.txNumReader)
 	if err != nil {
 		return nil, err
 	}
 	if len(receiptsFromDB) > 0 && !dbg.AssertEnabled {
+		g.addToCacheReceipts(block.HeaderNoCopy(), receiptsFromDB)
 		return receiptsFromDB, nil
-	}
-
-	mu := g.blockExecMutex.lock(blockHash) // parallel requests of same blockNum will executed only once
-	defer g.blockExecMutex.unlock(mu, blockHash)
-	if receipts, ok := g.receiptsCache.Get(blockHash); ok {
-		return receipts, nil
 	}
 
 	receipts := make(types.Receipts, len(block.Transactions()))

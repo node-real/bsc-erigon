@@ -694,7 +694,9 @@ func (a *Aggregator) BuildFiles2(ctx context.Context, fromStep, toStep uint64) e
 	if ok := a.buildingFiles.CompareAndSwap(false, true); !ok {
 		return nil
 	}
+	a.wg.Add(1)
 	go func() {
+		defer a.wg.Done()
 		defer a.buildingFiles.Store(false)
 		if toStep > fromStep {
 			a.logger.Info("[agg] build", "fromStep", fromStep, "toStep", toStep)
@@ -717,7 +719,6 @@ func (a *Aggregator) BuildFiles2(ctx context.Context, fromStep, toStep uint64) e
 			a.onFilesChange(nil)
 		}()
 	}()
-
 	return nil
 }
 
@@ -1729,10 +1730,10 @@ func (at *AggregatorRoTx) DisableReadAhead() {
 		}
 	}
 }
-func (at *Aggregator) MadvNormal() *Aggregator {
-	at.dirtyFilesLock.Lock()
-	defer at.dirtyFilesLock.Unlock()
-	for _, d := range at.d {
+func (a *Aggregator) MadvNormal() *Aggregator {
+	a.dirtyFilesLock.Lock()
+	defer a.dirtyFilesLock.Unlock()
+	for _, d := range a.d {
 		for _, f := range d.dirtyFiles.Items() {
 			f.MadvNormal()
 		}
@@ -1743,17 +1744,17 @@ func (at *Aggregator) MadvNormal() *Aggregator {
 			f.MadvNormal()
 		}
 	}
-	for _, ii := range at.iis {
+	for _, ii := range a.iis {
 		for _, f := range ii.dirtyFiles.Items() {
 			f.MadvNormal()
 		}
 	}
-	return at
+	return a
 }
-func (at *Aggregator) DisableReadAhead() {
-	at.dirtyFilesLock.Lock()
-	defer at.dirtyFilesLock.Unlock()
-	for _, d := range at.d {
+func (a *Aggregator) DisableReadAhead() {
+	a.dirtyFilesLock.Lock()
+	defer a.dirtyFilesLock.Unlock()
+	for _, d := range a.d {
 		for _, f := range d.dirtyFiles.Items() {
 			f.DisableReadAhead()
 		}
@@ -1764,7 +1765,7 @@ func (at *Aggregator) DisableReadAhead() {
 			f.DisableReadAhead()
 		}
 	}
-	for _, ii := range at.iis {
+	for _, ii := range a.iis {
 		for _, f := range ii.dirtyFiles.Items() {
 			f.DisableReadAhead()
 		}
