@@ -24,6 +24,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/golang-lru/v2"
+
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/downloader/snaptype"
@@ -46,7 +48,8 @@ import (
 )
 
 type RemoteBlockReader struct {
-	client remote.ETHBACKENDClient
+	client       remote.ETHBACKENDClient
+	txBlockIndex *txBlockIndexWithBlockReader
 }
 
 func (r *RemoteBlockReader) WithSidecars(storage services.BlobStorage) {
@@ -167,7 +170,12 @@ func (r *RemoteBlockReader) CanonicalHash(ctx context.Context, tx kv.Getter, blo
 var _ services.FullBlockReader = &RemoteBlockReader{}
 
 func NewRemoteBlockReader(client remote.ETHBACKENDClient) *RemoteBlockReader {
-	return &RemoteBlockReader{client}
+	br := &RemoteBlockReader{
+		client: client,
+	}
+	txnumReader := TxBlockIndexFromBlockReader(context.Background(), br).(*txBlockIndexWithBlockReader)
+	br.txBlockIndex = txnumReader
+	return br
 }
 
 func (r *RemoteBlockReader) TxnLookup(ctx context.Context, tx kv.Getter, txnHash common.Hash) (uint64, uint64, bool, error) {
@@ -384,6 +392,14 @@ func (r *RemoteBlockReader) CanonicalBodyForStorage(ctx context.Context, tx kv.G
 func (r *RemoteBlockReader) Checkpoint(ctx context.Context, tx kv.Tx, spanId uint64) (*heimdall.Checkpoint, bool, error) {
 	return nil, false, nil
 }
+func (r *RemoteBlockReader) TxnumReader(ctx context.Context) rawdbv3.TxNumsReader {
+	if r == nil {
+		// tests
+		txnumReader := TxBlockIndexFromBlockReader(ctx, nil).(*txBlockIndexWithBlockReader)
+		return rawdbv3.TxNums.WithCustomReadTxNumFunc(txnumReader)
+	}
+	return rawdbv3.TxNums.WithCustomReadTxNumFunc(r.txBlockIndex.CopyWithContext(ctx))
+}
 
 func (r *RemoteBlockReader) ReadBlobByNumber(ctx context.Context, tx kv.Getter, blockHeight uint64) ([]*types.BlobSidecar, bool, error) {
 	return nil, false, nil
@@ -401,13 +417,23 @@ type BlockReader struct {
 	heimdallStore  heimdall.Store
 	bs             services.BlobStorage
 	bscSn          *BscRoSnapshots
+	txBlockIndex   *txBlockIndexWithBlockReader
+
+	//files are immutable: no reorgs, on updates - means no invalidation needed
+	headerByNumCache *lru.Cache[uint64, *types.Header]
 }
+
+var headerByNumCacheSize = dbg.EnvInt("RPC_HEADER_BY_NUM_LRU", 1_000)
 
 func NewBlockReader(snapshots snapshotsync.BlockSnapshots, borSnapshots snapshotsync.BlockSnapshots, heimdallStore heimdall.Store, borBridge bridge.Store, bscSnapshot snapshotsync.BlockSnapshots) *BlockReader {
 	borSn, _ := borSnapshots.(*heimdall.RoSnapshots)
 	sn, _ := snapshots.(*RoSnapshots)
 	bscSn, _ := bscSnapshot.(*BscRoSnapshots)
-	return &BlockReader{sn: sn, borSn: borSn, heimdallStore: heimdallStore, borBridgeStore: borBridge, bscSn: bscSn}
+	br := &BlockReader{sn: sn, borSn: borSn, heimdallStore: heimdallStore, borBridgeStore: borBridge, bscSn: bscSn}
+	br.headerByNumCache, _ = lru.New[uint64, *types.Header](headerByNumCacheSize)
+	txnumReader := TxBlockIndexFromBlockReader(context.Background(), br).(*txBlockIndexWithBlockReader)
+	br.txBlockIndex = txnumReader
+	return br
 }
 
 func (r *BlockReader) WithSidecars(blobStorage services.BlobStorage) {
@@ -955,6 +981,10 @@ func (r *BlockReader) blockWithSenders(ctx context.Context, tx kv.Getter, hash c
 }
 
 func (r *BlockReader) headerFromSnapshot(blockHeight uint64, sn *snapshotsync.VisibleSegment, buf []byte) (*types.Header, []byte, error) {
+	if h, ok := r.headerByNumCache.Get(blockHeight); ok {
+		return h, buf, nil
+	}
+
 	index := sn.Src().Index()
 	if index == nil {
 		return nil, buf, nil
@@ -973,6 +1003,8 @@ func (r *BlockReader) headerFromSnapshot(blockHeight uint64, sn *snapshotsync.Vi
 	if err := rlp.DecodeBytes(buf[1:], h); err != nil {
 		return nil, buf, err
 	}
+
+	r.headerByNumCache.Add(blockHeight, h)
 	return h, buf, nil
 }
 
@@ -1050,6 +1082,32 @@ func (r *BlockReader) bodyForStorageFromSnapshot(blockHeight uint64, sn *snapsho
 	}() // avoid crash because Erigon's core does many things
 
 	return BodyForStorageFromSnapshot(blockHeight, sn, buf)
+}
+
+func BodyForTxnFromSnapshot(blockHeight uint64, sn *snapshotsync.VisibleSegment, buf []byte) (*types.BodyOnlyTxn, []byte, error) {
+	index := sn.Src().Index()
+
+	if index == nil {
+		return nil, buf, nil
+	}
+
+	bodyOffset := index.OrdinalLookup(blockHeight - index.BaseDataID())
+
+	gg := sn.Src().MakeGetter()
+	gg.Reset(bodyOffset)
+	if !gg.HasNext() {
+		return nil, buf, nil
+	}
+	buf, _ = gg.Next(buf[:0])
+	if len(buf) == 0 {
+		return nil, buf, nil
+	}
+	b := &types.BodyOnlyTxn{}
+	if err := rlp.DecodeBytesPartial(buf, b); err != nil {
+		return nil, buf, err
+	}
+
+	return b, buf, nil
 }
 
 func BodyForStorageFromSnapshot(blockHeight uint64, sn *snapshotsync.VisibleSegment, buf []byte) (*types.BodyForStorage, []byte, error) {
@@ -1216,8 +1274,8 @@ func (r *BlockReader) TxnByIdxInBlock(ctx context.Context, tx kv.Getter, blockNu
 	}
 	defer release()
 
-	var b *types.BodyForStorage
-	b, _, err = r.bodyForStorageFromSnapshot(blockNum, seg, nil)
+	var b *types.BodyOnlyTxn
+	b, _, err = BodyForTxnFromSnapshot(blockNum, seg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1309,7 +1367,7 @@ func (r *BlockReader) IntegrityTxnID(failFast bool) error {
 		}
 		firstBlockNum := snb.Src().Index().BaseDataID()
 		sn, _ := view.TxsSegment(firstBlockNum)
-		b, _, err := r.bodyForStorageFromSnapshot(firstBlockNum, snb, nil)
+		b, _, err := BodyForTxnFromSnapshot(firstBlockNum, snb, nil)
 		if err != nil {
 			return err
 		}
@@ -1632,6 +1690,15 @@ func (r *BlockReader) Integrity(ctx context.Context) error {
 	return nil
 }
 
+func (r *BlockReader) TxnumReader(ctx context.Context) rawdbv3.TxNumsReader {
+	if r == nil {
+		// tests
+		txnumReader := TxBlockIndexFromBlockReader(ctx, nil).(*txBlockIndexWithBlockReader)
+		return rawdbv3.TxNums.WithCustomReadTxNumFunc(txnumReader)
+	}
+	return rawdbv3.TxNums.WithCustomReadTxNumFunc(r.txBlockIndex.CopyWithContext(ctx))
+}
+
 func TxBlockIndexFromBlockReader(ctx context.Context, r services.FullBlockReader) rawdbv3.TxBlockIndex {
 	return &txBlockIndexWithBlockReader{
 		r:     r,
@@ -1644,6 +1711,14 @@ type txBlockIndexWithBlockReader struct {
 	r     services.FullBlockReader
 	ctx   context.Context
 	cache *BlockTxNumLookupCache
+}
+
+func (t *txBlockIndexWithBlockReader) CopyWithContext(ctx context.Context) *txBlockIndexWithBlockReader {
+	return &txBlockIndexWithBlockReader{
+		r:     t.r,
+		ctx:   ctx,
+		cache: t.cache,
+	}
 }
 
 func (t *txBlockIndexWithBlockReader) MaxTxNum(tx kv.Tx, c kv.Cursor, blockNum uint64) (maxTxNum uint64, ok bool, err error) {
@@ -1668,13 +1743,13 @@ func (t *txBlockIndexWithBlockReader) MaxTxNum(tx kv.Tx, c kv.Cursor, blockNum u
 
 func (t *txBlockIndexWithBlockReader) BlockNumber(tx kv.Tx, txNum uint64) (blockNum uint64, ok bool, err error) {
 	var buf []byte
-	var b *types.BodyForStorage
+	var b *types.BodyOnlyTxn
 	view := t.r.Snapshots().(*RoSnapshots).View()
 	defer view.Close()
 
 	getMaxTxNum := func(seg *snapshotsync.VisibleSegment) GetMaxTxNum {
 		return func(i uint64) (uint64, error) {
-			b, buf, err = BodyForStorageFromSnapshot(i, seg, buf)
+			b, buf, err = BodyForTxnFromSnapshot(i, seg, buf)
 			if err != nil {
 				return 0, err
 			}

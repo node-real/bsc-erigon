@@ -601,7 +601,12 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 
 	if chainConfig.Bor != nil {
 		if !config.WithoutHeimdall {
-			heimdallClient = heimdall.NewHttpClient(config.HeimdallURL, logger, heimdall.WithApiVersioner(ctx))
+			heimdallClient = heimdall.NewHttpClient(
+				config.HeimdallURL,
+				logger,
+				heimdall.WithApiVersioner(ctx),
+				heimdall.WithHttpMaxRetries(heimdall.MaxRetriesUnlimited), // HeimdallV2 causes downtime, which can last up to 10-30 mins. It needs to be removed after HeimdallV2 upgrade
+			)
 		}
 
 		if config.PolygonSync {
@@ -613,6 +618,15 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 				BorConfig:    borConfig,
 				EventFetcher: heimdallClient,
 			})
+
+			if err := heimdallStore.Milestones().Prepare(ctx); err != nil {
+				return nil, err
+			}
+
+			_, err := heimdallStore.Milestones().DeleteFromBlockNum(ctx, 0)
+			if err != nil {
+				return nil, err
+			}
 
 			heimdallService = heimdall.NewService(heimdall.ServiceConfig{
 				Store:     heimdallStore,
@@ -631,7 +645,7 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 		flags.Milestone = config.WithHeimdallMilestones
 	}
 
-	backend.engine = ethconsensusconfig.CreateConsensusEngine(ctx, stack.Config(), chainConfig, consensusConfig, config.Miner.Notify, config.Miner.Noverify, heimdallClient, config.WithoutHeimdall, config.DisableBlobPrune, blockReader, false /* readonly */, logger, polygonBridge, heimdallService)
+	backend.engine = ethconsensusconfig.CreateConsensusEngine(ctx, stack.Config(), chainConfig, consensusConfig, config.Miner.Notify, config.Miner.Noverify, heimdallClient, config.WithoutHeimdall, config.DisableBlobPrune, blockReader, false /* readonly */, logger, polygonBridge, heimdallService, heimdallService)
 
 	inMemoryExecution := func(txc wrap.TxContainer, header *types.Header, body *types.RawBody, unwindPoint uint64, headersChain []*types.Header, bodiesChain []*types.RawBody,
 		notifications *shards.Notifications) error {
@@ -1920,16 +1934,9 @@ func setBorDefaultMinerGasPrice(chainConfig *chain.Config, config *ethconfig.Con
 }
 
 func setDefaultMinerGasLimit(chainConfig *chain.Config, config *ethconfig.Config, logger log.Logger) {
-	if chainConfig.Bor != nil {
-		if config.Miner.GasLimit == nil {
-			gasLimit := ethconfig.BorDefaultMinerGasLimit
-			config.Miner.GasLimit = &gasLimit
-		}
-	} else {
-		if config.Miner.GasLimit == nil {
-			gasLimit := ethconfig.DefaultMinerGasLimit
-			config.Miner.GasLimit = &gasLimit
-		}
+	if config.Miner.GasLimit == nil {
+		gasLimit := ethconfig.DefaultMinerGasLimitByChain(config)
+		config.Miner.GasLimit = &gasLimit
 	}
 }
 

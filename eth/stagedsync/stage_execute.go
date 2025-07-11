@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/c2h5oh/datasize"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
@@ -32,7 +31,6 @@ import (
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/config3"
 	"github.com/erigontech/erigon-lib/kv"
-	"github.com/erigontech/erigon-lib/kv/rawdbv3"
 	"github.com/erigontech/erigon-lib/kv/temporal"
 	"github.com/erigontech/erigon-lib/log/v3"
 	libstate "github.com/erigontech/erigon-lib/state"
@@ -50,7 +48,6 @@ import (
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/shards"
 	"github.com/erigontech/erigon/turbo/silkworm"
-	"github.com/erigontech/erigon/turbo/snapshotsync/freezeblocks"
 )
 
 const (
@@ -181,7 +178,7 @@ func unwindExec3(u *UnwindState, s *StageState, txc wrap.TxContainer, ctx contex
 	}
 	rs := state.NewStateV3(domains, cfg.syncCfg, cfg.chainConfig.Bor != nil, logger)
 
-	txNumsReader := rawdbv3.TxNums.WithCustomReadTxNumFunc(freezeblocks.TxBlockIndexFromBlockReader(ctx, br))
+	txNumsReader := br.TxnumReader(ctx)
 
 	// unwind all txs of u.UnwindPoint block. 1 txn in begin/end of block - system txs
 	txNum, err := txNumsReader.Min(txc.Tx, u.UnwindPoint+1)
@@ -256,116 +253,6 @@ func SpawnExecuteBlocksStage(s *StageState, u Unwinder, txc wrap.TxContainer, to
 	return nil
 }
 
-func blocksReadAhead(ctx context.Context, cfg *ExecuteBlockCfg, workers int) (chan uint64, context.CancelFunc) {
-	const readAheadBlocks = 100
-	readAhead := make(chan uint64, readAheadBlocks)
-	g, gCtx := errgroup.WithContext(ctx)
-	for workerNum := 0; workerNum < workers; workerNum++ {
-		g.Go(func() (err error) {
-			var bn uint64
-			var ok bool
-			var tx kv.Tx
-			defer func() {
-				if tx != nil {
-					tx.Rollback()
-				}
-				if rec := recover(); rec != nil {
-					err = fmt.Errorf("%s, %s", rec, dbg.Stack())
-				}
-			}()
-
-			for i := 0; ; i++ {
-				select {
-				case bn, ok = <-readAhead:
-					if !ok {
-						return
-					}
-				case <-gCtx.Done():
-					return gCtx.Err()
-				}
-
-				if i%100 == 0 {
-					if tx != nil {
-						tx.Rollback()
-					}
-					tx, err = cfg.db.BeginRo(ctx)
-					if err != nil {
-						return err
-					}
-				}
-
-				if err := blocksReadAheadFunc(gCtx, tx, cfg, bn+readAheadBlocks); err != nil {
-					return err
-				}
-			}
-		})
-	}
-	return readAhead, func() {
-		close(readAhead)
-		_ = g.Wait()
-	}
-}
-func blocksReadAheadFunc(ctx context.Context, tx kv.Tx, cfg *ExecuteBlockCfg, blockNum uint64) error {
-	block, err := cfg.blockReader.BlockByNumber(ctx, tx, blockNum)
-	if err != nil {
-		return err
-	}
-	if block == nil {
-		return nil
-	}
-	_, _ = cfg.engine.Author(block.HeaderNoCopy()) // Bor consensus: this calc is heavy and has cache
-
-	ttx, ok := tx.(kv.TemporalTx)
-	if !ok {
-		return nil
-	}
-
-	stateReader := state.NewReaderV3(ttx)
-	senders := block.Body().SendersFromTxs()
-
-	for _, sender := range senders {
-		a, _ := stateReader.ReadAccountData(sender)
-		if a == nil {
-			continue
-		}
-
-		//Code domain using .bt index - means no false-positives
-		if code, _ := stateReader.ReadAccountCode(sender, 0); len(code) > 0 {
-			_, _ = code[0], code[len(code)-1]
-		}
-	}
-
-	for _, txn := range block.Transactions() {
-		to := txn.GetTo()
-		if to != nil {
-			a, _ := stateReader.ReadAccountData(*to)
-			if a == nil {
-				continue
-			}
-			//if account != nil && !bytes.Equal(account.CodeHash, types.EmptyCodeHash.Bytes()) {
-			//	reader.Code(*tx.To(), common.BytesToHash(account.CodeHash))
-			//}
-			if code, _ := stateReader.ReadAccountCode(*to, 0); len(code) > 0 {
-				_, _ = code[0], code[len(code)-1]
-			}
-
-			for _, list := range txn.GetAccessList() {
-				stateReader.ReadAccountData(list.Address)
-				if len(list.StorageKeys) > 0 {
-					for _, slot := range list.StorageKeys {
-						stateReader.ReadAccountStorage(list.Address, 0, &slot)
-					}
-				}
-			}
-			//TODO: exec txn and pre-fetch commitment keys. see also: `func (p *statePrefetcher) Prefetch` in geth
-		}
-
-	}
-	_, _ = stateReader.ReadAccountData(block.Coinbase())
-
-	return nil
-}
-
 func UnwindExecutionStage(u *UnwindState, s *StageState, txc wrap.TxContainer, ctx context.Context, cfg ExecuteBlockCfg, logger log.Logger) (err error) {
 	//fmt.Printf("unwind: %d -> %d\n", u.CurrentBlockNumber, u.UnwindPoint)
 	if u.UnwindPoint >= s.BlockNumber {
@@ -437,15 +324,28 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 		}
 		defer tx.Rollback()
 	}
+
+	// on chain-tip:
+	//  - can prune only between blocks (without blocking blocks processing)
+	//  - need also leave some time to prune blocks
+	//  - need keep "fsync" time of db fast
+	// Means - the best is:
+	//  - sto
+	// p prune when `tx.SpaceDirty()` is big
+	//  - and set ~500ms timeout
+	// because on slow disks - prune is slower. but for now - let's tune for nvme first, and add `tx.SpaceDirty()` check later https://github.com/erigontech/erigon/issues/11635
+	quickPruneTimeout := 250 * time.Millisecond
+
 	if s.ForwardProgress > config3.MaxReorgDepthV3 && !cfg.syncCfg.AlwaysGenerateChangesets {
 		// (chunkLen is 8Kb) * (1_000 chunks) = 8mb
 		// Some blocks on bor-mainnet have 400 chunks of diff = 3mb
 		var pruneDiffsLimitOnChainTip = 1_000
-		pruneTimeout := 250 * time.Millisecond
+		pruneTimeout := quickPruneTimeout
 		if s.CurrentSyncCycle.IsInitialCycle {
 			pruneDiffsLimitOnChainTip = math.MaxInt
 			pruneTimeout = time.Hour
 		}
+		pruneChangeSetsStartTime := time.Now()
 		if err := rawdb.PruneTable(
 			tx,
 			kv.ChangeSets3,
@@ -458,30 +358,47 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 		); err != nil {
 			return err
 		}
+		if duration := time.Since(pruneChangeSetsStartTime); duration > quickPruneTimeout {
+			logger.Debug(
+				fmt.Sprintf("[%s] prune changesets timing", s.LogPrefix()),
+				"duration", duration,
+				"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
+				"externalTx", useExternalTx,
+			)
+		}
 	}
 
 	mxExecStepsInDB.Set(rawdbhelpers.IdxStepsCountV3(tx) * 100)
 
-	// on chain-tip:
-	//  - can prune only between blocks (without blocking blocks processing)
-	//  - need also leave some time to prune blocks
-	//  - need keep "fsync" time of db fast
-	// Means - the best is:
-	//  - sto
-	// p prune when `tx.SpaceDirty()` is big
-	//  - and set ~500ms timeout
-	// because on slow disks - prune is slower. but for now - let's tune for nvme first, and add `tx.SpaceDirty()` check later https://github.com/erigontech/erigon/issues/11635
-	pruneTimeout := 250 * time.Millisecond
+	pruneTimeout := quickPruneTimeout
 	if s.CurrentSyncCycle.IsInitialCycle {
 		pruneTimeout = 12 * time.Hour
 
 		// allow greedy prune on non-chain-tip
+		greedyPruneCommitmentHistoryStartTime := time.Now()
 		if err = tx.(*temporal.Tx).AggTx().(*libstate.AggregatorRoTx).GreedyPruneHistory(ctx, kv.CommitmentDomain, tx); err != nil {
 			return err
 		}
+		if duration := time.Since(greedyPruneCommitmentHistoryStartTime); duration > quickPruneTimeout {
+			logger.Debug(
+				fmt.Sprintf("[%s] greedy prune commitment history timing", s.LogPrefix()),
+				"duration", duration,
+				"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
+				"externalTx", useExternalTx,
+			)
+		}
 	}
+	pruneSmallBatchesStartTime := time.Now()
 	if _, err := tx.(*temporal.Tx).AggTx().(*libstate.AggregatorRoTx).PruneSmallBatches(ctx, pruneTimeout, tx); err != nil {
 		return err
+	}
+	if duration := time.Since(pruneSmallBatchesStartTime); duration > quickPruneTimeout {
+		logger.Debug(
+			fmt.Sprintf("[%s] prune small batches timing", s.LogPrefix()),
+			"duration", duration,
+			"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
+			"externalTx", useExternalTx,
+		)
 	}
 
 	// prune receipts cache
@@ -491,8 +408,17 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 		if s.CurrentSyncCycle.IsInitialCycle {
 			pruneLimit = -1
 		}
+		pruneReceiptsCacheStartTime := time.Now()
 		if err := rawdb.PruneReceiptsCache(tx, pruneTo, pruneLimit); err != nil {
 			return err
+		}
+		if duration := time.Since(pruneReceiptsCacheStartTime); duration > quickPruneTimeout {
+			logger.Debug(
+				fmt.Sprintf("[%s] prune receipts cache timing", s.LogPrefix()),
+				"duration", duration,
+				"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
+				"externalTx", useExternalTx,
+			)
 		}
 	}
 
