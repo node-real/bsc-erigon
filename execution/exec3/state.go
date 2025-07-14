@@ -282,9 +282,9 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining, skipPostEvalua
 		}
 
 		if isMining {
-			_, txTask.Txs, txTask.BlockReceipts, _, err = rw.engine.FinalizeAndAssemble(cc, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, nil, rw.logger)
+			_, _, err = rw.engine.FinalizeAndAssemble(cc, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, nil, rw.logger)
 		} else {
-			_, _, _, err = rw.engine.Finalize(cc, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, skipPostEvaluaion, nil, txTask.TxIndex, rw.logger)
+			_, err = rw.engine.Finalize(cc, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, syscall, skipPostEvaluaion, nil, txTask.TxIndex, rw.logger)
 		}
 		if err != nil {
 			txTask.Error = err
@@ -299,9 +299,9 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining, skipPostEvalua
 		systemCall := func(ibs *state.IntraBlockState) ([]byte, bool, error) {
 			rw.callTracer.Reset()
 			rw.vmCfg.SkipAnalysis = txTask.SkipAnalysis
-			ibs.SetTxContext(txTask.TxIndex, txTask.BlockNum)
+			ibs.SetTxContext(txTask.BlockNum, txTask.TxIndex)
 			msg := txTask.TxAsMessage
-			if rw.chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
+			if rw.chainConfig.IsCancun(header.Time) {
 				rules := rw.chainConfig.Rules(header.Number.Uint64(), header.Time)
 				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
 			}
@@ -345,14 +345,14 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining, skipPostEvalua
 			return ret, true, nil
 		}
 
-		_, _, _, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, nil, skipPostEvaluaion, systemCall, txTask.TxIndex, rw.logger)
+		_, err := rw.engine.Finalize(rw.chainConfig, types.CopyHeader(header), ibs, txTask.Txs, txTask.Uncles, txTask.BlockReceipts, txTask.Withdrawals, rw.chain, nil, skipPostEvaluaion, systemCall, txTask.TxIndex, rw.logger)
 		if err != nil {
 			txTask.Error = err
 		}
 	default:
 		rw.callTracer.Reset()
 		rw.vmCfg.SkipAnalysis = txTask.SkipAnalysis
-		ibs.SetTxContext(txTask.TxIndex, txTask.BlockNum)
+		ibs.SetTxContext(txTask.BlockNum, txTask.TxIndex)
 		txn := txTask.Tx
 
 		if txTask.Tx.Type() == types.AccountAbstractionTxType {

@@ -33,7 +33,6 @@ import (
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/types"
-	"github.com/erigontech/erigon-p2p/forkid"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/systemcontracts"
@@ -41,6 +40,7 @@ import (
 	"github.com/erigontech/erigon/core/vm"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
 	"github.com/erigontech/erigon/execution/consensus/misc"
+	"github.com/erigontech/erigon/p2p/forkid"
 	"github.com/erigontech/erigon/rpc"
 	"github.com/erigontech/erigon/turbo/services"
 )
@@ -570,7 +570,7 @@ func (p *Parlia) verifyHeader(chain consensus.ChainHeaderReader, header *types.H
 	}
 
 	// Verify the existence / non-existence of excessBlobGas
-	cancun := chain.Config().IsCancun(header.Number.Uint64(), header.Time)
+	cancun := chain.Config().IsCancun(header.Time)
 	if !cancun {
 		if err := misc.VerifyBscAbsenceOfCancunHeaderFields(header); err != nil {
 			return err
@@ -650,7 +650,7 @@ func (p *Parlia) verifyCascadingFields(chain consensus.ChainHeaderReader, header
 	}
 	limit := parent.GasLimit / gasLimitBoundDivisor
 
-	if uint64(diff) >= limit || header.GasLimit < params2.MinGasLimit {
+	if uint64(diff) >= limit || header.GasLimit < params2.MinBlockGasLimit {
 		return fmt.Errorf("invalid gas limit: have %d, want %d += %d", header.GasLimit, parent.GasLimit, limit)
 	}
 
@@ -954,16 +954,16 @@ func (p *Parlia) splitTxs(txs types.Transactions, header *types.Header) (userTxs
 func (p *Parlia) Finalize(_ *chain.Config, header *types.Header, state *state.IntraBlockState,
 	txs types.Transactions, _ []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
 	chain consensus.ChainReader, syscall consensus.SystemCall, skipReceiptsEval bool, systemTxCall consensus.SystemTxCall, txIndex int,
-	logger log.Logger) (types.Transactions, types.Receipts, types.FlatRequests, error) {
+	logger log.Logger) (types.FlatRequests, error) {
 	return p.finalize(header, state, txs, receipts, chain, false, systemTxCall, txIndex, logger)
 }
 
 func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs types.Transactions,
 	receipts types.Receipts, chain consensus.ChainHeaderReader, mining bool, systemTxCall consensus.SystemTxCall,
-	txIndex int, logger log.Logger) (types.Transactions, types.Receipts, types.FlatRequests, error) {
+	txIndex int, logger log.Logger) (types.FlatRequests, error) {
 	userTxs, systemTxs, err := p.splitTxs(txs, header)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	curIndex := userTxs.Len()
@@ -971,7 +971,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 	number := header.Number.Uint64()
 	snap, err := p.snapshot(chain, number-1, header.ParentHash, nil, false /* verify */)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	parentHeader := chain.GetHeader(header.ParentHash, number-1)
@@ -998,9 +998,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		finish, err = p.initializeFeynmanContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
 			log.Error("init feynman contract failed", "error", err)
-			return nil, nil, nil, fmt.Errorf("init feynman contract failed: %v", err)
+			return nil, fmt.Errorf("init feynman contract failed: %v", err)
 		} else if finish {
-			return nil, nil, nil, nil
+			return nil, nil
 		}
 	}
 	// No block rewards in PoA, so the state remains as is and uncles are dropped
@@ -1008,9 +1008,9 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		finish, err = p.initContract(ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
 			p.logger.Error("[parlia] init contract failed", "err", err)
-			return nil, nil, nil, fmt.Errorf("init contract failed: %v", err)
+			return nil, fmt.Errorf("init contract failed: %v", err)
 		} else if finish {
-			return nil, nil, nil, nil
+			return nil, nil
 		}
 	}
 	if header.Difficulty.Cmp(diffInTurn) != 0 {
@@ -1033,7 +1033,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 				// it is possible that slash validator failed because of the slash channel is disabled.
 				p.logger.Error("slash validator failed", "block hash", header.Hash(), "address", spoiledVal, "error", err)
 			} else if finish {
-				return nil, nil, nil, nil
+				return nil, nil
 			}
 		}
 	}
@@ -1048,7 +1048,7 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		finish, err = p.distributeToSystem(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 		if err != nil || finish {
 			//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 
@@ -1056,16 +1056,16 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		finish, err = p.distributeToValidator(header.Coinbase, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, mining, systemTxCall, &curIndex, &txIndex)
 		if err != nil || finish {
 			//log.Error("distributeIncoming", "block hash", header.Hash(), "error", err, "systemTxs", len(systemTxs))
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 
 	if p.chainConfig.IsPlato(header.Number.Uint64()) {
 		finish, err = p.distributeFinalityReward(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		} else if finish {
-			return nil, nil, nil, nil
+			return nil, nil
 		}
 	}
 	// update validators every day
@@ -1074,13 +1074,13 @@ func (p *Parlia) finalize(header *types.Header, ibs *state.IntraBlockState, txs 
 		if !p.chainConfig.IsOnFeynman(header.Number, parentHeader.Time, header.Time) {
 			finish, err = p.updateValidatorSetV2(chain, ibs, header, &txs, &receipts, &systemTxs, &header.GasUsed, false, systemTxCall, &curIndex, &txIndex)
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			} else if finish {
-				return nil, nil, nil, nil
+				return nil, nil
 			}
 		}
 	}
-	return nil, nil, nil, nil
+	return nil, nil
 }
 
 func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, state *state.IntraBlockState, header *types.Header,
@@ -1171,13 +1171,13 @@ func (p *Parlia) distributeFinalityReward(chain consensus.ChainHeaderReader, sta
 func (p *Parlia) FinalizeAndAssemble(chainConfig *chain.Config, header *types.Header, ibs *state.IntraBlockState,
 	txs types.Transactions, uncles []*types.Header, receipts types.Receipts, withdrawals []*types.Withdrawal,
 	chain consensus.ChainReader, syscall consensus.SystemCall, call consensus.Call, logger log.Logger,
-) (*types.Block, types.Transactions, types.Receipts, types.FlatRequests, error) {
+) (*types.Block, types.FlatRequests, error) {
 
-	outTxs, outReceipts, _, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, logger)
+	_, err := p.finalize(header, ibs, txs, receipts, chain, true, nil, 0, logger)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
-	return types.NewBlock(header, outTxs, nil, outReceipts, withdrawals), outTxs, outReceipts, nil, nil
+	return types.NewBlock(header, txs, uncles, receipts, withdrawals), nil, nil
 }
 
 // Authorize injects a private key into the consensus engine to mint new blocks
@@ -1320,6 +1320,10 @@ func (p *Parlia) Close() error {
 	return nil
 }
 
+func (c *Parlia) TxDependencies(h *types.Header) [][]int {
+	return nil
+}
+
 // ==========================  interaction with contract/account =========
 
 // getCurrentValidators get current validators
@@ -1449,7 +1453,7 @@ func (p *Parlia) distributeToSystem(val common.Address, ibs *state.IntraBlockSta
 			rewards := new(uint256.Int)
 			rewards = rewards.Rsh(balance, systemRewardPercent)
 			ibs.SetBalance(consensus.SystemAddress, *balance.Sub(balance, rewards), tracing.BalanceChangeUnspecified)
-			ibs.AddBalance(val, rewards, tracing.BalanceChangeUnspecified)
+			ibs.AddBalance(val, *rewards, tracing.BalanceChangeUnspecified)
 			if rewards.Cmp(u256.Num0) > 0 {
 				return p.applyTransaction(val, systemcontracts.SystemRewardContract, rewards, nil, ibs, header,
 					txs, receipts, systemTxs, usedGas, mining, systemTxCall, curIndex)
@@ -1475,7 +1479,7 @@ func (p *Parlia) distributeToValidator(val common.Address, ibs *state.IntraBlock
 			return false, nil
 		}
 		ibs.SetBalance(consensus.SystemAddress, *u256.N0, tracing.BalanceChangeUnspecified)
-		ibs.AddBalance(val, balance, tracing.BalanceChangeUnspecified)
+		ibs.AddBalance(val, *balance, tracing.BalanceChangeUnspecified)
 		// method
 		method := "deposit"
 
@@ -1549,7 +1553,7 @@ func (p *Parlia) systemCall(from, contract common.Address, data []byte, ibs *sta
 	vmConfig := vm.Config{NoReceipts: true}
 	// Create a new context to be used in the EVM environment
 	blockContext := core.NewEVMBlockContext(header, core.GetHashFn(header, nil), p, &from, chainConfig)
-	if chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
+	if chainConfig.IsCancun(header.Time) {
 		rules := chainConfig.Rules(header.Number.Uint64(), header.Time)
 		ibs.Prepare(rules, msg.From(), blockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
 	}

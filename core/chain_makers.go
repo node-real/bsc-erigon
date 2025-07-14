@@ -39,7 +39,6 @@ import (
 	"github.com/erigontech/erigon/execution/consensus"
 	"github.com/erigontech/erigon/execution/consensus/merge"
 	"github.com/erigontech/erigon/execution/consensus/misc"
-	"github.com/erigontech/erigon/polygon/heimdall"
 )
 
 // BlockGen creates blocks for testing.
@@ -119,14 +118,14 @@ func (b *BlockGen) AddFailedTx(tx types.Transaction) {
 // further limitations on the content of transactions that can be
 // added. If contract code relies on the BLOCKHASH instruction,
 // the block in chain will be returned.
-func (b *BlockGen) AddTxWithChain(getHeader func(hash common.Hash, number uint64) *types.Header, engine consensus.Engine, txn types.Transaction) {
+func (b *BlockGen) AddTxWithChain(getHeader func(hash common.Hash, number uint64) (*types.Header, error), engine consensus.Engine, txn types.Transaction) {
 	if b.beforeAddTx != nil {
 		b.beforeAddTx()
 	}
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.ibs.SetTxContext(len(b.txs), b.header.Number.Uint64())
+	b.ibs.SetTxContext(b.header.Number.Uint64(), len(b.txs))
 	receipt, _, err := ApplyTransaction(b.config, GetHashFn(b.header, getHeader), engine, &b.header.Coinbase, b.gasPool, b.ibs, state.NewNoopWriter(), b.header, txn, &b.header.GasUsed, b.header.BlobGasUsed, vm.Config{})
 	if err != nil {
 		panic(err)
@@ -135,14 +134,14 @@ func (b *BlockGen) AddTxWithChain(getHeader func(hash common.Hash, number uint64
 	b.receipts = append(b.receipts, receipt)
 }
 
-func (b *BlockGen) AddFailedTxWithChain(getHeader func(hash common.Hash, number uint64) *types.Header, engine consensus.Engine, txn types.Transaction) {
+func (b *BlockGen) AddFailedTxWithChain(getHeader func(hash common.Hash, number uint64) (*types.Header, error), engine consensus.Engine, txn types.Transaction) {
 	if b.beforeAddTx != nil {
 		b.beforeAddTx()
 	}
 	if b.gasPool == nil {
 		b.SetCoinbase(common.Address{})
 	}
-	b.ibs.SetTxContext(len(b.txs), b.header.Number.Uint64())
+	b.ibs.SetTxContext(b.header.Number.Uint64(), len(b.txs))
 	receipt, _, err := ApplyTransaction(b.config, GetHashFn(b.header, getHeader), engine, &b.header.Coinbase, b.gasPool, b.ibs, state.NewNoopWriter(), b.header, txn, &b.header.GasUsed, b.header.BlobGasUsed, vm.Config{})
 	_ = err // accept failed transactions
 	b.txs = append(b.txs, txn)
@@ -381,7 +380,7 @@ func GenerateChain(config *chain.Config, parent *types.Block, engine consensus.E
 		txNumIncrement()
 		if b.engine != nil {
 			// Finalize and seal the block
-			if _, _, _, _, err := b.engine.FinalizeAndAssemble(config, b.header, ibs, b.txs, b.uncles, b.receipts, nil, nil, nil, nil, logger); err != nil {
+			if _, _, err := b.engine.FinalizeAndAssemble(config, b.header, ibs, b.txs, b.uncles, b.receipts, nil, nil, nil, nil, logger); err != nil {
 				return nil, nil, fmt.Errorf("call to FinaliseAndAssemble: %w", err)
 			}
 			// Write state changes to db
@@ -406,7 +405,7 @@ func GenerateChain(config *chain.Config, parent *types.Block, engine consensus.E
 
 			// Recreating block to make sure Root makes it into the header
 			block := types.NewBlockForAsembling(b.header, b.txs, b.uncles, b.receipts, nil /* withdrawals */)
-			if config.IsCancun(block.Number().Uint64(), block.Time()) {
+			if config.IsCancun(block.Time()) {
 				block = block.WithSidecars(b.sidecars)
 			}
 			return block, b.receipts, nil
@@ -452,7 +451,7 @@ func MakeEmptyHeader(parent *types.Header, chainConfig *chain.Config, timestamp 
 		header.GasLimit = parentGasLimit
 	}
 
-	if chainConfig.IsCancun(header.Number.Uint64(), header.Time) {
+	if chainConfig.IsCancun(header.Time) {
 		excessBlobGas := misc.CalcExcessBlobGas(chainConfig, parent, header.Time)
 		header.ExcessBlobGas = &excessBlobGas
 		header.BlobGasUsed = new(uint64)
@@ -526,4 +525,3 @@ func (cr *FakeChainReader) BorEventsByBlock(hash common.Hash, number uint64) []r
 func (cr *FakeChainReader) BorStartEventId(hash common.Hash, number uint64) uint64 {
 	return 0
 }
-func (cr *FakeChainReader) BorSpan(spanId uint64) *heimdall.Span { return nil }

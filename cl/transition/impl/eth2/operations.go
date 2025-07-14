@@ -388,9 +388,17 @@ func (I *impl) ProcessExecutionPayload(s abstract.BeaconState, body cltypes.Gene
 	}
 
 	// Verify commitments are under limit
-	// assert len(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
-	if body.GetBlobKzgCommitments().Len() > int(s.BeaconConfig().MaxBlobsPerBlockByVersion(s.Version())) {
-		return errors.New("ProcessExecutionPayload: too many blob commitments")
+	if s.Version() >= clparams.FuluVersion {
+		// Fulu:EIP7892
+		blobParameters := s.BeaconConfig().GetBlobParameters(state.Epoch(s))
+		if body.GetBlobKzgCommitments().Len() > int(blobParameters.MaxBlobsPerBlock) {
+			return errors.New("ProcessExecutionPayload: too many blob commitments")
+		}
+	} else {
+		// assert len(body.blob_kzg_commitments) <= MAX_BLOBS_PER_BLOCK
+		if body.GetBlobKzgCommitments().Len() > int(s.BeaconConfig().MaxBlobsPerBlockByVersion(s.Version())) {
+			return errors.New("ProcessExecutionPayload: too many blob commitments")
+		}
 	}
 
 	s.SetLatestExecutionPayloadHeader(payloadHeader)
@@ -1040,6 +1048,12 @@ func (I *impl) ProcessSlots(s abstract.BeaconState, slot uint64) error {
 
 		if state.Epoch(s) == beaconConfig.ElectraForkEpoch {
 			if err := s.UpgradeToElectra(); err != nil {
+				return err
+			}
+		}
+
+		if state.Epoch(s) == beaconConfig.FuluForkEpoch {
+			if err := s.UpgradeToFulu(); err != nil {
 				return err
 			}
 		}

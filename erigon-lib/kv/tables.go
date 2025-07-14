@@ -58,12 +58,6 @@ const (
 
 const Witnesses = "witnesses" // block_num_u64 + "_chunk_" + chunk_num_u64 -> witness ( see: docs/programmers_guide/witness_format.md )
 
-// Mapping [block number] => [Verkle Root]
-const VerkleRoots = "VerkleRoots"
-
-// Mapping [Verkle Root] => [Rlp-Encoded Verkle Node]
-const VerkleTrie = "VerkleTrie"
-
 const (
 	// DatabaseInfo is used to store information about data layout.
 	DatabaseInfo = "DbInfo"
@@ -83,7 +77,7 @@ const (
 
 	// Naming:
 	//  TxNum - Ethereum canonical transaction number - same across all nodes.
-	//  TxnID - auto-increment ID - can be differrent across all nodes
+	//  TxnID - auto-increment ID - can be different across all nodes
 	//  BlockNum/BlockID - same
 	//
 	// EthTx - stores all transactions of Canonical/NonCanonical/Bad blocks
@@ -176,7 +170,7 @@ const (
 	BittorrentInfo       = "BittorrentInfo"
 
 	// Domains/History/InvertedIndices
-	// Contants have "Tbl" prefix, to avoid collision with actual Domain names
+	// Constants have "Tbl" prefix, to avoid collision with actual Domain names
 	// This constants is very rarely used in APP, but Domain/History/Idx names are widely used
 	TblAccountVals        = "AccountVals"
 	TblAccountHistoryKeys = "AccountHistoryKeys"
@@ -254,7 +248,8 @@ const (
 	LastBeaconSnapshot    = "LastBeaconSnapshot"
 	LastBeaconSnapshotKey = "LastBeaconSnapshotKey"
 
-	BlockRootToKzgCommitments = "BlockRootToKzgCommitments"
+	BlockRootToKzgCommitments  = "BlockRootToKzgCommitments"
+	BlockRootToDataColumnCount = "BlockRootToDataColumnCount"
 
 	// [Block Root] => [Parent Root]
 	BlockRootToParentRoot  = "BlockRootToParentRoot"
@@ -291,7 +286,7 @@ const (
 
 	IntraRandaoMixes = "IntraRandaoMixes" // [validator_index+slot] => [randao_mix]
 	RandaoMixes      = "RandaoMixes"      // [validator_index+slot] => [randao_mix]
-	Proposers        = "BlockProposers"   // epoch => proposers indicies
+	Proposers        = "BlockProposers"   // epoch => proposers indices
 
 	// Electra
 	PendingDepositsDump           = "PendingDepositsDump"           // block_num => dump
@@ -311,7 +306,7 @@ const (
 
 // Keys
 var (
-	// ExperimentalGetProofsLayout is used to keep track whether we store indecies to facilitate eth_getProof
+	// ExperimentalGetProofsLayout is used to keep track whether we store indices to facilitate eth_getProof
 	CommitmentLayoutFlagKey = []byte("CommitmentLayouFlag")
 
 	PruneTypeOlder = []byte("older")
@@ -426,8 +421,6 @@ var ChaindataTables = []string{
 
 	MaxTxNum,
 
-	VerkleRoots,
-	VerkleTrie,
 	// Beacon stuff
 	BeaconBlocks,
 	CanonicalBlockRoots,
@@ -443,6 +436,7 @@ var ChaindataTables = []string{
 	ParentRootToBlockRoots,
 	// Blob Storage
 	BlockRootToKzgCommitments,
+	BlockRootToDataColumnCount,
 	// State Reconstitution
 	ValidatorEffectiveBalance,
 	ValidatorBalance,
@@ -875,31 +869,13 @@ func String2Domain(in string) (Domain, error) {
 
 const MaxUint16 uint16 = 1<<16 - 1
 
-func (iip Appendable) String() string {
-	switch iip {
-	case ReceiptsAppendable:
-		return "receipts"
-	default:
-		return "unknown Appendable"
-	}
-}
-
-func String2Appendable(in string) (Appendable, error) {
-	switch in {
-	case "receipts":
-		return ReceiptsAppendable, nil
-	default:
-		return Appendable(MaxUint16), fmt.Errorf("unknown Appendable name: %s", in)
-	}
-}
-
 // --- Deprecated
 const (
 
 	// ChaindataTables
 
 	// Dictionary:
-	// "Plain State" - state where keys arent' hashed. "CurrentState" - same, but keys are hashed. "PlainState" used for blocks execution. "CurrentState" used mostly for Merkle root calculation.
+	// "Plain State" - state where keys aren't hashed. "CurrentState" - same, but keys are hashed. "PlainState" used for blocks execution. "CurrentState" used mostly for Merkle root calculation.
 	// "incarnation" - uint64 number - how much times given account was SelfDestruct'ed.
 
 	/*

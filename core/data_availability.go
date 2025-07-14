@@ -10,7 +10,7 @@ import (
 
 // IsDataAvailable it checks that the blobTx block has available blob data
 func IsDataAvailable(chain consensus.ChainHeaderReader, header *types.Header, body *types.RawBody, latestBlockTime uint64) (err error) {
-	if !chain.Config().IsCancun(header.Number.Uint64(), header.Time) {
+	if !chain.Config().IsCancun(header.Time) {
 		if body.Sidecars != nil {
 			return errors.New("sidecars present in block body before cancun")
 		}
