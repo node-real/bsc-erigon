@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/types"
 	"io"
 	"math"
@@ -14,6 +13,7 @@ import (
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/kv"
+	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/spf13/afero"
 )
@@ -184,7 +184,10 @@ func (bs *BlobStore) RemoveBlobSidecars(ctx context.Context, number uint64, hash
 		if err := bs.fs.Remove(filePath); err != nil {
 			return err
 		}
-		tx.Delete(kv.BlobTxCount, hash[:])
+	}
+	// Delete the blob transaction count entry once after removing all files
+	if err := tx.Delete(kv.BlobTxCount, hash[:]); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

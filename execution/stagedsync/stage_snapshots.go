@@ -173,6 +173,7 @@ func SpawnStageSnapshots(
 		defer tx.Rollback()
 	}
 	if err := DownloadAndIndexSnapshotsIfNeed(s, ctx, tx, cfg, logger); err != nil {
+		log.Error("DownloadAndIndexSnapshotsIfNeed", "err", err)
 		return err
 	}
 	var minProgress uint64
@@ -208,6 +209,9 @@ func SpawnStageSnapshots(
 	}
 	if cfg.chainConfig.Bor != nil && !cfg.blockReader.BorSnapshots().DownloadReady() {
 		cfg.blockReader.BorSnapshots().DownloadComplete()
+	}
+	if cfg.chainConfig.Parlia != nil && !cfg.blockReader.BscSnapshots().DownloadReady() {
+		cfg.blockReader.BscSnapshots().DownloadComplete()
 	}
 
 	return nil
@@ -296,6 +300,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		return err
 	}
 
+	logger.Info(fmt.Sprintf("[%s] Download snapshots", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Download snapshots"})
 	if err := snapshotsync.SyncSnapshots(
 		ctx,
@@ -330,11 +335,13 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		cfg.notifier.Events.OnNewSnapshot()
 	}
 
+	logger.Info(fmt.Sprintf("[%s] E2 Indexing", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "E2 Indexing"})
 	if err := cfg.blockRetire.BuildMissedIndicesIfNeed(ctx, s.LogPrefix(), cfg.notifier.Events); err != nil {
 		return err
 	}
 
+	logger.Info(fmt.Sprintf("[%s] E3 Indexing", s.LogPrefix()))
 	indexWorkers := estimate.IndexSnapshot.Workers()
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "E3 Indexing"})
 	if err := agg.BuildMissedAccessors(ctx, indexWorkers); err != nil {
@@ -370,6 +377,7 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 		s.BlockNumber = frozenBlocks
 	}
 
+	logger.Info(fmt.Sprintf("[%s] Fill DB", s.LogPrefix()))
 	diagnostics.Send(diagnostics.CurrentSyncSubStage{SubStage: "Fill DB"})
 	chainReader := NewChainReaderImpl(cfg.chainConfig, tx, cfg.blockReader, logger)
 	if err := rawdbreset.FillDBFromSnapshots(s.LogPrefix(), ctx, tx, cfg.dirs, cfg.blockReader, chainReader, cfg.engine, logger); err != nil {

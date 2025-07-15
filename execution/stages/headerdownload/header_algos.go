@@ -25,7 +25,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/erigontech/erigon-lib/chain"
 	"io"
 	"math/big"
 	"slices"
@@ -35,6 +34,7 @@ import (
 	"time"
 
 	"github.com/erigontech/erigon-db/rawdb"
+	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/common/metrics"
@@ -511,8 +511,8 @@ func (hd *HeaderDownload) RequestSkeleton() *HeaderRequest {
 	defer hd.lock.RUnlock()
 
 	var stride uint64
-	if hd.initialCycle {
-		stride = 192
+	if hd.initialCycle || time.Since(time.UnixMilli(int64(hd.LastBlockTime))) > 200*time.Second {
+		stride = uint64(hd.loopBlockLimit / 192)
 	}
 	var length uint64 = 192
 	// Include one header that we have already, to make sure the responses are not empty and do not get penalised when we are at the tip of the chain

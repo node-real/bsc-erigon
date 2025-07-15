@@ -314,6 +314,9 @@ func (r *RemoteBlockReader) HeaderNumber(ctx context.Context, tx kv.Getter, hash
 }
 func (r *RemoteBlockReader) BodyRlp(ctx context.Context, tx kv.Getter, hash common.Hash, blockHeight uint64) (bodyRlp rlp.RawValue, err error) {
 	body, err := r.BodyWithTransactions(ctx, tx, hash, blockHeight)
+	if body == nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
