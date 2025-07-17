@@ -611,12 +611,12 @@ func TestCanEncodeAndDecodeRawBody4844(t *testing.T) {
 	body := &RawBody{
 		Uncles: []*Header{
 			{
-				ParentHash:  libcommon.Hash{},
-				UncleHash:   libcommon.Hash{},
-				Coinbase:    libcommon.Address{},
-				Root:        libcommon.Hash{},
-				TxHash:      libcommon.Hash{},
-				ReceiptHash: libcommon.Hash{},
+				ParentHash:  common.Hash{},
+				UncleHash:   common.Hash{},
+				Coinbase:    common.Address{},
+				Root:        common.Hash{},
+				TxHash:      common.Hash{},
+				ReceiptHash: common.Hash{},
 				Bloom:       Bloom{},
 				Difficulty:  big.NewInt(100),
 				Number:      big.NewInt(1000),
@@ -667,12 +667,12 @@ func TestCanEncodeAndDecodeRawBody4844(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rlpBytes := libcommon.CopyBytes(writer.Bytes())
+	rlpBytes := common.CopyBytes(writer.Bytes())
 	writer.Reset()
-	writer.WriteString(hexutility.Encode(rlpBytes))
+	writer.WriteString(hexutil.Encode(rlpBytes))
 
 	var rawBody RawBody
-	fromHex := libcommon.CopyBytes(libcommon.FromHex(writer.String()))
+	fromHex := common.CopyBytes(common.FromHex(writer.String()))
 	bodyReader := bytes.NewReader(fromHex)
 	stream := rlp.NewStream(bodyReader, 0)
 
