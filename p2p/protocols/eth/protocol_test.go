@@ -21,7 +21,8 @@ package eth
 
 import (
 	"bytes"
-	"github.com/erigontech/erigon/params"
+	params2 "github.com/erigontech/erigon-lib/chain/params"
+	"github.com/erigontech/erigon-lib/common/empty"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -237,14 +238,14 @@ func TestEth66Messages(t *testing.T) {
 func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 	dynamicTx := &types.DynamicFeeTransaction{
 		CommonTx: types.CommonTx{
-			Nonce: 0,
-			Gas:   25000,
-			To:    &libcommon.Address{0x03, 0x04, 0x05},
-			Value: uint256.NewInt(99), // wei amount
-			Data:  make([]byte, 50),
+			Nonce:    0,
+			GasLimit: 25000,
+			To:       &common.Address{0x03, 0x04, 0x05},
+			Value:    uint256.NewInt(99), // wei amount
+			Data:     make([]byte, 50),
 		},
 		ChainID:    uint256.NewInt(716),
-		Tip:        uint256.NewInt(22),
+		TipCap:     uint256.NewInt(22),
 		FeeCap:     uint256.NewInt(5),
 		AccessList: types.AccessList{},
 	}
@@ -256,18 +257,18 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 	blobTx := &types.BlobTx{
 		DynamicFeeTransaction: *dynamicTx, //nolint
 		MaxFeePerBlobGas:      uint256.NewInt(5),
-		BlobVersionedHashes:   []libcommon.Hash{{}},
+		BlobVersionedHashes:   []common.Hash{{}},
 	}
-	blobGasUsed := uint64(params.BlobTxBlobGasPerBlob)
+	blobGasUsed := uint64(params2.BlobTxBlobGasPerBlob)
 	excessBlobGas := uint64(0)
-	withdrawalsHash := libcommon.Hash{}
+	withdrawalsHash := common.Hash{}
 	header := &types.Header{
-		ParentHash:      libcommon.HexToHash("0x85a8f2a2d4d2b3e73154d8ed1b5deb7c7c395dde7b934058bcc5d0efb69dff60"),
-		UncleHash:       types.EmptyUncleHash,
-		Coinbase:        libcommon.HexToAddress("0x76d76ee8823de52a1a431884c2ca930c5e72bff3 "),
-		Root:            types.EmptyRootHash,
-		TxHash:          libcommon.HexToHash("0xa84b1b157b86ed7e1352fa8e6518cd31e9be686bd27b1fe79d7ae6ebc02b29bb"),
-		ReceiptHash:     libcommon.HexToHash("https://testnet.bscscan.com/tx/0x5ebb92a3a3660c18655a29be937ac2704b807545996672836ea907e2685bc8fc"),
+		ParentHash:      common.HexToHash("0x85a8f2a2d4d2b3e73154d8ed1b5deb7c7c395dde7b934058bcc5d0efb69dff60"),
+		UncleHash:       empty.RootHash,
+		Coinbase:        common.HexToAddress("0x76d76ee8823de52a1a431884c2ca930c5e72bff3 "),
+		Root:            empty.RootHash,
+		TxHash:          common.HexToHash("0xa84b1b157b86ed7e1352fa8e6518cd31e9be686bd27b1fe79d7ae6ebc02b29bb"),
+		ReceiptHash:     common.HexToHash("https://testnet.bscscan.com/tx/0x5ebb92a3a3660c18655a29be937ac2704b807545996672836ea907e2685bc8fc"),
 		Bloom:           types.Bloom{},
 		Difficulty:      new(big.Int).SetUint64(2),
 		Number:          new(big.Int).SetUint64(1),
@@ -275,7 +276,7 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 		GasUsed:         998363,
 		Time:            1715485382,
 		Extra:           make([]byte, 64),
-		MixDigest:       libcommon.Hash{},
+		MixDigest:       common.Hash{},
 		Nonce:           types.BlockNonce{},
 		BaseFee:         new(big.Int).SetUint64(0),
 		WithdrawalsHash: &withdrawalsHash,
@@ -300,9 +301,9 @@ func TestNewBlockPacket_EncodeDecode(t *testing.T) {
 			Sidecars: types.BlobSidecars{&types.BlobSidecar{
 				BlobTxSidecar: txSidecar,
 				BlockNumber:   new(big.Int).SetUint64(1),
-				BlockHash:     libcommon.Hash{},
+				BlockHash:     common.Hash{},
 				TxIndex:       1,
-				TxHash:        libcommon.Hash{},
+				TxHash:        common.Hash{},
 			}},
 		}},
 	}
