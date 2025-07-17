@@ -248,7 +248,7 @@ Loop:
 			}
 		}
 		// Load headers into the database
-		inSync, err := cfg.hd.InsertHeaders(headerInserter.NewFeedHeaderFunc(tx, cfg.blockReader, cfg.hd.Engine(), *cfg.chainConfig, cfg.hd.ConsensusHeaderReader()), cfg.syncConfig.LoopBlockLimit, cfg.chainConfig.TerminalTotalDifficulty, logPrefix, logEvery.C, uint64(currentTime.Unix()))
+		inSync, err := cfg.hd.InsertHeaders(headerInserter.NewFeedHeaderFunc(tx, cfg.blockReader, cfg.hd.Engine(), cfg.chainConfig, cfg.hd.ConsensusHeaderReader()), cfg.syncConfig.LoopBlockLimit, cfg.chainConfig.TerminalTotalDifficulty, logPrefix, logEvery.C, uint64(currentTime.Unix()))
 
 		if err != nil {
 			return err

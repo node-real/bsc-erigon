@@ -856,7 +856,7 @@ func (hd *HeaderDownload) addHeaderAsLink(h ChainSegmentHeader, persisted bool) 
 	return link
 }
 
-func (hi *HeaderInserter) NewFeedHeaderFunc(db kv.StatelessRwTx, headerReader services.HeaderReader, engine consensus.Engine, config chain.Config, consensusHeaderReader consensus.ChainHeaderReader) FeedHeaderFunc {
+func (hi *HeaderInserter) NewFeedHeaderFunc(db kv.StatelessRwTx, headerReader services.HeaderReader, engine consensus.Engine, config *chain.Config, consensusHeaderReader consensus.ChainHeaderReader) FeedHeaderFunc {
 	return func(header *types.Header, headerRaw []byte, hash common.Hash, highest uint64) (*big.Int, error) {
 		return hi.FeedHeaderPoW(db, headerReader, header, headerRaw, hash, highest, engine, config, consensusHeaderReader)
 	}
@@ -928,7 +928,7 @@ func (hi *HeaderInserter) ForkingPoint(db kv.StatelessRwTx, header, parent *type
 	return
 }
 
-func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader services.HeaderReader, header *types.Header, headerRaw []byte, highestHash common.Hash, highest uint64, engine consensus.Engine, config chain.Config, consensusHeaderReader consensus.ChainHeaderReader) (td *big.Int, err error) {
+func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader services.HeaderReader, header *types.Header, headerRaw []byte, highestHash common.Hash, highest uint64, engine consensus.Engine, config *chain.Config, consensusHeaderReader consensus.ChainHeaderReader) (td *big.Int, err error) {
 	blockHeight := header.Number.Uint64()
 	hash := header.Hash()
 	if hash == hi.prevHash {
