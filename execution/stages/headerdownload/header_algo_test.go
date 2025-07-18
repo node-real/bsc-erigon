@@ -100,7 +100,7 @@ func TestSideChainInsert(t *testing.T) {
 		tc := tc
 		for i, h := range tc.chain {
 			data, _ := rlp.EncodeToBytes(h)
-			if _, err = hi.FeedHeaderPoW(tx, br, h, data, h.Hash(), uint64(i+1), nil, *chainConfig, nil); err != nil {
+			if _, err = hi.FeedHeaderPoW(tx, br, h, data, h.Hash(), uint64(i+1), nil, chainConfig, nil); err != nil {
 				t.Errorf("feed empty header for %s, err: %v", tc.name, err)
 			}
 		}
