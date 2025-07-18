@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	params2 "github.com/erigontech/erigon-lib/chain/params"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	"net/url"
 	"strings"
@@ -13,7 +14,6 @@ import (
 
 	v1 "github.com/erigontech/erigon/core/vm/lightclient/v1"
 	v2 "github.com/erigontech/erigon/core/vm/lightclient/v2"
-	"github.com/erigontech/erigon/params"
 	"github.com/tendermint/tendermint/crypto/merkle"
 )
 
@@ -57,7 +57,7 @@ func decodeTendermintHeaderValidationInput(input []byte) (*v1.ConsensusState, *v
 type tmHeaderValidate struct{}
 
 func (c *tmHeaderValidate) RequiredGas(input []byte) uint64 {
-	return params.TendermintHeaderValidateGas
+	return params2.TendermintHeaderValidateGas
 }
 
 func (c *tmHeaderValidate) Run(input []byte) (result []byte, err error) {
@@ -114,7 +114,7 @@ type iavlMerkleProofValidate struct {
 }
 
 func (c *iavlMerkleProofValidate) RequiredGas(input []byte) uint64 {
-	return params.IAVLMerkleProofValidateGas
+	return params2.IAVLMerkleProofValidateGas
 }
 
 // input:
@@ -128,7 +128,7 @@ func (c *iavlMerkleProofValidate) Run(input []byte) (result []byte, err error) {
 type tmHeaderValidateNano struct{}
 
 func (c *tmHeaderValidateNano) RequiredGas(input []byte) uint64 {
-	return params.TendermintHeaderValidateGas
+	return params2.TendermintHeaderValidateGas
 }
 
 func (c *tmHeaderValidateNano) Run(input []byte) (result []byte, err error) {
@@ -138,7 +138,7 @@ func (c *tmHeaderValidateNano) Run(input []byte) (result []byte, err error) {
 type iavlMerkleProofValidateNano struct{}
 
 func (c *iavlMerkleProofValidateNano) RequiredGas(_ []byte) uint64 {
-	return params.IAVLMerkleProofValidateGas
+	return params2.IAVLMerkleProofValidateGas
 }
 
 func (c *iavlMerkleProofValidateNano) Run(_ []byte) (result []byte, err error) {
@@ -151,7 +151,7 @@ type iavlMerkleProofValidateMoran struct {
 }
 
 func (c *iavlMerkleProofValidateMoran) RequiredGas(_ []byte) uint64 {
-	return params.IAVLMerkleProofValidateGas
+	return params2.IAVLMerkleProofValidateGas
 }
 
 func (c *iavlMerkleProofValidateMoran) Run(input []byte) (result []byte, err error) {
@@ -169,7 +169,7 @@ type iavlMerkleProofValidatePlanck struct {
 }
 
 func (c *iavlMerkleProofValidatePlanck) RequiredGas(_ []byte) uint64 {
-	return params.IAVLMerkleProofValidateGas
+	return params2.IAVLMerkleProofValidateGas
 }
 
 func (c *iavlMerkleProofValidatePlanck) Run(input []byte) (result []byte, err error) {
@@ -190,7 +190,7 @@ type iavlMerkleProofValidatePlato struct {
 }
 
 func (c *iavlMerkleProofValidatePlato) RequiredGas(_ []byte) uint64 {
-	return params.IAVLMerkleProofValidateGas
+	return params2.IAVLMerkleProofValidateGas
 }
 
 func (c *iavlMerkleProofValidatePlato) Run(input []byte) (result []byte, err error) {
@@ -360,7 +360,7 @@ func keyVerifier(key string) error {
 type cometBFTLightBlockValidate struct{}
 
 func (c *cometBFTLightBlockValidate) RequiredGas(input []byte) uint64 {
-	return params.CometBFTLightBlockValidateGas
+	return params2.CometBFTLightBlockValidateGas
 }
 
 func (c *cometBFTLightBlockValidate) run(input []byte, isHertz bool) (result []byte, err error) {
@@ -405,7 +405,7 @@ func (c *cometBFTLightBlockValidateHertz) Run(input []byte) (result []byte, err 
 type secp256k1SignatureRecover struct{}
 
 func (c *secp256k1SignatureRecover) RequiredGas(input []byte) uint64 {
-	return params.EcrecoverGas
+	return params2.EcrecoverGas
 }
 
 const (

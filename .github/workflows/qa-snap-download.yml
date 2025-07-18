@@ -72,7 +72,7 @@ jobs:
         fi
 
     - name: Upload Downloader Torrent Client Status
-      if: steps.test_step.outputs.test_executed == 'true'
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         path: torrent-client-status.txt

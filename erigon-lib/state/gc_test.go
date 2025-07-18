@@ -29,6 +29,10 @@ import (
 )
 
 func TestGCReadAfterRemoveFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logger := log.New()
 	logEvery := time.NewTicker(30 * time.Second)
 	defer logEvery.Stop()
@@ -54,7 +58,7 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 
 			lastOnFs, _ := h.dirtyFiles.Max()
 			require.False(lastOnFs.frozen) // prepared dataset must have some non-frozen files. or it's bad dataset.
-			h.integrateMergedDirtyFiles(nil, []*filesItem{lastOnFs}, nil, nil)
+			deleteMergeFile(h.dirtyFiles, []*FilesItem{lastOnFs}, "", h.logger)
 			require.NotNil(lastOnFs.decompressor)
 			h.reCalcVisibleFiles(h.dirtyFilesEndTxNumMinimax())
 
@@ -65,9 +69,9 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 			require.Equal(lastInView.endTxNum, lastOnFs.endTxNum)
 			if g.HasNext() {
 				k, _ := g.Next(nil)
-				require.Equal(8, len(k))
+				require.Len(k, 8)
 				v, _ := g.Next(nil)
-				require.Equal(8, len(v))
+				require.Len(v, 8)
 			}
 
 			require.NotNil(lastOnFs.decompressor)
@@ -87,7 +91,7 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 			hc.Close()
 		})
 
-		t.Run("read after: remove when no readers", func(t *testing.T) {
+		t.Run("read after: remove when no btReaders", func(t *testing.T) {
 			tx, err := db.BeginRo(ctx)
 			require.NoError(err)
 			defer tx.Rollback()
@@ -97,7 +101,7 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 			hc := h.BeginFilesRo()
 			lastOnFs, _ := h.dirtyFiles.Max()
 			require.False(lastOnFs.frozen) // prepared dataset must have some non-frozen files. or it's bad dataset.
-			h.integrateMergedDirtyFiles(nil, []*filesItem{lastOnFs}, nil, nil)
+			deleteMergeFile(h.dirtyFiles, []*FilesItem{lastOnFs}, "", h.logger)
 
 			require.NotNil(lastOnFs.decompressor)
 			hc.Close()
@@ -115,6 +119,10 @@ func TestGCReadAfterRemoveFile(t *testing.T) {
 }
 
 func TestDomainGCReadAfterRemoveFile(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logEvery := time.NewTicker(30 * time.Second)
 	defer logEvery.Stop()
 	ctx := context.Background()
@@ -139,7 +147,9 @@ func TestDomainGCReadAfterRemoveFile(t *testing.T) {
 			_ = hc
 			lastOnFs, _ := h.dirtyFiles.Max()
 			require.False(lastOnFs.frozen) // prepared dataset must have some non-frozen files. or it's bad dataset.
-			h.integrateMergedDirtyFiles([]*filesItem{lastOnFs}, nil, nil, nil, nil, nil)
+
+			deleteMergeFile(h.dirtyFiles, []*FilesItem{lastOnFs}, "", h.logger)
+
 			require.NotNil(lastOnFs.decompressor)
 			h.reCalcVisibleFiles(h.dirtyFilesEndTxNumMinimax())
 
@@ -149,9 +159,9 @@ func TestDomainGCReadAfterRemoveFile(t *testing.T) {
 			require.Equal(lastInView.endTxNum, lastOnFs.endTxNum)
 			if g.HasNext() {
 				k, _ := g.Next(nil)
-				require.Equal(8, len(k))
+				require.Len(k, 8)
 				v, _ := g.Next(nil)
-				require.Equal(8, len(v))
+				require.Len(v, 8)
 			}
 
 			require.NotNil(lastOnFs.decompressor)
@@ -170,7 +180,7 @@ func TestDomainGCReadAfterRemoveFile(t *testing.T) {
 			hc.Close()
 		})
 
-		t.Run("read after: remove when no readers", func(t *testing.T) {
+		t.Run("read after: remove when no btReaders", func(t *testing.T) {
 			tx, err := db.BeginRo(ctx)
 			require.NoError(err)
 			defer tx.Rollback()
@@ -180,7 +190,7 @@ func TestDomainGCReadAfterRemoveFile(t *testing.T) {
 			hc := h.BeginFilesRo()
 			lastOnFs, _ := h.dirtyFiles.Max()
 			require.False(lastOnFs.frozen) // prepared dataset must have some non-frozen files. or it's bad dataset.
-			h.integrateMergedDirtyFiles([]*filesItem{lastOnFs}, nil, nil, nil, nil, nil)
+			deleteMergeFile(h.dirtyFiles, []*FilesItem{lastOnFs}, "", h.logger)
 			h.reCalcVisibleFiles(h.dirtyFilesEndTxNumMinimax())
 
 			require.NotNil(lastOnFs.decompressor)

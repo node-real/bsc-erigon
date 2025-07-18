@@ -17,9 +17,9 @@
 package sync_contribution_pool
 
 import (
+	bls2 "github.com/erigontech/erigon-lib/bls"
 	"testing"
 
-	"github.com/Giulio2002/bls"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cl/clparams"
 	"github.com/erigontech/erigon/cl/cltypes"
@@ -34,7 +34,7 @@ var testHash = common.Hash{0x01, 0x02, 0x03, 0x04}
 func getTestCommitteesMessages(n int) (privateKeys [][]byte, messages []cltypes.SyncCommitteeMessage, s *state.CachingBeaconState) {
 	s = state.New(&clparams.MainnetBeaconConfig)
 	for i := 0; i < n; i++ {
-		privateKey, err := bls.GenerateKey()
+		privateKey, err := bls2.GenerateKey()
 		if err != nil {
 			panic(err)
 		}
@@ -52,11 +52,11 @@ func getTestCommitteesMessages(n int) (privateKeys [][]byte, messages []cltypes.
 		}
 		messages = append(messages, message)
 		v := solid.NewValidator()
-		v.SetPublicKey(common.Bytes48(bls.CompressPublicKey(privateKey.PublicKey())))
+		v.SetPublicKey(common.Bytes48(bls2.CompressPublicKey(privateKey.PublicKey())))
 		s.AppendValidator(v)
 		currCommittee := s.CurrentSyncCommittee()
 		c := currCommittee.GetCommittee()
-		c[i] = common.Bytes48(bls.CompressPublicKey(privateKey.PublicKey()))
+		c[i] = common.Bytes48(bls2.CompressPublicKey(privateKey.PublicKey()))
 		currCommittee.SetCommittee(c)
 		s.SetCurrentSyncCommittee(currCommittee)
 	}
@@ -71,7 +71,7 @@ func TestSyncContributionPool(t *testing.T) {
 	require.NoError(t, pool.AddSyncCommitteeMessage(s, 0, &msgs[2]))
 
 	contribution := pool.GetSyncContribution(0, 0, testHash)
-	require.NotEqual(t, contribution.Signature, common.Bytes96(bls.InfiniteSignature))
+	require.NotEqual(t, contribution.Signature, common.Bytes96(bls2.InfiniteSignature))
 
 	contribution.SubcommitteeIndex = 1
 	require.NoError(t, pool.AddSyncContribution(s, contribution))

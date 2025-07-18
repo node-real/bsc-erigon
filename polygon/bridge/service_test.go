@@ -27,13 +27,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/log/v3"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/testlog"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/polygon/bor/borcfg"
 	"github.com/erigontech/erigon/polygon/heimdall"
-	"github.com/erigontech/erigon/turbo/testlog"
 )
 
 var defaultBorConfig = borcfg.BorConfig{
@@ -170,38 +169,38 @@ func TestService(t *testing.T) {
 	err = b.ProcessNewBlocks(ctx, blocks)
 	require.NoError(t, err)
 
-	res, err := b.Events(ctx, blocks[1].Hash(), 2)
+	res, err := b.Events(ctx, 2)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
-	res, err = b.Events(ctx, blocks[3].Hash(), 4)
+	res, err = b.Events(ctx, 4)
 	require.NoError(t, err)
 	require.Len(t, res, 2)                      // have first two events
 	require.Equal(t, event1Data, res[0].Data()) // check data fields
 	require.Equal(t, event2Data, res[1].Data())
 
-	res, err = b.Events(ctx, blocks[5].Hash(), 6)
+	res, err = b.Events(ctx, 6)
 	require.NoError(t, err)
 	require.Len(t, res, 1)                      // have third event
 	require.Equal(t, event3Data, res[0].Data()) // check data fields
 
-	res, err = b.Events(ctx, blocks[9].Hash(), 10)
+	res, err = b.Events(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 1)                      // have fourth event
 	require.Equal(t, event4Data, res[0].Data()) // check data fields
 
 	// get non-sprint block
-	res, err = b.Events(ctx, blocks[0].Hash(), 1)
-	require.Equal(t, len(res), 0)
+	res, err = b.Events(ctx, 1)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
-	res, err = b.Events(ctx, blocks[2].Hash(), 3)
-	require.Equal(t, len(res), 0)
+	res, err = b.Events(ctx, 3)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	// check block 0
-	res, err = b.Events(ctx, libcommon.Hash{}, 0)
-	require.Equal(t, len(res), 0)
+	res, err = b.Events(ctx, 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	cancel()
@@ -282,34 +281,34 @@ func TestService_Unwind(t *testing.T) {
 	err = b.ProcessNewBlocks(ctx, blocks)
 	require.NoError(t, err)
 
-	res, err := b.Events(ctx, blocks[3].Hash(), 4)
+	res, err := b.Events(ctx, 4)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
-	res, err = b.Events(ctx, blocks[5].Hash(), 6)
+	res, err = b.Events(ctx, 6)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
-	res, err = b.Events(ctx, blocks[9].Hash(), 10)
+	res, err = b.Events(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
 	err = b.Unwind(ctx, 5)
 	require.NoError(t, err)
 
-	res, err = b.Events(ctx, blocks[3].Hash(), 4)
+	res, err = b.Events(ctx, 4)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
-	res, err = b.Events(ctx, blocks[5].Hash(), 6)
+	res, err = b.Events(ctx, 6)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
-	res, err = b.Events(ctx, blocks[9].Hash(), 10)
+	require.Empty(t, res)
+	res, err = b.Events(ctx, 10)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
 	cancel()
 	wg.Wait()
 }
 
-func setupOverrideTest(t *testing.T, ctx context.Context, borConfig borcfg.BorConfig, wg *sync.WaitGroup) (*Service, []*types.Block) {
+func setupOverrideTest(t *testing.T, ctx context.Context, borConfig borcfg.BorConfig, wg *sync.WaitGroup) *Service {
 	heimdallClient, b := setup(t, borConfig)
 	event1 := &heimdall.EventRecordWithTime{
 		EventRecord: heimdall.EventRecord{
@@ -401,7 +400,7 @@ func setupOverrideTest(t *testing.T, ctx context.Context, borConfig borcfg.BorCo
 	err = b.ProcessNewBlocks(ctx, blocks)
 	require.NoError(t, err)
 
-	return b, blocks
+	return b
 }
 
 func TestService_ProcessNewBlocksWithOverride(t *testing.T) {
@@ -414,29 +413,29 @@ func TestService_ProcessNewBlocksWithOverride(t *testing.T) {
 		"4":       1,
 		"r.12-14": 0,
 	}
-	b, blocks := setupOverrideTest(t, ctx, borCfg, &wg)
+	b := setupOverrideTest(t, ctx, borCfg, &wg)
 
-	res, err := b.Events(ctx, blocks[3].Hash(), 4) // should only have event1 as event2 is skipped and is present in block 6
+	res, err := b.Events(ctx, 4) // should only have event1 as event2 is skipped and is present in block 6
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
-	res, err = b.Events(ctx, blocks[5].Hash(), 6)
+	res, err = b.Events(ctx, 6)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
 
-	res, err = b.Events(ctx, blocks[9].Hash(), 10)
+	res, err = b.Events(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
-	res, err = b.Events(ctx, blocks[11].Hash(), 12)
+	res, err = b.Events(ctx, 12)
 	require.NoError(t, err)
 	require.Len(t, res, 0) // because we skip it for r.12-14 interval
 
-	res, err = b.Events(ctx, blocks[13].Hash(), 14)
+	res, err = b.Events(ctx, 14)
 	require.NoError(t, err)
 	require.Len(t, res, 0) // because we skip it for r.12-14 interval
 
-	res, err = b.Events(ctx, blocks[15].Hash(), 16)
+	res, err = b.Events(ctx, 16)
 	require.NoError(t, err)
 	require.Len(t, res, 2)
 
@@ -451,17 +450,17 @@ func TestService_ProcessNewBlocksWithZeroOverride(t *testing.T) {
 	var wg sync.WaitGroup
 	borCfg := defaultBorConfig
 	borCfg.OverrideStateSyncRecords = map[string]int{"4": 0}
-	b, blocks := setupOverrideTest(t, ctx, borCfg, &wg)
+	b := setupOverrideTest(t, ctx, borCfg, &wg)
 
-	res, err := b.Events(ctx, blocks[3].Hash(), 4) // both event1 and event2 are in block 6
+	res, err := b.Events(ctx, 4) // both event1 and event2 are in block 6
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
-	res, err = b.Events(ctx, blocks[5].Hash(), 6)
+	res, err = b.Events(ctx, 6)
 	require.NoError(t, err)
 	require.Len(t, res, 3)
 
-	res, err = b.Events(ctx, blocks[9].Hash(), 10)
+	res, err = b.Events(ctx, 10)
 	require.NoError(t, err)
 	require.Len(t, res, 1)
 
@@ -566,7 +565,7 @@ func TestReaderEventsWithinTime(t *testing.T) {
 	require.Equal(t, event3Data, res[0].Data()) // check data fields
 
 	res, err = b.EventsWithinTime(ctx, time.Unix(500, 0), time.Unix(600, 0))
-	require.Equal(t, len(res), 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	cancel()

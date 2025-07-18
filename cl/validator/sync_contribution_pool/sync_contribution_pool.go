@@ -19,9 +19,9 @@ package sync_contribution_pool
 import (
 	"bytes"
 	"errors"
+	"github.com/erigontech/erigon-lib/bls"
 	"sync"
 
-	"github.com/Giulio2002/bls"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/cl/clparams"

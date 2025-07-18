@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/erigontech/erigon-lib/kv"
-	"github.com/erigontech/erigon/consensus"
 	"github.com/erigontech/erigon/core/state"
+	"github.com/erigontech/erigon/execution/consensus"
 	"github.com/erigontech/erigon/turbo/services"
 	"golang.org/x/sync/errgroup"
 )
@@ -81,7 +81,7 @@ func blocksReadAheadFunc(ctx context.Context, tx kv.Tx, blockNum uint64, engine 
 		}
 
 		//Code domain using .bt index - means no false-positives
-		if code, _ := stateReader.ReadAccountCode(sender, 0); len(code) > 0 {
+		if code, _ := stateReader.ReadAccountCode(sender); len(code) > 0 {
 			_, _ = code[0], code[len(code)-1]
 		}
 	}
@@ -96,7 +96,7 @@ func blocksReadAheadFunc(ctx context.Context, tx kv.Tx, blockNum uint64, engine 
 			//if account != nil && !bytes.Equal(account.CodeHash, types.EmptyCodeHash.Bytes()) {
 			//	reader.Code(*tx.To(), common.BytesToHash(account.CodeHash))
 			//}
-			if code, _ := stateReader.ReadAccountCode(*to, 0); len(code) > 0 {
+			if code, _ := stateReader.ReadAccountCode(*to); len(code) > 0 {
 				_, _ = code[0], code[len(code)-1]
 			}
 
@@ -104,7 +104,7 @@ func blocksReadAheadFunc(ctx context.Context, tx kv.Tx, blockNum uint64, engine 
 				stateReader.ReadAccountData(list.Address)
 				if len(list.StorageKeys) > 0 {
 					for _, slot := range list.StorageKeys {
-						stateReader.ReadAccountStorage(list.Address, 0, &slot)
+						stateReader.ReadAccountStorage(list.Address, slot)
 					}
 				}
 			}

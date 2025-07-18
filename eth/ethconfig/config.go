@@ -31,68 +31,34 @@ import (
 
 	"github.com/c2h5oh/datasize"
 
+	"github.com/erigontech/erigon-db/downloader/downloadercfg"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/datadir"
-	"github.com/erigontech/erigon-lib/downloader/downloadercfg"
+	"github.com/erigontech/erigon-lib/common/dbg"
+	"github.com/erigontech/erigon-lib/kv/prune"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/cl/clparams"
-	"github.com/erigontech/erigon/consensus/ethash/ethashcfg"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/eth/ethconfig/estimate"
 	"github.com/erigontech/erigon/eth/gasprice/gaspricecfg"
-	"github.com/erigontech/erigon/ethdb/prune"
+	"github.com/erigontech/erigon/execution/chainspec"
+	"github.com/erigontech/erigon/execution/consensus/ethash/ethashcfg"
 	"github.com/erigontech/erigon/params"
 	"github.com/erigontech/erigon/rpc"
-	"github.com/erigontech/erigon/txnprovider/shutter"
+	"github.com/erigontech/erigon/txnprovider/shutter/shuttercfg"
 	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
 )
 
 // BorDefaultMinerGasPrice defines the minimum gas price for bor validators to mine a transaction.
 var BorDefaultMinerGasPrice = big.NewInt(25 * common.GWei)
 
-var (
-	DefaultMinerGasLimitEthMainnet uint64 = 45_000_000
-	BorDefaultMinerGasLimit        uint64 = 45_000_000
-	DefaultMinerGasLimitSepolia    uint64 = 60_000_000
-	DefaultMinerGasLimitHolesky    uint64 = 60_000_000
-	DefaultMinerGasLimitHoodi      uint64 = 60_000_000
-	DefaultMinerGasLimitBorMainnet uint64 = 45_000_000
-	DefaultMinerGasLimitAmoy       uint64 = 45_000_000
-	DefaultMinerGasLimitGnosis     uint64 = 17_000_000
-	DefaultMinerGasLimitChiado     uint64 = 17_000_000
-)
+// Fail-back block gas limit. Better specify one in the chain config.
+const DefaultBlockGasLimit uint64 = 45_000_000
 
-func DefaultMinerGasLimitByChain(config *Config) uint64 {
-	if config.Genesis == nil {
-		return DefaultMinerGasLimitEthMainnet
+func DefaultBlockGasLimitByChain(config *Config) uint64 {
+	if config.Genesis == nil || config.Genesis.Config == nil || config.Genesis.Config.DefaultBlockGasLimit == nil {
+		return DefaultBlockGasLimit
 	}
-
-	switch config.NetworkID {
-	case params.MainnetChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitEthMainnet
-	case params.SepoliaChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitSepolia
-	case params.HoleskyChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitHolesky
-	case params.HoodiChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitHoodi
-	case params.BorMainnetChainConfig.ChainID.Uint64():
-		return BorDefaultMinerGasLimit
-	case params.AmoyChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitAmoy
-	case params.GnosisChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitGnosis
-	case params.ChiadoChainConfig.ChainID.Uint64():
-		return DefaultMinerGasLimitChiado
-	default:
-		if config.Genesis.Config == nil {
-			return DefaultMinerGasLimitEthMainnet
-		}
-		if config.Genesis.Config.Bor != nil {
-			return BorDefaultMinerGasLimit
-		}
-	}
-	return DefaultMinerGasLimitEthMainnet
+	return *config.Genesis.Config.DefaultBlockGasLimit
 }
 
 // FullNodeGPO contains default gasprice oracle settings for full node.
@@ -119,12 +85,13 @@ var LightClientGPO = gaspricecfg.Config{
 // Defaults contains default settings for use on the Ethereum main net.
 var Defaults = Config{
 	Sync: Sync{
-		ExecWorkerCount:            estimate.BlocksExecution.WorkersHalf(), //only half of CPU, other half will spend for snapshots build/merge/prune
+		ExecWorkerCount:            dbg.Exec3Workers, //only half of CPU, other half will spend for snapshots build/merge/prune
 		BodyCacheLimit:             256 * 1024 * 1024,
 		BodyDownloadTimeoutSeconds: 2,
 		//LoopBlockLimit:             100_000,
-		ParallelStateFlushing: true,
-		ChaosMonkey:           false,
+		ParallelStateFlushing:    true,
+		ChaosMonkey:              false,
+		AlwaysGenerateChangesets: !dbg.BatchCommitments,
 	},
 	Ethash: ethashcfg.Config{
 		CachesInMem:      2,
@@ -183,7 +150,6 @@ type BlocksFreezing struct {
 	ProduceE2         bool // produce new block files
 	ProduceE3         bool // produce new state files
 	NoDownloader      bool // possible to use snapshots without calling Downloader
-	Verify            bool // verify snapshots on startup
 	DisableDownloadE3 bool // disable download state snapshots
 	DownloaderAddr    string
 	ChainName         string
@@ -251,7 +217,7 @@ type Config struct {
 	// Ethash options
 	Ethash ethashcfg.Config
 
-	Clique params.ConsensusSnapshotConfig
+	Clique chainspec.ConsensusSnapshotConfig
 	Aura   chain.AuRaConfig
 	Parlia chain.ParliaConfig
 
@@ -259,7 +225,7 @@ type Config struct {
 
 	// Transaction pool options
 	TxPool  txpoolcfg.Config
-	Shutter shutter.Config
+	Shutter shuttercfg.Config
 
 	// Gas Price Oracle options
 	GPO gaspricecfg.Config
@@ -277,21 +243,13 @@ type Config struct {
 	HeimdallURL string
 	// No heimdall service
 	WithoutHeimdall bool
-	// Heimdall services active
-	WithHeimdallMilestones bool
-	// Heimdall waypoint recording active
-	WithHeimdallWaypointRecording bool
-	// Use polygon checkpoint sync in preference to POW downloader
-	PolygonSync         bool
-	PolygonSyncStage    bool
-	PolygonExtraReceipt bool
 
 	// Ethstats service
 	Ethstats string
 	// Consensus layer
 	InternalCL bool
 
-	OverridePragueTime *big.Int `toml:",omitempty"`
+	OverrideOsakaTime *big.Int `toml:",omitempty"`
 
 	// Embedded Silkworm support
 	SilkwormExecution            bool
@@ -310,6 +268,9 @@ type Config struct {
 	// PoS Single Slot finality
 	PolygonPosSingleSlotFinality        bool
 	PolygonPosSingleSlotFinalityBlockAt uint64
+
+	// Account Abstraction
+	AllowAA bool
 }
 
 type Sync struct {
@@ -331,6 +292,5 @@ type Sync struct {
 	ChaosMonkey              bool
 	AlwaysGenerateChangesets bool
 	KeepExecutionProofs      bool
-	PersistReceiptsV1        uint64
 	PersistReceiptsCacheV2   bool
 }

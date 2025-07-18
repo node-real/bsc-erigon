@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
 	"github.com/erigontech/erigon-lib/common/background"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/seg"
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
+	"github.com/erigontech/erigon-lib/snaptype"
 )
 
 type Merger struct {
@@ -147,6 +147,7 @@ func (m *Merger) Merge(ctx context.Context, snapshots *RoSnapshots, snapTypes []
 	if len(mergeRanges) == 0 {
 		return nil
 	}
+
 	logEvery := time.NewTicker(30 * time.Second)
 	defer logEvery.Stop()
 

@@ -29,13 +29,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/erigontech/erigon-lib/log/v3"
-
 	"github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon-lib/testlog"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/polygon/heimdall"
 	"github.com/erigontech/erigon/polygon/p2p"
-	"github.com/erigontech/erigon/turbo/testlog"
 )
 
 func newBlockDownloaderTest(t *testing.T) *blockDownloaderTest {

@@ -18,11 +18,11 @@ package txpool
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/c2h5oh/datasize"
 	"github.com/holiman/uint256"
 
+	remote "github.com/erigontech/erigon-lib/gointerfaces/remoteproto"
 	"github.com/erigontech/erigon-lib/gointerfaces/sentryproto"
 	"github.com/erigontech/erigon-lib/gointerfaces/txpoolproto"
 	"github.com/erigontech/erigon-lib/kv"
@@ -41,6 +41,7 @@ func Assemble(
 	stateChangesClient StateChangesClient,
 	builderNotifyNewTxns func(),
 	logger log.Logger,
+	ethBackend remote.ETHBACKENDClient,
 	opts ...Option,
 ) (*TxPool, txpoolproto.TxpoolServer, error) {
 	options := applyOpts(opts...)
@@ -56,39 +57,21 @@ func Assemble(
 
 	chainID, _ := uint256.FromBig(chainConfig.ChainID)
 
-	shanghaiTime := chainConfig.ShanghaiTime
-	var agraBlock *big.Int
-	var bhilaiBlock *big.Int
-	if chainConfig.Bor != nil {
-		agraBlock = chainConfig.Bor.GetAgraBlock()
-		bhilaiBlock = chainConfig.Bor.GetBhilaiBlock()
-	}
-	cancunTime := chainConfig.CancunTime
-	pragueTime := chainConfig.PragueTime
-	if cfg.OverridePragueTime != nil {
-		pragueTime = cfg.OverridePragueTime
-	}
-
 	newTxns := make(chan Announcements, 1024)
 	newSlotsStreams := &NewSlotsStreams{}
 	pool, err := New(
 		ctx,
 		newTxns,
 		poolDB,
-		chainDB,
+		chainDB.(kv.TemporalRwDB),
 		cfg,
 		cache,
-		*chainID,
-		shanghaiTime,
-		agraBlock,
-		bhilaiBlock,
-		cancunTime,
-		pragueTime,
-		chainConfig.BlobSchedule,
+		chainConfig,
 		sentryClients,
 		stateChangesClient,
 		builderNotifyNewTxns,
 		newSlotsStreams,
+		ethBackend,
 		logger,
 		opts...,
 	)
@@ -109,7 +92,7 @@ var defaultPoolDBInitializer = func(ctx context.Context, cfg txpoolcfg.Config, l
 		WriteMergeThreshold(3 * 8192).
 		PageSize(16 * datasize.KB).
 		GrowthStep(16 * datasize.MB).
-		DirtySpace(uint64(128 * datasize.MB)).
+		DirtySpace(uint64(64 * datasize.MB)).
 		MapSize(1 * datasize.TB).
 		WriteMap(cfg.MdbxWriteMap)
 	if cfg.MdbxPageSize > 0 {

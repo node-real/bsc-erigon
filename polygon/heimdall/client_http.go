@@ -46,12 +46,16 @@ var (
 	ErrNotInCheckpointList   = errors.New("checkpontId doesn't exist in Heimdall")
 	ErrBadGateway            = errors.New("bad gateway")
 	ErrServiceUnavailable    = errors.New("service unavailable")
-	ErrCloudflareAccess      = errors.New("cloudflare access")
+	ErrCloudflareAccessNoApp = errors.New("cloudflare access - no application")
+	ErrOperationTimeout      = errors.New("operation timed out, check internet connection")
+	ErrNoHost                = errors.New("no such host, check internet connection")
 
 	TransientErrors = []error{
 		ErrBadGateway,
 		ErrServiceUnavailable,
-		ErrCloudflareAccess,
+		ErrCloudflareAccessNoApp,
+		ErrOperationTimeout,
+		ErrNoHost,
 		context.DeadlineExceeded,
 	}
 )
@@ -497,24 +501,6 @@ func (c *HttpClient) FetchChainManagerStatus(ctx context.Context) (*ChainManager
 	return FetchWithRetry[ChainManagerStatus](ctx, c, url, c.logger)
 }
 
-func (c *HttpClient) IsOnline(ctx context.Context) (bool, error) {
-	url, err := statusURL(c.urlString)
-	if err != nil {
-		return false, err
-	}
-
-	request := &HttpRequest{handler: c.handler, url: url, start: time.Now()}
-	_, err = Fetch[struct{}](ctx, request, c.logger)
-	if err == nil {
-		return true, nil
-	}
-	if errors.Is(err, ErrServiceUnavailable) {
-		return false, nil
-	}
-
-	return false, err
-}
-
 func (c *HttpClient) FetchStatus(ctx context.Context) (*Status, error) {
 	url, err := statusURL(c.urlString)
 	if err != nil {
@@ -710,6 +696,14 @@ func FetchWithRetryEx[T any](
 			return result, nil
 		}
 
+		if strings.Contains(err.Error(), "operation timed out") {
+			return result, ErrOperationTimeout
+		}
+
+		if strings.Contains(err.Error(), "no such host") {
+			return result, ErrNoHost
+		}
+
 		// 503 (Service Unavailable) is thrown when an endpoint isn't activated
 		// yet in heimdall. E.g. when the hard fork hasn't hit yet but heimdall
 		// is upgraded.
@@ -882,10 +876,10 @@ func internalFetch(ctx context.Context, handler httpRequestHandler, u *url.URL, 
 
 	// check status code
 	if res.StatusCode != 200 {
-		cloudflareErr := regexp.MustCompile(`Error.*Cloudflare Access`)
+		cloudflareErr := regexp.MustCompile(`Error.*Cloudflare Access.*Unable to find your Access application`)
 		bodyStr := string(body)
 		if res.StatusCode == 404 && cloudflareErr.MatchString(bodyStr) {
-			return nil, fmt.Errorf("%w: url='%s', status=%d, body='%s'", ErrCloudflareAccess, u.String(), res.StatusCode, bodyStr)
+			return nil, fmt.Errorf("%w: url='%s', status=%d, body='%s'", ErrCloudflareAccessNoApp, u.String(), res.StatusCode, bodyStr)
 		}
 
 		return nil, fmt.Errorf("%w: url='%s', status=%d, body='%s'", ErrNotSuccessfulResponse, u.String(), res.StatusCode, bodyStr)

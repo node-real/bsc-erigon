@@ -4,25 +4,24 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"os"
-	"reflect"
-	"time"
-
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
-	"github.com/erigontech/erigon-lib/common/hexutility"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/seg"
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/snaptype"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
+	"os"
+	"reflect"
+	"time"
 )
 
 const (
@@ -43,7 +42,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 	startTime := time.Now()
 	snapshots := br.bscSnapshots()
-	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers.Load()
 
 	var minimumBlob uint64
 	if br.chainConfig.ChainName == networkname.BSC {
@@ -78,7 +77,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 				break
 			}
 			dumpStartTime := time.Now()
-			if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
+			if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, int(workers), lvl, blockReader, br.bs, logger); err != nil {
 				return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
 			}
 			dumpDuration := time.Since(dumpStartTime)
@@ -147,9 +146,9 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
 	startTime := time.Now()
-	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers.Load()
 	snapshots := br.bscSnapshots()
-	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, br.chainConfig, logger)
+	merger := snapshotsync.NewMerger(tmpDir, int(workers), lvl, db, br.chainConfig, logger)
 	rangesToMerge := merger.FindMergeRanges(snapshots.Ranges(), snapshots.BlocksAvailable())
 	if len(rangesToMerge) > 0 {
 		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
@@ -313,7 +312,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	defer sn.Close()
 
 	// Use BigChunks pattern to avoid long transactions
-	from := hexutility.EncodeTs(blockFrom)
+	from := hexutil.EncodeTs(blockFrom)
 
 	dataProcessingStart := time.Now()
 	processedBlocks := uint64(0)

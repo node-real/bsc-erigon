@@ -27,20 +27,21 @@ import (
 	"runtime"
 	"time"
 
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
 	"github.com/erigontech/erigon-lib/common/dbg"
-	"github.com/erigontech/erigon-lib/common/hexutility"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/common/length"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/recsplit"
 	"github.com/erigontech/erigon-lib/seg"
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
+	"github.com/erigontech/erigon-lib/snaptype"
+	"github.com/erigontech/erigon-lib/version"
 	bortypes "github.com/erigontech/erigon/polygon/bor/types"
 )
 
@@ -92,7 +93,7 @@ func (e EventRangeExtractor) Extract(ctx context.Context, blockFrom, blockTo uin
 	logEvery := time.NewTicker(20 * time.Second)
 	defer logEvery.Stop()
 
-	from := hexutility.EncodeTs(blockFrom)
+	from := hexutil.EncodeTs(blockFrom)
 	startEventId := firstEventId(ctx)
 	var lastEventId uint64
 
@@ -159,8 +160,8 @@ var (
 		Enums.Events,
 		"borevents",
 		snaptype.Versions{
-			Current:      1, //2,
-			MinSupported: 1,
+			Current:      version.V1_0, //2,
+			MinSupported: version.V1_0,
 		},
 		EventRangeExtractor{},
 		[]snaptype.Index{Indexes.BorTxnHash},
@@ -212,9 +213,10 @@ var (
 				if err != nil {
 					return err
 				}
-				rs.LogLvl(log.LvlDebug)
+				defer rs.Close()
+				rs.LogLvl(log.LvlInfo)
 
-				defer d.EnableReadAhead().DisableReadAhead()
+				defer d.MadvSequential().DisableReadAhead()
 
 				for {
 					g.Reset(0)
@@ -256,8 +258,8 @@ var (
 		Enums.Spans,
 		"borspans",
 		snaptype.Versions{
-			Current:      1, //2,
-			MinSupported: 1,
+			Current:      version.V1_0, //2,
+			MinSupported: version.V1_0,
 		},
 		snaptype.RangeExtractorFunc(
 			func(ctx context.Context, blockFrom, blockTo uint64, firstKeyGetter snaptype.FirstKeyGetter, db kv.RoDB, _ *chain.Config, collect func([]byte) error, workers int, lvl log.Lvl, logger log.Logger, hashResolver snaptype.BlockHashResolver) (uint64, error) {
@@ -285,8 +287,8 @@ var (
 		Enums.Checkpoints,
 		"borcheckpoints",
 		snaptype.Versions{
-			Current:      1, //2,
-			MinSupported: 1,
+			Current:      version.V1_0, //2,
+			MinSupported: version.V1_0,
 		},
 		snaptype.RangeExtractorFunc(
 			func(ctx context.Context, blockFrom, blockTo uint64, firstKeyGetter snaptype.FirstKeyGetter, db kv.RoDB, _ *chain.Config, collect func([]byte) error, workers int, lvl log.Lvl, logger log.Logger, hashResolver snaptype.BlockHashResolver) (uint64, error) {
@@ -351,8 +353,8 @@ var (
 		Enums.Milestones,
 		"bormilestones",
 		snaptype.Versions{
-			Current:      1, //2,
-			MinSupported: 1,
+			Current:      version.V1_0, //2,
+			MinSupported: version.V1_0,
 		},
 		snaptype.RangeExtractorFunc(
 			func(ctx context.Context, blockFrom, blockTo uint64, firstKeyGetter snaptype.FirstKeyGetter, db kv.RoDB, _ *chain.Config, collect func([]byte) error, workers int, lvl log.Lvl, logger log.Logger, hashResolver snaptype.BlockHashResolver) (uint64, error) {
@@ -444,7 +446,7 @@ func extractValueRange(ctx context.Context, table string, valueFrom, valueTo uin
 	logEvery := time.NewTicker(20 * time.Second)
 	defer logEvery.Stop()
 
-	if err := kv.BigChunks(db, table, hexutility.EncodeTs(valueFrom), func(tx kv.Tx, idBytes, valueBytes []byte) (bool, error) {
+	if err := kv.BigChunks(db, table, hexutil.EncodeTs(valueFrom), func(tx kv.Tx, idBytes, valueBytes []byte) (bool, error) {
 		id := binary.BigEndian.Uint64(idBytes)
 		if id >= valueTo {
 			return false, nil
@@ -492,9 +494,10 @@ func buildValueIndex(ctx context.Context, sn snaptype.FileInfo, salt uint32, d *
 	if err != nil {
 		return err
 	}
-	rs.LogLvl(log.LvlDebug)
+	defer rs.Close()
+	rs.LogLvl(log.LvlInfo)
 
-	defer d.EnableReadAhead().DisableReadAhead()
+	defer d.MadvSequential().DisableReadAhead()
 
 	for {
 		g := d.MakeGetter()

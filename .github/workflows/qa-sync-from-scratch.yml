@@ -1,6 +1,9 @@
 name: QA - Sync from scratch
 
 on:
+#  push:
+#    branches:
+#      - 'release/3.*'
 #  schedule:
 #    - cron: '0 0 * * 0'  # Run on Sunday at 00:00 AM UTC
   workflow_dispatch:     # Run manually
@@ -8,6 +11,7 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+
 
 jobs:
   sync-from-scratch-test:
@@ -24,7 +28,6 @@ jobs:
       TOTAL_TIME_SECONDS: 43200 # 12 hours
       CHAIN: ${{ matrix.chain }}
       ERIGON_ASSERT: true
-
 
     steps:
     - name: Check out repository
@@ -69,7 +72,7 @@ jobs:
         fi
 
     - name: Upload Downloader Torrent Client Status
-      if: steps.test_step.outputs.test_executed == 'true'
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: torrent-client-status-${{ env.CHAIN }}

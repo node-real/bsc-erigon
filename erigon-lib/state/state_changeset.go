@@ -38,7 +38,6 @@ func (s *StateChangeSet) Copy() *StateChangeSet {
 	}
 	return &res
 }
-
 func SerializeDiffSet(diffSet []kv.DomainEntryDiff, out []byte) []byte {
 	ret := out
 	// Write a small dictionary for prevStepBytes

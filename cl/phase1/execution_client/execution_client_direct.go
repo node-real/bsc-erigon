@@ -24,16 +24,16 @@ import (
 	"math/big"
 	"time"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/common/hexutility"
+	common "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	execution "github.com/erigontech/erigon-lib/gointerfaces/executionproto"
 	"github.com/erigontech/erigon-lib/gointerfaces/typesproto"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/cl/clparams"
 	"github.com/erigontech/erigon/cl/cltypes"
 	"github.com/erigontech/erigon/cl/monitor"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/turbo/engineapi/engine_types"
-	"github.com/erigontech/erigon/turbo/execution/eth1/eth1_chain_reader"
+	"github.com/erigontech/erigon/execution/engineapi/engine_types"
+	"github.com/erigontech/erigon/execution/eth1/eth1_chain_reader"
 )
 
 const reorgTooDeepDepth = 3
@@ -51,15 +51,15 @@ func NewExecutionClientDirect(chainRW eth1_chain_reader.ChainReaderWriterEth1) (
 func (cc *ExecutionClientDirect) NewPayload(
 	ctx context.Context,
 	payload *cltypes.Eth1Block,
-	beaconParentRoot *libcommon.Hash,
-	versionedHashes []libcommon.Hash,
-	executionRequestsList []hexutility.Bytes,
+	beaconParentRoot *common.Hash,
+	versionedHashes []common.Hash,
+	executionRequestsList []hexutil.Bytes,
 ) (PayloadStatus, error) {
 	if payload == nil {
 		return PayloadStatusValidated, nil
 	}
 
-	var requestsHash libcommon.Hash
+	var requestsHash common.Hash
 	if payload.Version() >= clparams.ElectraVersion {
 		requestsHash = cltypes.ComputeExecutionRequestHash(executionRequestsList)
 	}
@@ -79,6 +79,9 @@ func (cc *ExecutionClientDirect) NewPayload(
 
 	startInsertBlockAndWait := time.Now()
 	if err := cc.chainRW.InsertBlockAndWait(ctx, types.NewBlockFromStorage(payload.BlockHash, header, txs, nil, body.Withdrawals)); err != nil {
+		if errors.Is(err, types.ErrBlockExceedsMaxRlpSize) {
+			return PayloadStatusInvalidated, err
+		}
 		return PayloadStatusNone, err
 	}
 	monitor.ObserveExecutionClientInsertingBlocks(startInsertBlockAndWait)
@@ -113,7 +116,7 @@ func (cc *ExecutionClientDirect) NewPayload(
 	return PayloadStatusNone, errors.New("unexpected status")
 }
 
-func (cc *ExecutionClientDirect) ForkChoiceUpdate(ctx context.Context, finalized, safe, head libcommon.Hash, attr *engine_types.PayloadAttributes) ([]byte, error) {
+func (cc *ExecutionClientDirect) ForkChoiceUpdate(ctx context.Context, finalized, safe, head common.Hash, attr *engine_types.PayloadAttributes) ([]byte, error) {
 	status, _, _, err := cc.chainRW.UpdateForkChoice(ctx, head, safe, finalized)
 	if err != nil {
 		return nil, fmt.Errorf("execution Client RPC failed to retrieve ForkChoiceUpdate response, err: %w", err)
@@ -155,7 +158,7 @@ func (cc *ExecutionClientDirect) CurrentHeader(ctx context.Context) (*types.Head
 	return cc.chainRW.CurrentHeader(ctx), nil
 }
 
-func (cc *ExecutionClientDirect) IsCanonicalHash(ctx context.Context, hash libcommon.Hash) (bool, error) {
+func (cc *ExecutionClientDirect) IsCanonicalHash(ctx context.Context, hash common.Hash) (bool, error) {
 	return cc.chainRW.IsCanonicalHash(ctx, hash)
 }
 
@@ -169,7 +172,7 @@ func (cc *ExecutionClientDirect) GetBodiesByRange(ctx context.Context, start, co
 }
 
 // GetBodiesByHashes gets block bodies with given hashes
-func (cc *ExecutionClientDirect) GetBodiesByHashes(ctx context.Context, hashes []libcommon.Hash) ([]*types.RawBody, error) {
+func (cc *ExecutionClientDirect) GetBodiesByHashes(ctx context.Context, hashes []common.Hash) ([]*types.RawBody, error) {
 	return cc.chainRW.GetBodiesByHashes(ctx, hashes)
 }
 
@@ -178,7 +181,7 @@ func (cc *ExecutionClientDirect) FrozenBlocks(ctx context.Context) uint64 {
 	return frozenBlocks
 }
 
-func (cc *ExecutionClientDirect) HasBlock(ctx context.Context, hash libcommon.Hash) (bool, error) {
+func (cc *ExecutionClientDirect) HasBlock(ctx context.Context, hash common.Hash) (bool, error) {
 	return cc.chainRW.HasBlock(ctx, hash)
 }
 

@@ -134,6 +134,7 @@ func BenchDebugTraceTransaction(erigonUrl, gethUrl string, needCompare bool, blo
 	fmt.Println("BenchDebugTraceTransaction: fromBlock:", blockFrom, ", blockTo:", blockTo, ", additionalParams:", additionalParams)
 
 	setRoutes(erigonUrl, gethUrl)
+
 	if additionalParams == "" {
 		additionalParams = "\"disableStorage\": true,\"disableMemory\": true,\"disableStack\": true"
 	}
