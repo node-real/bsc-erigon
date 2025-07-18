@@ -391,7 +391,7 @@ func (sc *BlobTxSidecar) ValidateBlobTxSidecar(blobVersionedHashes []common.Hash
 	kzgCtx := libkzg.Ctx()
 	err := kzgCtx.VerifyBlobKZGProofBatch(toBlobs(sc.Blobs), toComms(sc.Commitments), toProofs(sc.Proofs))
 	if err != nil {
-		return fmt.Errorf("error during proof verification: %v", err)
+		return fmt.Errorf("error during proof verification: %w", err)
 	}
 	for i, h := range blobVersionedHashes {
 		if computed := sc.Commitments[i].ComputeVersionedHash(); computed != h {

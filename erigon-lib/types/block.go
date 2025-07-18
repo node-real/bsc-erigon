@@ -1686,8 +1686,7 @@ type DiffAccountsInBlock struct {
 }
 
 var (
-	extraVanity = 32 // Fixed number of extra-data prefix bytes reserved for signer vanity
-	extraSeal   = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
+	extraSeal = 65 // Fixed number of extra-data suffix bytes reserved for signer seal
 )
 
 // SealHash returns the hash of a block prior to it being sealed.
