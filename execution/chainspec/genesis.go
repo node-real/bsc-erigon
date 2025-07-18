@@ -188,7 +188,7 @@ func RialtoGenesisBlock() *types.Genesis {
 		Difficulty: big.NewInt(0x1),
 		Mixhash:    common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 		Coinbase:   common.HexToAddress("0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE"),
-		Alloc:      ReadPrealloc(allocs, "allocs/bsc.json"),
+		Alloc:      ReadPrealloc(allocs, "allocs/rialto.json"),
 		Number:     0x00,
 		GasUsed:    0x00,
 	}
