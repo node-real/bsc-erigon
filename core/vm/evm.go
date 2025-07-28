@@ -41,55 +41,7 @@ import (
 var emptyHash = common.Hash{}
 
 func (evm *EVM) precompile(addr common.Address) (PrecompiledContract, bool) {
-	var precompiles map[common.Address]PrecompiledContract
-	switch {
-	case evm.chainRules.IsOsaka:
-		precompiles = PrecompiledContractsOsaka
-	case evm.chainRules.IsBhilai:
-		precompiles = PrecompiledContractsBhilai
-	case evm.chainRules.IsPrague:
-		if evm.chainRules.IsParlia {
-			precompiles = PrecompiledContractsPragueForBSC
-		} else {
-			precompiles = PrecompiledContractsPrague
-		}
-	case evm.chainRules.IsNapoli:
-		precompiles = PrecompiledContractsNapoli
-	case evm.chainRules.IsHaber:
-		precompiles = PrecompiledContractsHaber
-	case evm.chainRules.IsCancun:
-		if evm.chainRules.IsParlia {
-			precompiles = PrecompiledContractsCancunForBsc
-		} else {
-			precompiles = PrecompiledContractsCancun
-		}
-	case evm.chainRules.IsFeynman:
-		precompiles = PrecompiledContractsFeynman
-	case evm.chainRules.IsHertz:
-		precompiles = PrecompiledContractsHertz
-	case evm.chainRules.IsPlato:
-		precompiles = PrecompiledContractsPlato
-	case evm.chainRules.IsLuban:
-		precompiles = PrecompiledContractsLuban
-	case evm.chainRules.IsPlanck:
-		precompiles = PrecompiledContractsPlanck
-	case evm.chainRules.IsMoran:
-		precompiles = PrecompiledContractsIsMoran
-	case evm.chainRules.IsNano:
-		precompiles = PrecompiledContractsNano
-	case evm.chainRules.IsBerlin:
-		precompiles = PrecompiledContractsBerlin
-	case evm.chainRules.IsIstanbul:
-		if evm.chainRules.IsParlia {
-			precompiles = PrecompiledContractsIstanbulForBSC
-		} else {
-			precompiles = PrecompiledContractsIstanbul
-		}
-	case evm.chainRules.IsByzantium:
-		precompiles = PrecompiledContractsByzantium
-	default:
-		precompiles = PrecompiledContractsHomestead
-	}
+	precompiles := Precompiles(evm.chainRules)
 	p, ok := precompiles[addr]
 	return p, ok
 }
@@ -207,6 +159,10 @@ func (evm *EVM) Interpreter() Interpreter {
 }
 
 func (evm *EVM) call(typ OpCode, caller ContractRef, addr common.Address, input []byte, gas uint64, value *uint256.Int, bailout bool) (ret []byte, leftOverGas uint64, err error) {
+	if evm.abort.Load() {
+		return ret, leftOverGas, nil
+	}
+
 	depth := evm.interpreter.Depth()
 
 	p, isPrecompile := evm.precompile(addr)
@@ -498,9 +454,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gasRemainin
 			}
 		}
 	}
-	if err == nil && evm.chainRules.IsOsaka { // EIP-7907
-		evm.intraBlockState.AddCodeAddressToAccessList(address)
-	}
 
 	// When an error was returned by the EVM or when setting the creation code
 	// above, we revert to the snapshot and consume any gas remaining. Additionally,
@@ -518,9 +471,6 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gasRemainin
 func (evm *EVM) maxCodeSize() int {
 	if evm.chainConfig.Bor != nil && evm.chainConfig.Bor.IsAhmedabad(evm.Context.BlockNumber) {
 		return params.MaxCodeSizePostAhmedabad
-	}
-	if evm.chainRules.IsOsaka {
-		return params.MaxCodeSizeEip7907
 	}
 	return params.MaxCodeSize
 }

@@ -717,6 +717,20 @@ func (c *Config) IsOnMaxwell(currentBlockNumber *big.Int, lastBlockTime uint64, 
 	return !c.IsMaxwell(lastBlockNumber.Uint64(), lastBlockTime) && c.IsMaxwell(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
+func (c *Config) SystemContracts(time uint64) map[string]common.Address {
+	contracts := map[string]common.Address{}
+	if c.IsCancun(time) {
+		contracts["BEACON_ROOTS_ADDRESS"] = params.BeaconRootsAddress
+	}
+	if c.IsPrague(time) {
+		contracts["CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS"] = params.ConsolidationRequestAddress
+		contracts["DEPOSIT_CONTRACT_ADDRESS"] = c.DepositContract
+		contracts["HISTORY_STORAGE_ADDRESS"] = params.HistoryStorageAddress
+		contracts["WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS"] = params.WithdrawalRequestAddress
+	}
+	return contracts
+}
+
 // CheckCompatible checks whether scheduled fork transitions have been imported
 // with a mismatching chain configuration.
 func (c *Config) CheckCompatible(newcfg *Config, height uint64) *ConfigCompatError {
