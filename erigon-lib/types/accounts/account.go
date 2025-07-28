@@ -24,8 +24,8 @@ import (
 
 	"github.com/holiman/uint256"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/crypto"
+	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/empty"
 	"github.com/erigontech/erigon-lib/rlp"
 )
 
@@ -36,8 +36,8 @@ type Account struct {
 	Initialised     bool
 	Nonce           uint64
 	Balance         uint256.Int
-	Root            libcommon.Hash // merkle root of the storage trie
-	CodeHash        libcommon.Hash // hash of the bytecode
+	Root            common.Hash // merkle root of the storage trie
+	CodeHash        common.Hash // hash of the bytecode
 	Incarnation     uint64
 	PrevIncarnation uint64
 }
@@ -51,14 +51,11 @@ const (
 	MimetypeTextPlain         = "text/plain"
 )
 
-var emptyCodeHash = crypto.Keccak256Hash(nil)
-var emptyRoot = libcommon.HexToHash("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
-
 // NewAccount creates a new account w/o code nor storage.
 func NewAccount() Account {
 	return Account{
-		Root:     emptyRoot,
-		CodeHash: emptyCodeHash,
+		Root:     empty.RootHash,
+		CodeHash: empty.CodeHash,
 	}
 }
 
@@ -70,7 +67,7 @@ func (a *Account) EncodingLengthForStorage() uint {
 	}
 
 	if a.Nonce > 0 {
-		structLength += uint(libcommon.BitLenToByteLen(bits.Len64(a.Nonce))) + 1
+		structLength += uint(common.BitLenToByteLen(bits.Len64(a.Nonce))) + 1
 	}
 
 	if !a.IsEmptyCodeHash() {
@@ -78,7 +75,7 @@ func (a *Account) EncodingLengthForStorage() uint {
 	}
 
 	if a.Incarnation > 0 {
-		structLength += uint(libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))) + 1
+		structLength += uint(common.BitLenToByteLen(bits.Len64(a.Incarnation))) + 1
 	}
 
 	return structLength
@@ -104,7 +101,7 @@ func (a *Account) EncodeForStorage(buffer []byte) {
 	var pos = 1
 	if a.Nonce > 0 {
 		fieldSet = 1
-		nonceBytes := libcommon.BitLenToByteLen(bits.Len64(a.Nonce))
+		nonceBytes := common.BitLenToByteLen(bits.Len64(a.Nonce))
 		buffer[pos] = byte(nonceBytes)
 		var nonce = a.Nonce
 		for i := nonceBytes; i > 0; i-- {
@@ -126,7 +123,7 @@ func (a *Account) EncodeForStorage(buffer []byte) {
 
 	if a.Incarnation > 0 {
 		fieldSet |= 4
-		incarnationBytes := libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))
+		incarnationBytes := common.BitLenToByteLen(bits.Len64(a.Incarnation))
 		buffer[pos] = byte(incarnationBytes)
 		var incarnation = a.Incarnation
 		for i := incarnationBytes; i > 0; i-- {
@@ -220,7 +217,7 @@ func (a *Account) EncodeForHashing(buffer []byte) {
 		buffer[0] = byte(192 + structLength)
 		pos = 1
 	} else {
-		lengthBytes := libcommon.BitLenToByteLen(bits.Len(structLength))
+		lengthBytes := common.BitLenToByteLen(bits.Len(structLength))
 		buffer[0] = byte(247 + lengthBytes)
 
 		for i := lengthBytes; i > 0; i-- {
@@ -293,8 +290,8 @@ func (a *Account) DecodeForHashing(enc []byte) error {
 	a.Initialised = true
 	a.Nonce = 0
 	a.Balance.Clear()
-	a.Root = emptyRoot
-	a.CodeHash = emptyCodeHash
+	a.Root = empty.RootHash
+	a.CodeHash = empty.CodeHash
 	if length == 0 && structure {
 		return nil
 	}
@@ -447,8 +444,8 @@ func (a *Account) Reset() {
 	a.Nonce = 0
 	a.Incarnation = 0
 	a.Balance.Clear()
-	copy(a.Root[:], emptyRoot[:])
-	copy(a.CodeHash[:], emptyCodeHash[:])
+	a.Root = empty.RootHash
+	a.CodeHash = empty.CodeHash
 }
 
 func (a *Account) DecodeForStorage(enc []byte) error {
@@ -470,7 +467,7 @@ func (a *Account) DecodeForStorage(enc []byte) error {
 				enc[pos+1:], decodeLength)
 		}
 
-		a.Nonce = libcommon.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
+		a.Nonce = common.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
 		pos += decodeLength + 1
 	}
 
@@ -496,7 +493,7 @@ func (a *Account) DecodeForStorage(enc []byte) error {
 				enc[pos+1:], decodeLength)
 		}
 
-		a.Incarnation = libcommon.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
+		a.Incarnation = common.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
 		pos += decodeLength + 1
 	}
 
@@ -563,7 +560,7 @@ func DecodeIncarnationFromStorage(enc []byte) (uint64, error) {
 				enc[pos+1:], decodeLength)
 		}
 
-		incarnation := libcommon.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
+		incarnation := common.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
 		return incarnation, nil
 	}
 
@@ -591,12 +588,12 @@ func (a *Account) IsEmptyCodeHash() bool {
 	return IsEmptyCodeHash(a.CodeHash)
 }
 
-func IsEmptyCodeHash(codeHash libcommon.Hash) bool {
-	return codeHash == emptyCodeHash || codeHash == (libcommon.Hash{})
+func IsEmptyCodeHash(codeHash common.Hash) bool {
+	return codeHash == empty.CodeHash || codeHash == (common.Hash{})
 }
 
 func (a *Account) IsEmptyRoot() bool {
-	return a.Root == emptyRoot || a.Root == libcommon.Hash{}
+	return a.Root == empty.RootHash || a.Root == common.Hash{}
 }
 
 func (a *Account) GetIncarnation() uint64 {
@@ -634,7 +631,7 @@ func DeserialiseV3(a *Account, enc []byte) error {
 	nonceBytes := int(enc[pos])
 	pos++
 	if nonceBytes > 0 {
-		a.Nonce = libcommon.BytesToUint64(enc[pos : pos+nonceBytes])
+		a.Nonce = common.BytesToUint64(enc[pos : pos+nonceBytes])
 		pos += nonceBytes
 	}
 	balanceBytes := int(enc[pos])
@@ -655,7 +652,7 @@ func DeserialiseV3(a *Account, enc []byte) error {
 	incBytes := int(enc[pos])
 	pos++
 	if incBytes > 0 {
-		a.Incarnation = libcommon.BytesToUint64(enc[pos : pos+incBytes])
+		a.Incarnation = common.BytesToUint64(enc[pos : pos+incBytes])
 	}
 	return nil
 }
@@ -664,7 +661,7 @@ func SerialiseV3(a *Account) []byte {
 	var l int
 	l++
 	if a.Nonce > 0 {
-		l += libcommon.BitLenToByteLen(bits.Len64(a.Nonce))
+		l += common.BitLenToByteLen(bits.Len64(a.Nonce))
 	}
 	l++
 	if !a.Balance.IsZero() {
@@ -676,7 +673,7 @@ func SerialiseV3(a *Account) []byte {
 	}
 	l++
 	if a.Incarnation > 0 {
-		l += libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))
+		l += common.BitLenToByteLen(bits.Len64(a.Incarnation))
 	}
 	value := make([]byte, l)
 	pos := 0
@@ -684,7 +681,7 @@ func SerialiseV3(a *Account) []byte {
 		value[pos] = 0
 		pos++
 	} else {
-		nonceBytes := libcommon.BitLenToByteLen(bits.Len64(a.Nonce))
+		nonceBytes := common.BitLenToByteLen(bits.Len64(a.Nonce))
 		value[pos] = byte(nonceBytes)
 		var nonce = a.Nonce
 		for i := nonceBytes; i > 0; i-- {
@@ -715,7 +712,7 @@ func SerialiseV3(a *Account) []byte {
 	if a.Incarnation == 0 {
 		value[pos] = 0
 	} else {
-		incBytes := libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))
+		incBytes := common.BitLenToByteLen(bits.Len64(a.Incarnation))
 		value[pos] = byte(incBytes)
 		var inc = a.Incarnation
 		for i := incBytes; i > 0; i-- {
@@ -729,7 +726,7 @@ func SerialiseV3(a *Account) []byte {
 func SerialiseV3Len(a *Account) (l int) {
 	l++
 	if a.Nonce > 0 {
-		l += libcommon.BitLenToByteLen(bits.Len64(a.Nonce))
+		l += common.BitLenToByteLen(bits.Len64(a.Nonce))
 	}
 	l++
 	if !a.Balance.IsZero() {
@@ -741,7 +738,7 @@ func SerialiseV3Len(a *Account) (l int) {
 	}
 	l++
 	if a.Incarnation > 0 {
-		l += libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))
+		l += common.BitLenToByteLen(bits.Len64(a.Incarnation))
 	}
 	return l
 }
@@ -752,7 +749,7 @@ func SerialiseV3To(a *Account, value []byte) {
 		value[pos] = 0
 		pos++
 	} else {
-		nonceBytes := libcommon.BitLenToByteLen(bits.Len64(a.Nonce))
+		nonceBytes := common.BitLenToByteLen(bits.Len64(a.Nonce))
 		value[pos] = byte(nonceBytes)
 		var nonce = a.Nonce
 		for i := nonceBytes; i > 0; i-- {
@@ -783,7 +780,7 @@ func SerialiseV3To(a *Account, value []byte) {
 	if a.Incarnation == 0 {
 		value[pos] = 0
 	} else {
-		incBytes := libcommon.BitLenToByteLen(bits.Len64(a.Incarnation))
+		incBytes := common.BitLenToByteLen(bits.Len64(a.Incarnation))
 		value[pos] = byte(incBytes)
 		var inc = a.Incarnation
 		for i := incBytes; i > 0; i-- {
@@ -811,7 +808,7 @@ func DecodeSender(enc []byte) (nonce uint64, balance uint256.Int, err error) {
 				enc[pos+1:], decodeLength)
 		}
 
-		nonce = libcommon.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
+		nonce = common.BytesToUint64(enc[pos+1 : pos+decodeLength+1])
 		pos += decodeLength + 1
 	}
 

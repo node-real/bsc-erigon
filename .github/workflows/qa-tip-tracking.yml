@@ -14,10 +14,10 @@ concurrency:
 
 jobs:
   mainnet-tip-tracking-test:
-    runs-on: [self-hosted, qa, Erigon3]
+    runs-on: [self-hosted, qa, Ethereum, tip-tracking]
     timeout-minutes: 600
     env:
-      ERIGON_REFERENCE_DATA_DIR: /opt/erigon-versions/reference-version-3/datadir
+      ERIGON_REFERENCE_DATA_DIR: /opt/erigon-versions/reference-version/datadir
       ERIGON_TESTBED_AREA: /opt/erigon-testbed
       ERIGON_QA_PATH: /home/qarunner/erigon-qa
       TRACKING_TIME_SECONDS: 14400 # 4 hours
@@ -80,7 +80,7 @@ jobs:
         fi
 
     - name: Upload Downloader Torrent Client Status
-      if: steps.test_step.outputs.test_executed == 'true'
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         path: torrent-client-status.txt

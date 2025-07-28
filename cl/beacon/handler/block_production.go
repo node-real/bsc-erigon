@@ -33,15 +33,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Giulio2002/bls"
 	"github.com/go-chi/chi/v5"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/bls"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/common/length"
 	sentinel "github.com/erigontech/erigon-lib/gointerfaces/sentinelproto"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/cl/abstract"
 	"github.com/erigontech/erigon/cl/beacon/beaconhttp"
 	"github.com/erigontech/erigon/cl/beacon/builder"
@@ -49,6 +50,8 @@ import (
 	"github.com/erigontech/erigon/cl/clparams"
 	"github.com/erigontech/erigon/cl/cltypes"
 	"github.com/erigontech/erigon/cl/cltypes/solid"
+	"github.com/erigontech/erigon/cl/das"
+	peerdasutils "github.com/erigontech/erigon/cl/das/utils"
 	"github.com/erigontech/erigon/cl/gossip"
 	"github.com/erigontech/erigon/cl/persistence/beacon_indicies"
 	"github.com/erigontech/erigon/cl/phase1/core/state"
@@ -57,8 +60,7 @@ import (
 	"github.com/erigontech/erigon/cl/transition/machine"
 	"github.com/erigontech/erigon/cl/utils"
 	"github.com/erigontech/erigon/cl/validator/attestation_producer"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/turbo/engineapi/engine_types"
+	"github.com/erigontech/erigon/execution/engineapi/engine_types"
 )
 
 type BlockPublishingValidation string
@@ -192,7 +194,7 @@ func (a *ApiHandler) GetEthV3ValidatorBlock(
 	ctx := r.Context()
 	// parse request data
 	randaoRevealString := r.URL.Query().Get("randao_reveal")
-	var randaoReveal libcommon.Bytes96
+	var randaoReveal common.Bytes96
 	if err := randaoReveal.UnmarshalText([]byte(randaoRevealString)); err != nil {
 		return nil, beaconhttp.NewEndpointError(
 			http.StatusBadRequest,
@@ -200,11 +202,11 @@ func (a *ApiHandler) GetEthV3ValidatorBlock(
 		)
 	}
 	if r.URL.Query().Has("skip_randao_verification") {
-		randaoReveal = libcommon.Bytes96{0xc0} // infinity bls signature
+		randaoReveal = common.Bytes96{0xc0} // infinity bls signature
 	}
-	graffiti := libcommon.HexToHash(r.URL.Query().Get("graffiti"))
+	graffiti := common.HexToHash(r.URL.Query().Get("graffiti"))
 	if !r.URL.Query().Has("graffiti") {
-		graffiti = libcommon.HexToHash(hex.EncodeToString([]byte(defaultGraffitiString)))
+		graffiti = common.HexToHash(hex.EncodeToString([]byte(defaultGraffitiString)))
 	}
 
 	tx, err := a.indiciesDB.BeginRo(ctx)
@@ -237,7 +239,7 @@ func (a *ApiHandler) GetEthV3ValidatorBlock(
 	}
 
 	baseBlockRoot := a.syncedData.HeadRoot()
-	if baseBlockRoot == (libcommon.Hash{}) {
+	if baseBlockRoot == (common.Hash{}) {
 		return nil, beaconhttp.NewEndpointError(
 			http.StatusServiceUnavailable,
 			errors.New("node is syncing"),
@@ -325,7 +327,6 @@ func (a *ApiHandler) GetEthV3ValidatorBlock(
 		block.GetExecutionValue().Uint64(),
 		consensusValue,
 	)
-
 	var resp *beaconhttp.BeaconResponse
 	if block.IsBlinded() {
 		resp = newBeaconResponse(block.ToBlinded())
@@ -343,8 +344,8 @@ func (a *ApiHandler) produceBlock(
 	baseBlock *cltypes.BeaconBlock,
 	baseState *state.CachingBeaconState,
 	targetSlot uint64,
-	randaoReveal libcommon.Bytes96,
-	graffiti libcommon.Hash,
+	randaoReveal common.Bytes96,
+	graffiti common.Hash,
 ) (*cltypes.BlindOrExecutionBeaconBlock, error) {
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -354,7 +355,7 @@ func (a *ApiHandler) produceBlock(
 		localExecValue uint64
 		localErr       error
 		blobs          []*cltypes.Blob
-		kzgProofs      []libcommon.Bytes48
+		kzgProofs      []common.Bytes48
 	)
 	go func() {
 		start := time.Now()
@@ -371,13 +372,18 @@ func (a *ApiHandler) produceBlock(
 					log.Warn("Nil commitment", "slot", targetSlot, "index", i)
 					continue
 				}
-				blobBundle, ok := a.blobBundles.Get(libcommon.Bytes48(*c))
+				blobBundle, ok := a.blobBundles.Get(common.Bytes48(*c))
 				if !ok {
 					log.Warn("Blob not found", "slot", targetSlot, "commitment", c)
 					continue
 				}
+
+				if len(blobBundle.KzgProofs) == 0 {
+					log.Warn("Blob bundle has no KZG proofs", "slot", targetSlot, "commitment", c)
+					continue
+				}
 				blobs = append(blobs, blobBundle.Blob)
-				kzgProofs = append(kzgProofs, blobBundle.KzgProof)
+				kzgProofs = append(kzgProofs, blobBundle.KzgProofs...)
 			}
 		}
 	}()
@@ -546,8 +552,8 @@ func (a *ApiHandler) produceBeaconBody(
 	baseBlock *cltypes.BeaconBlock,
 	baseState *state.CachingBeaconState,
 	targetSlot uint64,
-	randaoReveal libcommon.Bytes96,
-	graffiti libcommon.Hash,
+	randaoReveal common.Bytes96,
+	graffiti common.Hash,
 ) (*cltypes.BeaconBody, uint64, error) {
 	if targetSlot <= baseBlock.Slot {
 		return nil, 0, fmt.Errorf(
@@ -570,11 +576,11 @@ func (a *ApiHandler) produceBeaconBody(
 	latestExecutionPayload := baseState.LatestExecutionPayloadHeader()
 	head := latestExecutionPayload.BlockHash
 	finalizedHash := a.forkchoiceStore.GetEth1Hash(baseState.FinalizedCheckpoint().Root)
-	if finalizedHash == (libcommon.Hash{}) {
+	if finalizedHash == (common.Hash{}) {
 		finalizedHash = head // probably fuck up fcu for EL but not a big deal.
 	}
 	safeHash := a.forkchoiceStore.GetEth1Hash(baseState.CurrentJustifiedCheckpoint().Root)
-	if safeHash == (libcommon.Hash{}) {
+	if safeHash == (common.Hash{}) {
 		safeHash = head
 	}
 	proposerIndex, err := baseState.GetBeaconProposerIndexForSlot(targetSlot)
@@ -627,7 +633,7 @@ func (a *ApiHandler) produceBeaconBody(
 				PrevRandao:            random,
 				SuggestedFeeRecipient: feeRecipient,
 				Withdrawals:           withdrawals,
-				ParentBeaconBlockRoot: (*libcommon.Hash)(&blockRoot),
+				ParentBeaconBlockRoot: (*common.Hash)(&blockRoot),
 			},
 		)
 		if err != nil {
@@ -659,17 +665,26 @@ func (a *ApiHandler) produceBeaconBody(
 					executionValue = blockValue.Uint64()
 				}
 
-				if len(bundles.Blobs) != len(bundles.Proofs) ||
-					len(bundles.Commitments) != len(bundles.Proofs) {
-					log.Error("BlockProduction: Invalid bundle")
-					return
+				if stateVersion.Before(clparams.FuluVersion) {
+					if len(bundles.Blobs) != len(bundles.Proofs) ||
+						len(bundles.Commitments) != len(bundles.Proofs) {
+						log.Error("BlockProduction: Invalid bundle")
+						return
+					}
+				} else {
+					if len(bundles.Blobs) != len(bundles.Commitments) ||
+						len(bundles.Proofs) != len(bundles.Blobs)*int(a.beaconChainCfg.NumberOfColumns) {
+						log.Error("BlockProduction: Invalid peerdas bundle")
+						return
+					}
 				}
+
 				for i := range bundles.Blobs {
 					if len(bundles.Commitments[i]) != length.Bytes48 {
 						log.Error("BlockProduction: Invalid commitment length")
 						return
 					}
-					if len(bundles.Proofs[i]) != length.Bytes48 {
+					if stateVersion.Before(clparams.FuluVersion) && len(bundles.Proofs[i]) != length.Bytes48 {
 						log.Error("BlockProduction: Invalid commitment length")
 						return
 					}
@@ -677,12 +692,28 @@ func (a *ApiHandler) produceBeaconBody(
 						log.Error("BlockProduction: Invalid blob length")
 						return
 					}
-					// add the bundle to recently produced blobs
-					a.blobBundles.Add(libcommon.Bytes48(bundles.Commitments[i]), BlobBundle{
-						Blob:       (*cltypes.Blob)(bundles.Blobs[i]),
-						KzgProof:   libcommon.Bytes48(bundles.Proofs[i]),
-						Commitment: libcommon.Bytes48(bundles.Commitments[i]),
-					})
+
+					// TODO: after the hard fork, remove this legacy code
+					if stateVersion.Before(clparams.FuluVersion) {
+						// add the bundle to recently produced blobs
+						a.blobBundles.Add(common.Bytes48(bundles.Commitments[i]), BlobBundle{
+							Blob:       (*cltypes.Blob)(bundles.Blobs[i]),
+							KzgProofs:  []common.Bytes48{common.Bytes48(bundles.Proofs[i])},
+							Commitment: common.Bytes48(bundles.Commitments[i]),
+						})
+					} else {
+						kzgProofs := make([]common.Bytes48, a.beaconChainCfg.NumberOfColumns)
+						for j := uint64(0); j < a.beaconChainCfg.NumberOfColumns; j++ {
+							kzgProofs[j] = common.Bytes48(bundles.Proofs[i*int(a.beaconChainCfg.NumberOfColumns)+int(j)])
+						}
+						// add the bundle to recently produced blobs
+						a.blobBundles.Add(common.Bytes48(bundles.Commitments[i]), BlobBundle{
+							Blob:       (*cltypes.Blob)(bundles.Blobs[i]),
+							KzgProofs:  kzgProofs,
+							Commitment: common.Bytes48(bundles.Commitments[i]),
+						})
+					}
+
 					// Assemble the KZG commitments list
 					var c cltypes.KZGCommitment
 					copy(c[:], bundles.Commitments[i])
@@ -1017,6 +1048,11 @@ func (a *ApiHandler) publishBlindedBlocks(w http.ResponseWriter, r *http.Request
 				if len(b.Commitments[i]) != length.Bytes48 {
 					return errors.New("commitment must be 48 bytes long")
 				}
+
+				// Finish KzGProofs and blob checks
+				if blockPayload.Version() < clparams.FuluVersion {
+
+				}
 				if len(b.Proofs[i]) != length.Bytes48 {
 					return errors.New("proof must be 48 bytes long")
 				}
@@ -1035,12 +1071,25 @@ func (a *ApiHandler) publishBlindedBlocks(w http.ResponseWriter, r *http.Request
 			return nil, beaconhttp.NewEndpointError(http.StatusBadRequest, errors.New("commitments length mismatch"))
 		}
 		for i := range blobsBundle.Commitments {
-			// add the bundle to recently produced blobs
-			a.blobBundles.Add(libcommon.Bytes48(blobsBundle.Commitments[i]), BlobBundle{
-				Blob:       (*cltypes.Blob)(blobsBundle.Blobs[i]),
-				KzgProof:   libcommon.Bytes48(blobsBundle.Proofs[i]),
-				Commitment: libcommon.Bytes48(blobsBundle.Commitments[i]),
-			})
+			if version < clparams.FuluVersion {
+				// add the bundle to recently produced blobs
+				a.blobBundles.Add(common.Bytes48(blobsBundle.Commitments[i]), BlobBundle{
+					Blob:       (*cltypes.Blob)(blobsBundle.Blobs[i]),
+					KzgProofs:  []common.Bytes48{common.Bytes48(blobsBundle.Proofs[i])},
+					Commitment: common.Bytes48(blobsBundle.Commitments[i]),
+				})
+			} else {
+				kzgProofs := make([]common.Bytes48, a.beaconChainCfg.NumberOfColumns)
+				for j := uint64(0); j < a.beaconChainCfg.NumberOfColumns; j++ {
+					kzgProofs[j] = common.Bytes48(blobsBundle.Proofs[i*int(a.beaconChainCfg.NumberOfColumns)+int(j)])
+				}
+				// add the bundle to recently produced blobs
+				a.blobBundles.Add(common.Bytes48(blobsBundle.Commitments[i]), BlobBundle{
+					Blob:       (*cltypes.Blob)(blobsBundle.Blobs[i]),
+					KzgProofs:  kzgProofs,
+					Commitment: common.Bytes48(blobsBundle.Commitments[i]),
+				})
+			}
 		}
 	}
 
@@ -1119,17 +1168,18 @@ func (a *ApiHandler) broadcastBlock(ctx context.Context, blk *cltypes.SignedBeac
 	}
 	blobsSidecarsBytes := make([][]byte, 0, blk.Block.Body.BlobKzgCommitments.Len())
 	blobsSidecars := make([]*cltypes.BlobSidecar, 0, blk.Block.Body.BlobKzgCommitments.Len())
+	var columnsSidecars []*cltypes.DataColumnSidecar
 
 	header := blk.SignedBeaconBlockHeader()
 
-	if blk.Version() >= clparams.DenebVersion {
+	if blk.Version() >= clparams.DenebVersion && blk.Version() < clparams.FuluVersion {
 		for i := 0; i < blk.Block.Body.BlobKzgCommitments.Len(); i++ {
 			blobSidecar := &cltypes.BlobSidecar{}
 			commitment := blk.Block.Body.BlobKzgCommitments.Get(i)
 			if commitment == nil {
 				return fmt.Errorf("missing commitment %d", i)
 			}
-			bundle, has := a.blobBundles.Get(libcommon.Bytes48(*commitment))
+			bundle, has := a.blobBundles.Get(common.Bytes48(*commitment))
 			if !has {
 				return fmt.Errorf("missing blob bundle for commitment %x", commitment)
 			}
@@ -1145,7 +1195,7 @@ func (a *ApiHandler) broadcastBlock(ctx context.Context, blk *cltypes.SignedBeac
 			blobSidecar.Index = uint64(i)
 			blobSidecar.Blob = *bundle.Blob
 			blobSidecar.KzgCommitment = bundle.Commitment
-			blobSidecar.KzgProof = bundle.KzgProof
+			blobSidecar.KzgProof = bundle.KzgProofs[0]
 			blobSidecar.SignedBlockHeader = header
 			blobSidecarSSZ, err := blobSidecar.EncodeSSZ(nil)
 			if err != nil {
@@ -1155,18 +1205,68 @@ func (a *ApiHandler) broadcastBlock(ctx context.Context, blk *cltypes.SignedBeac
 			blobsSidecars = append(blobsSidecars, blobSidecar)
 		}
 	}
+
+	if blk.Version() >= clparams.FuluVersion && blk.Block.Body.BlobKzgCommitments.Len() > 0 {
+		kzgCommitmentsCopy := solid.NewStaticListSSZ[*cltypes.KZGCommitment](cltypes.MaxBlobsCommittmentsPerBlock, length.Bytes48)
+		for i := 0; i < blk.Block.Body.BlobKzgCommitments.Len(); i++ {
+			kzgCommitmentsCopy.Append(blk.Block.Body.BlobKzgCommitments.Get(i))
+		}
+
+		// Assemble inclusion proof
+		inclusionProofRaw, err := blk.Block.Body.KzgCommitmentsInclusionProof()
+		if err != nil {
+			return err
+		}
+		commitmentInclusionProof := solid.NewHashVector(cltypes.CommitmentBranchSize)
+		for i, h := range inclusionProofRaw {
+			commitmentInclusionProof.Set(i, h)
+		}
+
+		cellsAndProofsPerBlob := make([]peerdasutils.CellsAndKZGProofs, 0, kzgCommitmentsCopy.Len())
+		for i := 0; i < kzgCommitmentsCopy.Len(); i++ {
+			commitment := kzgCommitmentsCopy.Get(i)
+			bundle, has := a.blobBundles.Get(common.Bytes48(*commitment))
+			if !has {
+				return fmt.Errorf("missing blob bundle for commitment %x", commitment)
+			}
+			cells, err := das.ComputeCells(bundle.Blob)
+			if err != nil {
+				return err
+			}
+
+			cellsAndProof := peerdasutils.CellsAndKZGProofs{}
+			for i := 0; i < len(cells); i++ {
+				cellsAndProof.Blobs = append(cellsAndProof.Blobs, cells[i])
+			}
+
+			for j := 0; j < len(bundle.KzgProofs); j++ {
+				cellsAndProof.Proofs = append(cellsAndProof.Proofs, cltypes.KZGProof(bundle.KzgProofs[j]))
+			}
+			cellsAndProofsPerBlob = append(cellsAndProofsPerBlob, cellsAndProof)
+		}
+		columnsSidecars, err = peerdasutils.GetDataColumnSidecars(header, kzgCommitmentsCopy, commitmentInclusionProof, cellsAndProofsPerBlob)
+		if err != nil {
+			return fmt.Errorf("failed to get data column sidecars: %w", err)
+		}
+	}
+
 	go func() {
-		if err := a.storeBlockAndBlobs(context.Background(), blk, blobsSidecars); err != nil {
+		if err := a.storeBlockAndBlobs(context.Background(), blk, blobsSidecars, columnsSidecars); err != nil {
 			log.Error("BlockPublishing: Failed to store block and blobs", "err", err)
 		}
 	}()
+
+	lenBlobs := 0
+	if blk.Version() >= clparams.DenebVersion {
+		lenBlobs = blk.Block.Body.BlobKzgCommitments.Len()
+	}
 
 	log.Info(
 		"BlockPublishing: publishing block and blobs",
 		"slot",
 		blk.Block.Slot,
 		"blobs",
-		len(blobsSidecars),
+		lenBlobs,
 	)
 	// Broadcast the block and its blobs
 	if _, err := a.sentinel.PublishGossip(ctx, &sentinel.GossipData{
@@ -1175,14 +1275,35 @@ func (a *ApiHandler) broadcastBlock(ctx context.Context, blk *cltypes.SignedBeac
 	}); err != nil {
 		a.logger.Error("Failed to publish block", "err", err)
 	}
-	for idx, blob := range blobsSidecarsBytes {
-		idx64 := uint64(idx)
-		if _, err := a.sentinel.PublishGossip(ctx, &sentinel.GossipData{
-			Name:     gossip.TopicNamePrefixBlobSidecar,
-			Data:     blob,
-			SubnetId: &idx64,
-		}); err != nil {
-			a.logger.Error("Failed to publish blob sidecar", "err", err)
+
+	if blk.Version() < clparams.FuluVersion {
+		for idx, blob := range blobsSidecarsBytes {
+			idx64 := uint64(idx)
+			if _, err := a.sentinel.PublishGossip(ctx, &sentinel.GossipData{
+				Name:     gossip.TopicNamePrefixBlobSidecar,
+				Data:     blob,
+				SubnetId: &idx64,
+			}); err != nil {
+				a.logger.Error("Failed to publish blob sidecar", "err", err)
+			}
+		}
+	}
+
+	if blk.Version() >= clparams.FuluVersion && len(columnsSidecars) > 0 {
+		for _, column := range columnsSidecars {
+			columnSSZ, err := column.EncodeSSZ(nil)
+			if err != nil {
+				a.logger.Error("Failed to encode column sidecar", "err", err)
+				continue
+			}
+			subnet := das.ComputeSubnetForDataColumnSidecar(column.Index)
+			if _, err := a.sentinel.PublishGossip(ctx, &sentinel.GossipData{
+				Name:     gossip.TopicNamePrefixDataColumnSidecar,
+				Data:     columnSSZ,
+				SubnetId: &subnet,
+			}); err != nil {
+				a.logger.Error("Failed to publish data column sidecar", "err", err)
+			}
 		}
 	}
 	return nil
@@ -1192,14 +1313,20 @@ func (a *ApiHandler) storeBlockAndBlobs(
 	ctx context.Context,
 	block *cltypes.SignedBeaconBlock,
 	sidecars []*cltypes.BlobSidecar,
+	columnSidecars []*cltypes.DataColumnSidecar,
 ) error {
 	blockRoot, err := block.Block.HashSSZ()
 	if err != nil {
 		return err
 	}
-	if err := a.blobStoage.WriteBlobSidecars(ctx, blockRoot, sidecars); err != nil {
-		return err
+	// TODO: write column sidecars if needed
+
+	if block.Version() < clparams.FuluVersion {
+		if err := a.blobStoage.WriteBlobSidecars(ctx, blockRoot, sidecars); err != nil {
+			return err
+		}
 	}
+
 	if err := a.indiciesDB.Update(ctx, func(tx kv.RwTx) error {
 		if err := beacon_indicies.WriteHighestFinalized(tx, a.forkchoiceStore.FinalizedSlot()); err != nil {
 			return err
@@ -1243,8 +1370,8 @@ type attestationCandidate struct {
 	reward      uint64
 }
 
-func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) (map[libcommon.Hash][]*solid.Attestation, error) {
-	pool := map[libcommon.Hash]map[uint64][]*solid.Attestation{} // map root -> committee -> att candidates
+func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) (map[common.Hash][]*solid.Attestation, error) {
+	pool := map[common.Hash]map[uint64][]*solid.Attestation{} // map root -> committee -> att candidates
 	// step 1: Group attestations by data root and committee index for merging
 	// so after this step, pool[dataRoot][committeeIndex] will contain all the attestation candidates for that data root and committee index
 	for _, candidate := range a.operationsPool.AttestationsPool.Raw() {
@@ -1318,7 +1445,7 @@ func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) 
 	}
 
 	// step 2: sort each candidates list within (root, committee_bit) by number of set bits in aggregation_bits in descending order
-	maxAttsPerDataRoot := map[libcommon.Hash]int{}
+	maxAttsPerDataRoot := map[common.Hash]int{}
 	type candSort struct {
 		att   *solid.Attestation
 		count int
@@ -1387,7 +1514,7 @@ func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) 
 	//   signature: aggregate(sig2, sig4)
 	// }
 
-	mergeAttByCommittees := func(root libcommon.Hash, index int) *solid.Attestation {
+	mergeAttByCommittees := func(root common.Hash, index int) *solid.Attestation {
 		signatures := [][]byte{}
 		commiteeBits := solid.NewBitVector(int(a.beaconChainCfg.MaxCommitteesPerSlot))
 		bitSlice := solid.NewBitSlice()
@@ -1436,7 +1563,7 @@ func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) 
 		}
 		return att
 	}
-	mergedCandidates := make(map[libcommon.Hash][]*solid.Attestation)
+	mergedCandidates := make(map[common.Hash][]*solid.Attestation)
 	for root := range pool {
 		mergedCandidates[root] = []*solid.Attestation{}
 		maxAtts := min(maxAttsPerDataRoot[root], int(a.beaconChainCfg.MaxAttestations)) // limit the max attestations to the max attestations
@@ -1453,9 +1580,9 @@ func (a *ApiHandler) electraMergedAttestationCandidates(s abstract.BeaconState) 
 	return mergedCandidates, nil
 }
 
-func (a *ApiHandler) denebMergedAttestationCandidates(s abstract.BeaconState) (map[libcommon.Hash][]*solid.Attestation, error) {
+func (a *ApiHandler) denebMergedAttestationCandidates(s abstract.BeaconState) (map[common.Hash][]*solid.Attestation, error) {
 	// Group attestations by their data root
-	hashToAtts := make(map[libcommon.Hash][]*solid.Attestation)
+	hashToAtts := make(map[common.Hash][]*solid.Attestation)
 	for _, candidate := range a.operationsPool.AttestationsPool.Raw() {
 		if err := eth2.IsAttestationApplicable(s, candidate); err != nil {
 			continue // attestation not applicable skip
@@ -1513,7 +1640,7 @@ func (a *ApiHandler) denebMergedAttestationCandidates(s abstract.BeaconState) (m
 func (a *ApiHandler) findBestAttestationsForBlockProduction(
 	s abstract.BeaconState,
 ) *solid.ListSSZ[*solid.Attestation] {
-	var hashToAtts map[libcommon.Hash][]*solid.Attestation
+	var hashToAtts map[common.Hash][]*solid.Attestation
 	if s.Version() < clparams.ElectraVersion {
 		var err error
 		hashToAtts, err = a.denebMergedAttestationCandidates(s)

@@ -27,7 +27,7 @@ import (
 	"github.com/c2h5oh/datasize"
 	"golang.org/x/sync/semaphore"
 
-	common2 "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/kv"
 	mdbx2 "github.com/erigontech/erigon-lib/kv/mdbx"
@@ -83,7 +83,7 @@ func Kv2kv(ctx context.Context, src kv.RoDB, dst kv.RwDB, tables []string, readA
 		if b.IsDeprecated {
 			continue
 		}
-		if err := backupTable(ctx, src, srcTx, dst, name, readAheadThreads, logEvery, logger); err != nil {
+		if err := backupTable(ctx, srcTx, dst, name, logEvery, logger); err != nil {
 			return err
 		}
 	}
@@ -91,7 +91,7 @@ func Kv2kv(ctx context.Context, src kv.RoDB, dst kv.RwDB, tables []string, readA
 	return nil
 }
 
-func backupTable(ctx context.Context, src kv.RoDB, srcTx kv.Tx, dst kv.RwDB, table string, readAheadThreads int, logEvery *time.Ticker, logger log.Logger) error {
+func backupTable(ctx context.Context, srcTx kv.Tx, dst kv.RwDB, table string, logEvery *time.Ticker, logger log.Logger) error {
 	var total uint64
 	srcC, err := srcTx.Cursor(table)
 	if err != nil {
@@ -101,7 +101,7 @@ func backupTable(ctx context.Context, src kv.RoDB, srcTx kv.Tx, dst kv.RwDB, tab
 	total, _ = srcTx.Count(table)
 
 	if err := dst.Update(ctx, func(tx kv.RwTx) error {
-		return tx.ClearBucket(table)
+		return tx.ClearTable(table)
 	}); err != nil {
 		return err
 	}
@@ -143,8 +143,8 @@ func backupTable(ctx context.Context, src kv.RoDB, srcTx kv.Tx, dst kv.RwDB, tab
 				var m runtime.MemStats
 				dbg.ReadMemStats(&m)
 				logger.Info("Progress", "table", table, "progress",
-					fmt.Sprintf("%s/%s", common2.PrettyCounter(i), common2.PrettyCounter(total)), "key", hex.EncodeToString(k),
-					"alloc", common2.ByteCount(m.Alloc), "sys", common2.ByteCount(m.Sys))
+					fmt.Sprintf("%s/%s", common.PrettyCounter(i), common.PrettyCounter(total)), "key", hex.EncodeToString(k),
+					"alloc", common.ByteCount(m.Alloc), "sys", common.ByteCount(m.Sys))
 			default:
 			}
 		}
@@ -169,7 +169,7 @@ const ReadAheadThreads = 2048
 func ClearTables(ctx context.Context, tx kv.RwTx, tables ...string) error {
 	for _, tbl := range tables {
 		log.Info("Clear", "table", tbl)
-		if err := tx.ClearBucket(tbl); err != nil {
+		if err := tx.ClearTable(tbl); err != nil {
 			return err
 		}
 	}

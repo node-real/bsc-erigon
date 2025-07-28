@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -38,12 +39,12 @@ import (
 	"github.com/erigontech/erigon/cmd/devnet/devnet"
 	"github.com/erigontech/erigon/cmd/devnet/devnetutils"
 	"github.com/erigontech/erigon/cmd/devnet/networks"
-	"github.com/erigontech/erigon/cmd/devnet/requests"
 	"github.com/erigontech/erigon/cmd/devnet/scenarios"
 	"github.com/erigontech/erigon/cmd/devnet/services"
 	"github.com/erigontech/erigon/cmd/devnet/services/polygon"
 	"github.com/erigontech/erigon/cmd/utils/flags"
 	"github.com/erigontech/erigon/params"
+	"github.com/erigontech/erigon/rpc/requests"
 	erigon_app "github.com/erigontech/erigon/turbo/app"
 	"github.com/erigontech/erigon/turbo/debug"
 	"github.com/erigontech/erigon/turbo/logging"
@@ -165,6 +166,10 @@ func (ph PanicHandler) Log(r *log.Record) error {
 	fmt.Printf("Msg: %s\nStack: %s\n", r.Msg, dbg.Stack())
 	os.Exit(2)
 	return nil
+}
+
+func (ph PanicHandler) Enabled(ctx context.Context, lvl log.Lvl) bool {
+	return true
 }
 
 func main() {
@@ -301,7 +306,7 @@ func allScenarios(cliCtx *cli.Context, runCtx devnet.Context) scenarios.Scenario
 	const sendValue uint64 = 10000
 
 	return scenarios.Scenarios{
-		"dynamic-tx-node-0": &scenarios.Scenario{
+		"dynamic-tx-node-0": {
 			Context: runCtx.WithCurrentNetwork(0).WithCurrentNode(0),
 			Steps: []*scenarios.Step{
 				{Text: "InitSubscriptions", Args: []any{[]requests.SubMethod{requests.Methods.ETHNewHeads}}},
@@ -311,7 +316,7 @@ func allScenarios(cliCtx *cli.Context, runCtx devnet.Context) scenarios.Scenario
 				{Text: "AwaitBlocks", Args: []any{2 * time.Second}},
 			},
 		},
-		"dynamic-tx-any-node": &scenarios.Scenario{
+		"dynamic-tx-any-node": {
 			Context: runCtx.WithCurrentNetwork(0),
 			Steps: []*scenarios.Step{
 				{Text: "InitSubscriptions", Args: []any{[]requests.SubMethod{requests.Methods.ETHNewHeads}}},
@@ -321,14 +326,14 @@ func allScenarios(cliCtx *cli.Context, runCtx devnet.Context) scenarios.Scenario
 				{Text: "AwaitBlocks", Args: []any{2 * time.Second}},
 			},
 		},
-		"call-contract": &scenarios.Scenario{
+		"call-contract": {
 			Context: runCtx.WithCurrentNetwork(0),
 			Steps: []*scenarios.Step{
 				{Text: "InitSubscriptions", Args: []any{[]requests.SubMethod{requests.Methods.ETHNewHeads}}},
 				{Text: "DeployAndCallLogSubscriber", Args: []any{accounts.DevAddress}},
 			},
 		},
-		"state-sync": &scenarios.Scenario{
+		"state-sync": {
 			Steps: []*scenarios.Step{
 				{Text: "InitSubscriptions", Args: []any{[]requests.SubMethod{requests.Methods.ETHNewHeads}}},
 				{Text: "CreateAccountWithFunds", Args: []any{networkname.Dev, "root-funder", 200.0}},
@@ -340,7 +345,7 @@ func allScenarios(cliCtx *cli.Context, runCtx devnet.Context) scenarios.Scenario
 				{Text: "BatchProcessRootTransfers", Args: []any{"root-funder", 1, 10, 2, 2}},
 			},
 		},
-		"child-chain-exit": &scenarios.Scenario{
+		"child-chain-exit": {
 			Steps: []*scenarios.Step{
 				{Text: "CreateAccountWithFunds", Args: []any{networkname.Dev, "root-funder", 200.0}},
 				{Text: "CreateAccountWithFunds", Args: []any{networkname.BorDevnet, "child-funder", 200.0}},
@@ -350,7 +355,7 @@ func allScenarios(cliCtx *cli.Context, runCtx devnet.Context) scenarios.Scenario
 				//{Text: "BatchProcessTransfers", Args: []any{"child-funder", 1, 10, 2, 2}},
 			},
 		},
-		"block-production": &scenarios.Scenario{
+		"block-production": {
 			Steps: []*scenarios.Step{
 				{Text: "SendTxLoad", Args: []any{recipientAddress, accounts.DevAddress, sendValue, cliCtx.Uint(txCountFlag.Name)}},
 			},

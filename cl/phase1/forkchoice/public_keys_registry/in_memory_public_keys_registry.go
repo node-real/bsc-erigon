@@ -2,9 +2,9 @@ package public_keys_registry
 
 import (
 	"fmt"
+	"github.com/erigontech/erigon-lib/bls"
 	"sync"
 
-	"github.com/Giulio2002/bls"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon/cl/abstract"
 	"github.com/erigontech/erigon/cl/cltypes/solid"

@@ -17,7 +17,6 @@
 package freezeblocks
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,9 +25,10 @@ import (
 
 	"github.com/hashicorp/golang-lru/v2"
 
+	"github.com/erigontech/erigon-db/rawdb"
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/gointerfaces"
 	remote "github.com/erigontech/erigon-lib/gointerfaces/remoteproto"
 	"github.com/erigontech/erigon-lib/kv"
@@ -37,9 +37,8 @@ import (
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/recsplit"
 	"github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon/core/rawdb"
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/snaptype"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
 	"github.com/erigontech/erigon/polygon/bridge"
 	"github.com/erigontech/erigon/polygon/heimdall"
@@ -135,7 +134,7 @@ func (r *RemoteBlockReader) BorSnapshots() snapshotsync.BlockSnapshots { panic("
 func (r *RemoteBlockReader) BscSnapshots() snapshotsync.BlockSnapshots { panic("not implemented") }
 func (r *RemoteBlockReader) AllTypes() []snaptype.Type                 { panic("not implemented") }
 func (r *RemoteBlockReader) FrozenBlocks() uint64                      { panic("not supported") }
-func (r *RemoteBlockReader) FrozenBorBlocks() uint64                   { panic("not supported") }
+func (r *RemoteBlockReader) FrozenBorBlocks(align bool) uint64         { panic("not supported") }
 func (r *RemoteBlockReader) FrozenBscBlobs() uint64                    { panic("not supported") }
 func (r *RemoteBlockReader) FrozenFiles() (list []string)              { panic("not supported") }
 func (r *RemoteBlockReader) FreezingCfg() ethconfig.BlocksFreezing     { panic("not supported") }
@@ -167,6 +166,17 @@ func (r *RemoteBlockReader) CanonicalHash(ctx context.Context, tx kv.Getter, blo
 	return h, h != emptyHash, nil
 }
 
+func (r *RemoteBlockReader) BlockForTxNum(ctx context.Context, tx kv.Tx, txnNum uint64) (blockNum uint64, ok bool, err error) {
+	reply, err := r.client.BlockForTxNum(ctx, &remote.BlockForTxNumRequest{Txnum: txnNum})
+	if err != nil {
+		return 0, false, err
+	}
+	if reply == nil {
+		return 0, false, nil
+	}
+	return reply.BlockNumber, reply.Present, nil
+}
+
 var _ services.FullBlockReader = &RemoteBlockReader{}
 
 func NewRemoteBlockReader(client remote.ETHBACKENDClient) *RemoteBlockReader {
@@ -186,6 +196,12 @@ func (r *RemoteBlockReader) TxnLookup(ctx context.Context, tx kv.Getter, txnHash
 	if reply == nil {
 		return 0, 0, false, nil
 	}
+
+	// Not a perfect solution, assumes there are no transactions in block 0 (same check on server side)
+	if reply.BlockNumber == 0 && reply.TxNumber == 0 {
+		return reply.BlockNumber, reply.TxNumber, false, nil
+	}
+
 	return reply.BlockNumber, reply.TxNumber, true, nil
 }
 
@@ -222,9 +238,13 @@ func (r *RemoteBlockReader) BlockWithSenders(ctx context.Context, _ kv.Getter, h
 	if err != nil {
 		return nil, nil, err
 	}
+	if len(reply.BlockRlp) == 0 {
+		// block not found
+		return nil, nil, nil
+	}
 
 	block = &types.Block{}
-	err = rlp.Decode(bytes.NewReader(reply.BlockRlp), block)
+	err = rlp.DecodeBytes(reply.BlockRlp, block)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -294,6 +314,9 @@ func (r *RemoteBlockReader) HeaderNumber(ctx context.Context, tx kv.Getter, hash
 }
 func (r *RemoteBlockReader) BodyRlp(ctx context.Context, tx kv.Getter, hash common.Hash, blockHeight uint64) (bodyRlp rlp.RawValue, err error) {
 	body, err := r.BodyWithTransactions(ctx, tx, hash, blockHeight)
+	if body == nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -383,7 +406,7 @@ func (r *RemoteBlockReader) CanonicalBodyForStorage(ctx context.Context, tx kv.G
 		return nil, nil
 	}
 	body = &types.BodyForStorage{}
-	err = rlp.Decode(bytes.NewReader(bdRaw.Body), body)
+	err = rlp.DecodeBytes(bdRaw.Body, body)
 	if err != nil {
 		return nil, err
 	}
@@ -498,11 +521,27 @@ func (r *BlockReader) AllTypes() []snaptype.Type {
 }
 
 func (r *BlockReader) FrozenBlocks() uint64 { return r.sn.BlocksAvailable() }
-func (r *BlockReader) FrozenBorBlocks() uint64 {
-	if r.borSn != nil {
-		return r.borSn.BlocksAvailable()
+func (r *BlockReader) FrozenBorBlocks(align bool) uint64 {
+	if r.borSn == nil {
+		return 0
 	}
-	return 0
+
+	frozen := r.borSn.BlocksAvailable()
+
+	if !align {
+		return frozen
+	}
+
+	for _, t := range r.borSn.Types() {
+
+		available := r.borSn.VisibleBlocksAvailable(t.Enum())
+
+		if available < frozen {
+			frozen = available
+		}
+	}
+
+	return frozen
 }
 
 func (r *BlockReader) FrozenBscBlobs() uint64 {
@@ -951,10 +990,8 @@ func (r *BlockReader) blockWithSenders(ctx context.Context, tx kv.Getter, hash c
 	if txCount != 0 {
 		txnSeg, ok, release := r.sn.ViewSingleFile(coresnaptype.Transactions, blockHeight)
 		if !ok {
-			if dbgLogs {
-				log.Info(dbgPrefix+"no transactions file for this block num", "r.sn.BlocksAvailable()", r.sn.BlocksAvailable())
-			}
-			return
+			err = fmt.Errorf("no transactions snapshot file for blockNum=%d, BlocksAvailable=%d", blockHeight, r.sn.BlocksAvailable())
+			return nil, nil, err
 		}
 		defer release()
 		txs, senders, err = r.txsFromSnapshot(baseTxnId, txCount, txnSeg, buf)
@@ -1030,11 +1067,10 @@ func (r *BlockReader) headerFromSnapshotByHash(hash common.Hash, sn *snapshotsyn
 	}
 
 	reader := recsplit.NewIndexReader(index)
-	localID, ok := reader.Lookup(hash[:])
+	headerOffset, ok := reader.TwoLayerLookup(hash[:])
 	if !ok {
 		return nil, nil
 	}
-	headerOffset := index.OrdinalLookup(localID)
 
 	gg := sn.Src().MakeGetter()
 	gg.Reset(headerOffset)
@@ -1129,8 +1165,7 @@ func BodyForStorageFromSnapshot(blockHeight uint64, sn *snapshotsync.VisibleSegm
 		return nil, buf, nil
 	}
 	b := &types.BodyForStorage{}
-	reader := bytes.NewReader(buf)
-	if err := rlp.Decode(reader, b); err != nil {
+	if err := rlp.DecodeBytes(buf, b); err != nil {
 		return nil, buf, err
 	}
 
@@ -1228,15 +1263,14 @@ func (r *BlockReader) txnByHash(txnHash common.Hash, segments []*snapshotsync.Vi
 			continue
 		}
 		buf, _ = gg.Next(buf[:0])
-		senderByte, txnRlp := buf[1:1+20], buf[1+20:]
-		sender := (common.Address)(senderByte)
+		sender, txnRlp := buf[1:1+20], buf[1+20:]
 
 		txn, err := types.DecodeTransaction(txnRlp)
 		if err != nil {
 			return nil, 0, 0, false, err
 		}
 
-		txn.SetSender(sender) // see: https://tip.golang.org/ref/spec#Conversions_from_slice_to_array_pointer
+		txn.SetSender((common.Address)(sender)) // see: https://tip.golang.org/ref/spec#Conversions_from_slice_to_array_pointer
 
 		reader2 := recsplit.NewIndexReader(idxTxnHash2BlockNum)
 		blockNum, ok := reader2.Lookup(txnHash[:])
@@ -1246,7 +1280,7 @@ func (r *BlockReader) txnByHash(txnHash common.Hash, segments []*snapshotsync.Vi
 
 		// final txnHash check  - completely avoid false-positives
 		if txn.Hash() == txnHash {
-			return txn, blockNum, idxTxnHash.BaseDataID() + txNumInFile + 1, true, nil
+			return txn, blockNum, idxTxnHash.BaseDataID() + txNumInFile, true, nil
 		}
 	}
 
@@ -1335,15 +1369,15 @@ func (r *BlockReader) IterateFrozenBodies(f func(blockNum, baseTxNum, txCount ui
 	defer view.Close()
 	for _, sn := range view.Bodies() {
 		sn := sn
-		defer sn.Src().EnableReadAhead().DisableReadAhead()
+		defer sn.Src().MadvSequential().DisableReadAhead()
 
 		var buf []byte
 		g := sn.Src().MakeGetter()
 		blockNum := sn.From()
-		var b types.BodyForStorage
+		var b types.BodyOnlyTxn
 		for g.HasNext() {
 			buf, _ = g.Next(buf[:0])
-			if err := rlp.DecodeBytes(buf, &b); err != nil {
+			if err := rlp.DecodeBytesPartial(buf, &b); err != nil {
 				return err
 			}
 			if err := f(blockNum, b.BaseTxnID.U64(), uint64(b.TxCount)); err != nil {
@@ -1699,6 +1733,10 @@ func (r *BlockReader) TxnumReader(ctx context.Context) rawdbv3.TxNumsReader {
 	return rawdbv3.TxNums.WithCustomReadTxNumFunc(r.txBlockIndex.CopyWithContext(ctx))
 }
 
+func (r *BlockReader) BlockForTxNum(ctx context.Context, tx kv.Tx, txnNum uint64) (blockNum uint64, ok bool, err error) {
+	return r.TxnumReader(ctx).FindBlockNum(tx, txnNum)
+}
+
 func TxBlockIndexFromBlockReader(ctx context.Context, r services.FullBlockReader) rawdbv3.TxBlockIndex {
 	return &txBlockIndexWithBlockReader{
 		r:     r,
@@ -1742,6 +1780,9 @@ func (t *txBlockIndexWithBlockReader) MaxTxNum(tx kv.Tx, c kv.Cursor, blockNum u
 }
 
 func (t *txBlockIndexWithBlockReader) BlockNumber(tx kv.Tx, txNum uint64) (blockNum uint64, ok bool, err error) {
+	if _, ok := t.r.(*BlockReader); !ok {
+		return t.r.BlockForTxNum(t.ctx, tx, txNum)
+	}
 	var buf []byte
 	var b *types.BodyOnlyTxn
 	view := t.r.Snapshots().(*RoSnapshots).View()

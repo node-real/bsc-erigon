@@ -26,24 +26,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
 	"github.com/erigontech/erigon-lib/common/math"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/recsplit"
 	"github.com/erigontech/erigon-lib/seg"
-
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
+	"github.com/erigontech/erigon-lib/snaptype"
+	"github.com/erigontech/erigon-lib/testlog"
+	"github.com/erigontech/erigon-lib/version"
 	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/params"
-	"github.com/erigontech/erigon/turbo/testlog"
+	"github.com/erigontech/erigon/execution/chainspec"
 )
 
-func createTestSegmentFile(t *testing.T, from, to uint64, name snaptype.Enum, dir string, version snaptype.Version, logger log.Logger) {
+func createTestSegmentFile(t *testing.T, from, to uint64, name snaptype.Enum, dir string, ver snaptype.Version, logger log.Logger) {
 	compressCfg := seg.DefaultCfg
 	compressCfg.MinPatternScore = 100
-	c, err := seg.NewCompressor(context.Background(), "test", filepath.Join(dir, snaptype.SegmentFileName(version, from, to, name)), dir, compressCfg, log.LvlDebug, logger)
+	c, err := seg.NewCompressor(context.Background(), "test", filepath.Join(dir, snaptype.SegmentFileName(ver, from, to, name)), dir, compressCfg, log.LvlDebug, logger)
 	require.NoError(t, err)
 	defer c.Close()
 	c.DisableFsync()
@@ -55,7 +55,7 @@ func createTestSegmentFile(t *testing.T, from, to uint64, name snaptype.Enum, di
 		KeyCount:   1,
 		BucketSize: 10,
 		TmpDir:     dir,
-		IndexFile:  filepath.Join(dir, snaptype.IdxFileName(1, from, to, name.String())),
+		IndexFile:  filepath.Join(dir, snaptype.IdxFileName(version.V1_0, from, to, name.String())),
 		LeafSize:   8,
 	}, logger)
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func createTestSegmentFile(t *testing.T, from, to uint64, name snaptype.Enum, di
 			KeyCount:   1,
 			BucketSize: 10,
 			TmpDir:     dir,
-			IndexFile:  filepath.Join(dir, snaptype.IdxFileName(1, from, to, coresnaptype.Indexes.TxnHash2BlockNum.Name)),
+			IndexFile:  filepath.Join(dir, snaptype.IdxFileName(version.V1_0, from, to, coresnaptype.Indexes.TxnHash2BlockNum.Name)),
 			LeafSize:   8,
 		}, logger)
 		require.NoError(t, err)
@@ -83,7 +83,7 @@ func createTestSegmentFile(t *testing.T, from, to uint64, name snaptype.Enum, di
 }
 
 func BenchmarkFindMergeRange(t *testing.B) {
-	merger := NewMerger("x", 1, log.LvlInfo, nil, params.MainnetChainConfig, nil)
+	merger := NewMerger("x", 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, nil)
 	merger.DisableFsync()
 	t.Run("big", func(t *testing.B) {
 		for j := 0; j < t.N; j++ {
@@ -148,7 +148,7 @@ func BenchmarkFindMergeRange(t *testing.B) {
 }
 
 func TestFindMergeRange(t *testing.T) {
-	merger := NewMerger("x", 1, log.LvlInfo, nil, params.MainnetChainConfig, nil)
+	merger := NewMerger("x", 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, nil)
 	merger.DisableFsync()
 	t.Run("big", func(t *testing.T) {
 		var RangesOld []Range
@@ -167,9 +167,9 @@ func TestFindMergeRange(t *testing.T) {
 		var RangesNew []Range
 		start := uint64(19_000_000)
 		for i := uint64(0); i < 24; i++ {
-			RangesNew = append(RangesNew, NewRange(start+(i*100_000), start+((i+1)*100_000)))
+			RangesNew = append(RangesNew, NewRange(start+(i*snaptype.Erigon2OldMergeLimit), start+((i+1)*snaptype.Erigon2OldMergeLimit)))
 		}
-		found = merger.FindMergeRanges(RangesNew, uint64(24*100_000))
+		found = merger.FindMergeRanges(RangesNew, uint64(24*snaptype.Erigon2MergeLimit))
 
 		expect = Ranges{}
 		require.Equal(t, expect.String(), Ranges(found).String())
@@ -198,21 +198,28 @@ func TestFindMergeRange(t *testing.T) {
 		}
 		found = merger.FindMergeRanges(RangesNew, uint64(240*10_000))
 		expect = nil
-		for i := uint64(0); i < 24; i++ {
-			expect = append(expect, NewRange(start+i*snaptype.Erigon2MergeLimit, start+(i+1)*snaptype.Erigon2MergeLimit))
+		for i := uint64(0); i < 4; i++ {
+			expect = append(expect, NewRange(start+i*snaptype.Erigon2OldMergeLimit, start+(i+1)*snaptype.Erigon2OldMergeLimit))
 		}
-
+		start += 4 * snaptype.Erigon2OldMergeLimit
+		for i := uint64(0); i < 4; i++ {
+			expect = append(expect, NewRange(start+i*100_000, start+(i+1)*100_000))
+		}
 		require.Equal(t, expect.String(), Ranges(found).String())
 	})
 
 }
 
 func TestMergeSnapshots(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logger := log.New()
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64) {
 		for _, snT := range coresnaptype.BlockSnapshotTypes {
-			createTestSegmentFile(t, from, to, snT.Enum(), dir, 1, logger)
+			createTestSegmentFile(t, from, to, snT.Enum(), dir, version.V1_0, logger)
 		}
 	}
 
@@ -225,11 +232,11 @@ func TestMergeSnapshots(t *testing.T) {
 	defer s.Close()
 	require.NoError(s.OpenFolder())
 	{
-		merger := NewMerger(dir, 1, log.LvlInfo, nil, params.MainnetChainConfig, logger)
+		merger := NewMerger(dir, 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, logger)
 		merger.DisableFsync()
 		s.OpenSegments(coresnaptype.BlockSnapshotTypes, false, true)
 		Ranges := merger.FindMergeRanges(s.Ranges(), s.SegmentsMax())
-		require.Equal(3, len(Ranges))
+		require.Len(Ranges, 3)
 		err := merger.Merge(context.Background(), s, coresnaptype.BlockSnapshotTypes, Ranges, s.Dir(), false, nil, nil)
 		require.NoError(err)
 	}
@@ -242,11 +249,11 @@ func TestMergeSnapshots(t *testing.T) {
 	require.Equal(50, a)
 
 	{
-		merger := NewMerger(dir, 1, log.LvlInfo, nil, params.MainnetChainConfig, logger)
+		merger := NewMerger(dir, 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, logger)
 		merger.DisableFsync()
 		s.OpenFolder()
 		Ranges := merger.FindMergeRanges(s.Ranges(), s.SegmentsMax())
-		require.Equal(0, len(Ranges))
+		require.Empty(Ranges)
 		err := merger.Merge(context.Background(), s, coresnaptype.BlockSnapshotTypes, Ranges, s.Dir(), false, nil, nil)
 		require.NoError(err)
 	}
@@ -268,7 +275,7 @@ func TestMergeSnapshots(t *testing.T) {
 	// defer s.Close()
 	// require.NoError(s.OpenFolder())
 	// {
-	// 	merger := NewMerger(dir, 1, log.LvlInfo, nil, params.MainnetChainConfig, logger)
+	// 	merger := NewMerger(dir, 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, logger)
 	// 	merger.DisableFsync()
 	// 	fmt.Println(s.Ranges(), s.SegmentsMax())
 	// 	fmt.Println(s.Ranges(), s.SegmentsMax())
@@ -286,7 +293,7 @@ func TestMergeSnapshots(t *testing.T) {
 	// require.Equal(10, a)
 
 	// {
-	// 	merger := NewMerger(dir, 1, log.LvlInfo, nil, params.MainnetChainConfig, logger)
+	// 	merger := NewMerger(dir, 1, log.LvlInfo, nil, chainspec.MainnetChainConfig, logger)
 	// 	merger.DisableFsync()
 	// 	s.OpenSegments(coresnaptype.BlockSnapshotTypes, false)
 	// 	Ranges := merger.FindMergeRanges(s.Ranges(), s.SegmentsMax())
@@ -304,11 +311,15 @@ func TestMergeSnapshots(t *testing.T) {
 }
 
 func TestDeleteSnapshots(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logger := log.New()
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64) {
 		for _, snT := range coresnaptype.BlockSnapshotTypes {
-			createTestSegmentFile(t, from, to, snT.Enum(), dir, 1, logger)
+			createTestSegmentFile(t, from, to, snT.Enum(), dir, version.V1_0, logger)
 		}
 	}
 
@@ -320,9 +331,9 @@ func TestDeleteSnapshots(t *testing.T) {
 	s := NewRoSnapshots(ethconfig.BlocksFreezing{ChainName: networkname.Mainnet}, dir, coresnaptype.BlockSnapshotTypes, 0, true, logger)
 	defer s.Close()
 	retireFiles := []string{
-		"v1-000000-000010-bodies.seg",
-		"v1-000000-000010-headers.seg",
-		"v1-000000-000010-transactions.seg",
+		"v1.0-000000-000010-bodies.seg",
+		"v1.0-000000-000010-headers.seg",
+		"v1.0-000000-000010-transactions.seg",
 	}
 	require.NoError(s.OpenFolder())
 	for _, f := range retireFiles {
@@ -332,11 +343,15 @@ func TestDeleteSnapshots(t *testing.T) {
 }
 
 func TestRemoveOverlaps(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	logger := log.New()
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64) {
 		for _, snT := range coresnaptype.BlockSnapshotTypes {
-			createTestSegmentFile(t, from, to, snT.Enum(), dir, 1, logger)
+			createTestSegmentFile(t, from, to, snT.Enum(), dir, version.V1_0, logger)
 		}
 	}
 
@@ -367,11 +382,11 @@ func TestRemoveOverlaps(t *testing.T) {
 
 	list, err := snaptype.Segments(s.Dir())
 	require.NoError(err)
-	require.Equal(45, len(list))
+	require.Len(list, 45)
 
 	list, err = snaptype.IdxFiles(s.Dir())
 	require.NoError(err)
-	require.Equal(60, len(list))
+	require.Len(list, 60)
 
 	//corner case: small header.seg was removed, but header.idx left as garbage. such garbage must be cleaned.
 	os.Remove(filepath.Join(s.Dir(), list[15].Name()))
@@ -381,7 +396,7 @@ func TestRemoveOverlaps(t *testing.T) {
 
 	list, err = snaptype.Segments(s.Dir())
 	require.NoError(err)
-	require.Equal(15, len(list))
+	require.Len(list, 15)
 
 	for i, info := range list {
 		if i%5 < 2 {
@@ -393,7 +408,7 @@ func TestRemoveOverlaps(t *testing.T) {
 
 	list, err = snaptype.IdxFiles(s.Dir())
 	require.NoError(err)
-	require.Equal(20, len(list))
+	require.Len(list, 20)
 }
 
 func TestRemoveOverlaps_CrossingTypeString(t *testing.T) {
@@ -401,7 +416,7 @@ func TestRemoveOverlaps_CrossingTypeString(t *testing.T) {
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64) {
 		for _, snT := range coresnaptype.BlockSnapshotTypes {
-			createTestSegmentFile(t, from, to, snT.Enum(), dir, 1, logger)
+			createTestSegmentFile(t, from, to, snT.Enum(), dir, version.V1_0, logger)
 		}
 	}
 
@@ -461,25 +476,25 @@ func TestOpenAllSnapshot(t *testing.T) {
 	for i, chain := range []string{networkname.Mainnet, networkname.Amoy} {
 		step := steps[i]
 		dir := filepath.Join(baseDir, chain)
-		chainSnapshotCfg := snapcfg.KnownCfg(chain)
+		chainSnapshotCfg, _ := snapcfg.KnownCfg(chain)
 		chainSnapshotCfg.ExpectBlocks = math.MaxUint64
 		cfg := ethconfig.BlocksFreezing{ChainName: chain}
 		createFile := func(from, to uint64, name snaptype.Type) {
-			createTestSegmentFile(t, from, to, name.Enum(), dir, 1, logger)
+			createTestSegmentFile(t, from, to, name.Enum(), dir, version.V1_0, logger)
 		}
 		s := NewRoSnapshots(cfg, dir, coresnaptype.BlockSnapshotTypes, 0, true, logger)
 		defer s.Close()
 		err := s.OpenFolder()
 		require.NoError(err)
 		require.NotNil(s.visible[coresnaptype.Enums.Headers])
-		require.Equal(0, len(s.visible[coresnaptype.Enums.Headers]))
+		require.Empty(s.visible[coresnaptype.Enums.Headers])
 		s.Close()
 
 		createFile(step, step*2, coresnaptype.Bodies)
 		s = NewRoSnapshots(cfg, dir, coresnaptype.BlockSnapshotTypes, 0, true, logger)
 		defer s.Close()
 		require.NotNil(s.visible[coresnaptype.Enums.Bodies])
-		require.Equal(0, len(s.visible[coresnaptype.Enums.Bodies]))
+		require.Empty(s.visible[coresnaptype.Enums.Bodies])
 		s.Close()
 
 		createFile(step, step*2, coresnaptype.Headers)
@@ -501,7 +516,7 @@ func TestOpenAllSnapshot(t *testing.T) {
 		err = s.OpenFolder()
 		require.NoError(err)
 		require.NotNil(s.visible[coresnaptype.Enums.Headers])
-		require.Equal(2, len(s.visible[coresnaptype.Enums.Headers]))
+		require.Len(s.visible[coresnaptype.Enums.Headers], 2)
 
 		view := s.View()
 		defer view.Close()
@@ -525,7 +540,7 @@ func TestOpenAllSnapshot(t *testing.T) {
 		require.NoError(err)
 		defer s.Close()
 		require.NotNil(s.visible[coresnaptype.Enums.Headers])
-		require.Equal(2, len(s.visible[coresnaptype.Enums.Headers]))
+		require.Len(s.visible[coresnaptype.Enums.Headers], 2)
 
 		createFile(step, step*2-step/5, coresnaptype.Headers)
 		createFile(step, step*2-step/5, coresnaptype.Bodies)
@@ -541,14 +556,29 @@ func TestOpenAllSnapshot(t *testing.T) {
 func TestParseCompressedFileName(t *testing.T) {
 	require := require.New(t)
 	fs := fstest.MapFS{
-		"a":                 &fstest.MapFile{},
-		"1-a":               &fstest.MapFile{},
-		"1-2-a":             &fstest.MapFile{},
-		"1-2-bodies.info":   &fstest.MapFile{},
-		"1-2-bodies.seg":    &fstest.MapFile{},
-		"v2-1-2-bodies.seg": &fstest.MapFile{},
-		"v0-1-2-bodies.seg": &fstest.MapFile{},
-		"v1-1-2-bodies.seg": &fstest.MapFile{},
+		"a":                      &fstest.MapFile{},
+		"1-a":                    &fstest.MapFile{},
+		"1-2-a":                  &fstest.MapFile{},
+		"1-2-bodies.info":        &fstest.MapFile{},
+		"1-2-bodies.seg":         &fstest.MapFile{},
+		"v2-1-2-bodies.seg":      &fstest.MapFile{},
+		"v0-1-2-bodies.seg":      &fstest.MapFile{},
+		"v1-1-2-bodies.seg":      &fstest.MapFile{},
+		"v1.0-1-2-bodies.seg":    &fstest.MapFile{},
+		"v1-accounts.24-28.ef":   &fstest.MapFile{},
+		"v1.0-accounts.24-28.ef": &fstest.MapFile{},
+		"salt-blocks.txt":        &fstest.MapFile{},
+		"v1.0-022695-022696-transactions-to-block.idx":                     &fstest.MapFile{},
+		"v1-022695-022696-transactions-to-block.idx":                       &fstest.MapFile{},
+		"preverified.toml":                                                 &fstest.MapFile{},
+		"idx/v1-tracesto.40-44.ef":                                         &fstest.MapFile{},
+		"v1.0-021700-021800-bodies.seg.torrent":                            &fstest.MapFile{},
+		"caplin/v1.0-021150-021200-BlockRoot.seg":                          &fstest.MapFile{},
+		"v1.0-accounts.0-128.bt.torrent":                                   &fstest.MapFile{},
+		"v1.0-022695-022696-transactions-to-block.idx.torrent":             &fstest.MapFile{},
+		"v1.0-022695-022696-transactions-to-block.idx.tmp.tmp.torrent.tmp": &fstest.MapFile{},
+		"v1.0-accounts.24-28.ef.torrent":                                   &fstest.MapFile{},
+		"v1.0-accounts.24-28.ef.torrent.tmp.tmp.tmp":                       &fstest.MapFile{},
 	}
 	stat := func(name string) string {
 		s, err := fs.Stat(name)
@@ -569,19 +599,103 @@ func TestParseCompressedFileName(t *testing.T) {
 	require.True(ok)
 	_, _, ok = snaptype.ParseFileName("", stat("v0-1-2-bodies.seg"))
 	require.True(ok)
-
 	f, _, ok := snaptype.ParseFileName("", stat("v1-1-2-bodies.seg"))
 	require.True(ok)
 	require.Equal(f.Type.Enum(), coresnaptype.Bodies.Enum())
 	require.Equal(1_000, int(f.From))
 	require.Equal(2_000, int(f.To))
+	require.Equal("bodies", f.TypeString)
+
+	var e3 bool
+	f, e3, ok = snaptype.ParseFileName("", "caplin/v1.0-021150-021200-BlockRoot.seg")
+	require.True(ok)
+	require.False(e3)
+	require.Equal(21150000, int(f.From))
+	require.Equal(21200000, int(f.To))
+	require.Equal("BlockRoot", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-022695-022696-transactions-to-block.idx"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal(f.TypeString, coresnaptype.Indexes.TxnHash2BlockNum.Name)
+	require.Equal(22695000, int(f.From))
+	require.Equal(22696000, int(f.To))
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-022695-022696-transactions-to-block.idx.torrent"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal(f.TypeString, coresnaptype.Indexes.TxnHash2BlockNum.Name)
+	require.Equal(22695000, int(f.From))
+	require.Equal(22696000, int(f.To))
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-022695-022696-transactions-to-block.idx.tmp.tmp.torrent.tmp"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal(f.TypeString, coresnaptype.Indexes.TxnHash2BlockNum.Name)
+	require.Equal(22695000, int(f.From))
+	require.Equal(22696000, int(f.To))
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1-022695-022696-transactions-to-block.idx"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal(f.TypeString, coresnaptype.Indexes.TxnHash2BlockNum.Name)
+	require.Equal(22695000, int(f.From))
+	require.Equal(22696000, int(f.To))
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-1-2-bodies.seg"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal(f.Type.Enum(), coresnaptype.Bodies.Enum())
+	require.Equal(1_000, int(f.From))
+	require.Equal(2_000, int(f.To))
+	require.Equal("bodies", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-accounts.24-28.ef"))
+	require.True(ok)
+	require.True(e3)
+	require.Equal(24, int(f.From))
+	require.Equal(28, int(f.To))
+	require.Equal("accounts", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-accounts.24-28.ef.torrent"))
+	require.True(ok)
+	require.True(e3)
+	require.Equal(24, int(f.From))
+	require.Equal(28, int(f.To))
+	require.Equal("accounts", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1.0-accounts.24-28.ef.torrent.tmp.tmp.tmp"))
+	require.True(ok)
+	require.True(e3)
+	require.Equal(24, int(f.From))
+	require.Equal(28, int(f.To))
+	require.Equal("accounts", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("v1-accounts.24-28.ef"))
+	require.True(ok)
+	require.True(e3)
+	require.Equal(24, int(f.From))
+	require.Equal(28, int(f.To))
+	require.Equal("accounts", f.TypeString)
+
+	f, e3, ok = snaptype.ParseFileName("", stat("salt-blocks.txt"))
+	require.True(ok)
+	require.False(e3)
+	require.Equal("salt", f.TypeString)
+	require.Equal("domain", f.Type.Name())
+
+	f, e3, ok = snaptype.ParseFileName("", stat("idx/v1-tracesto.40-44.ef"))
+	require.True(ok)
+	require.True(e3)
+	require.Equal("tracesto", f.TypeString)
+	//require.Equal("tracesto", f.Type.Name())
 }
 
 func TestCalculateVisibleSegments(t *testing.T) {
 	logger := log.New()
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64, name snaptype.Type) {
-		createTestSegmentFile(t, from, to, name.Enum(), dir, 1, logger)
+		createTestSegmentFile(t, from, to, name.Enum(), dir, version.V1_0, logger)
 	}
 
 	for i := uint64(0); i < 7; i++ {
@@ -602,9 +716,9 @@ func TestCalculateVisibleSegments(t *testing.T) {
 		idx := s.idxAvailability()
 		require.Equal(2_500_000-1, int(idx))
 
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Headers]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Bodies]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Transactions]))
+		require.Len(s.visible[coresnaptype.Enums.Headers], 5)
+		require.Len(s.visible[coresnaptype.Enums.Bodies], 5)
+		require.Len(s.visible[coresnaptype.Enums.Transactions], 5)
 
 		require.Equal(7, s.dirty[coresnaptype.Enums.Headers].Len())
 		require.Equal(6, s.dirty[coresnaptype.Enums.Bodies].Len())
@@ -619,9 +733,9 @@ func TestCalculateVisibleSegments(t *testing.T) {
 		idx := s.idxAvailability()
 		require.Equal(2_500_000-1, int(idx))
 
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Headers]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Bodies]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Transactions]))
+		require.Len(s.visible[coresnaptype.Enums.Headers], 5)
+		require.Len(s.visible[coresnaptype.Enums.Bodies], 5)
+		require.Len(s.visible[coresnaptype.Enums.Transactions], 5)
 
 		require.Equal(7, s.dirty[coresnaptype.Enums.Headers].Len())
 		require.Equal(6, s.dirty[coresnaptype.Enums.Bodies].Len())
@@ -636,9 +750,9 @@ func TestCalculateVisibleSegments(t *testing.T) {
 		idx := s.idxAvailability()
 		require.Equal(2_500_000-1, int(idx))
 
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Headers]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Bodies]))
-		require.Equal(5, len(s.visible[coresnaptype.Enums.Transactions]))
+		require.Len(s.visible[coresnaptype.Enums.Headers], 5)
+		require.Len(s.visible[coresnaptype.Enums.Bodies], 5)
+		require.Len(s.visible[coresnaptype.Enums.Transactions], 5)
 
 		require.Equal(7, s.dirty[coresnaptype.Enums.Headers].Len())
 		require.Equal(6, s.dirty[coresnaptype.Enums.Bodies].Len())
@@ -650,7 +764,7 @@ func TestCalculateVisibleSegmentsWhenGapsInIdx(t *testing.T) {
 	logger := testlog.Logger(t, log.LvlCrit)
 	dir, require := t.TempDir(), require.New(t)
 	createFile := func(from, to uint64, name snaptype.Type) {
-		createTestSegmentFile(t, from, to, name.Enum(), dir, 1, logger)
+		createTestSegmentFile(t, from, to, name.Enum(), dir, version.V1_0, logger)
 	}
 
 	for i := uint64(0); i < 3; i++ {
@@ -659,7 +773,7 @@ func TestCalculateVisibleSegmentsWhenGapsInIdx(t *testing.T) {
 		createFile(i*500_000, (i+1)*500_000, coresnaptype.Transactions)
 	}
 
-	missingIdxFile := filepath.Join(dir, snaptype.IdxFileName(1, 500_000, 1_000_000, coresnaptype.Headers.Name()))
+	missingIdxFile := filepath.Join(dir, snaptype.IdxFileName(version.V1_0, 500_000, 1_000_000, coresnaptype.Headers.Name()))
 	err := os.Remove(missingIdxFile)
 	require.NoError(err)
 
@@ -671,6 +785,6 @@ func TestCalculateVisibleSegmentsWhenGapsInIdx(t *testing.T) {
 	idx := s.idxAvailability()
 	require.Equal(500_000-1, int(idx))
 
-	require.Equal(1, len(s.visible[coresnaptype.Enums.Headers]))
+	require.Len(s.visible[coresnaptype.Enums.Headers], 1)
 	require.Equal(3, s.dirty[coresnaptype.Enums.Headers].Len())
 }

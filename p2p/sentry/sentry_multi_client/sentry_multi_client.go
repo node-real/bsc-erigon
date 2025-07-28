@@ -21,12 +21,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/erigontech/erigon/execution/consensus/parlia"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
-
-	"github.com/erigontech/erigon/consensus/parlia"
 
 	"github.com/c2h5oh/datasize"
 	"golang.org/x/sync/semaphore"
@@ -44,17 +43,16 @@ import (
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	libsentry "github.com/erigontech/erigon-lib/p2p/sentry"
-
 	"github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon/consensus"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/eth/protocols/eth"
+	"github.com/erigontech/erigon/execution/consensus"
+	"github.com/erigontech/erigon/execution/stages/bodydownload"
+	"github.com/erigontech/erigon/execution/stages/headerdownload"
+	"github.com/erigontech/erigon/p2p/protocols/eth"
 	"github.com/erigontech/erigon/p2p/sentry"
-	"github.com/erigontech/erigon/turbo/jsonrpc/receipts"
+	"github.com/erigontech/erigon/rpc/jsonrpc/receipts"
 	"github.com/erigontech/erigon/turbo/services"
-	"github.com/erigontech/erigon/turbo/stages/bodydownload"
-	"github.com/erigontech/erigon/turbo/stages/headerdownload"
 )
 
 // StartStreamLoops starts message processing loops for all sentries.
@@ -232,7 +230,7 @@ func NewMultiClient(
 		disableBlockDownload:              disableBlockDownload,
 		logger:                            logger,
 		getReceiptsActiveGoroutineNumber:  semaphore.NewWeighted(1),
-		ethApiWrapper:                     receipts.NewGenerator(blockReader, engine),
+		ethApiWrapper:                     receipts.NewGenerator(blockReader, engine, 5*time.Minute),
 	}
 
 	return cs, nil

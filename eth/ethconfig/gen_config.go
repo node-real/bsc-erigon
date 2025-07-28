@@ -6,67 +6,67 @@ import (
 	"math/big"
 
 	"github.com/c2h5oh/datasize"
+
+	"github.com/erigontech/erigon-db/downloader/downloadercfg"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/datadir"
-	"github.com/erigontech/erigon-lib/downloader/downloadercfg"
+	"github.com/erigontech/erigon-lib/kv/prune"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/cl/clparams"
-	"github.com/erigontech/erigon/consensus/ethash/ethashcfg"
-	"github.com/erigontech/erigon/core/types"
 	"github.com/erigontech/erigon/eth/gasprice/gaspricecfg"
-	"github.com/erigontech/erigon/ethdb/prune"
+	"github.com/erigontech/erigon/execution/chainspec"
+	"github.com/erigontech/erigon/execution/consensus/ethash/ethashcfg"
 	"github.com/erigontech/erigon/params"
-	"github.com/erigontech/erigon/txnprovider/shutter"
+	"github.com/erigontech/erigon/txnprovider/shutter/shuttercfg"
 	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
 )
 
 // MarshalTOML marshals as TOML.
 func (c Config) MarshalTOML() (interface{}, error) {
 	type Config struct {
-		Genesis                        *types.Genesis `toml:",omitempty"`
-		NetworkID                      uint64
-		EthDiscoveryURLs               []string
-		Prune                          prune.Mode
-		BatchSize                      datasize.ByteSize
-		ImportMode                     bool
-		BadBlockHash                   common.Hash
-		Snapshot                       BlocksFreezing
-		Downloader                     *downloadercfg.Cfg
-		CaplinConfig                   clparams.CaplinConfig
-		Dirs                           datadir.Dirs
-		ExternalSnapshotDownloaderAddr string
-		Whitelist                      map[uint64]common.Hash `toml:"-"`
-		Miner                          params.MiningConfig
-		Ethash                         ethashcfg.Config
-		Clique                         params.ConsensusSnapshotConfig
-		Aura                           chain.AuRaConfig
-		TxPool                         txpoolcfg.Config
-		Shutter                        shutter.Config
-		GPO                            gaspricecfg.Config
-		RPCGasCap                      uint64  `toml:",omitempty"`
-		RPCTxFeeCap                    float64 `toml:",omitempty"`
-		StateStream                    bool
-		HeimdallURL                    string
-		WithoutHeimdall                bool
-		WithHeimdallMilestones         bool
-		WithHeimdallWaypointRecording  bool
-		PolygonSync                    bool
-		PolygonSyncStage               bool
-		Ethstats                       string
-		InternalCL                     bool
-		OverridePragueTime             *big.Int `toml:",omitempty"`
-		SilkwormExecution              bool
-		SilkwormRpcDaemon              bool
-		SilkwormSentry                 bool
-		SilkwormVerbosity              string
-		SilkwormNumContexts            uint32
-		SilkwormRpcLogEnabled          bool
-		SilkwormRpcLogDirPath          string
-		SilkwormRpcLogMaxFileSize      uint16
-		SilkwormRpcLogMaxFiles         uint16
-		SilkwormRpcLogDumpResponse     bool
-		SilkwormRpcNumWorkers          uint32
-		SilkwormRpcJsonCompatibility   bool
+		Genesis                             *types.Genesis `toml:",omitempty"`
+		NetworkID                           uint64
+		EthDiscoveryURLs                    []string
+		Prune                               prune.Mode
+		BatchSize                           datasize.ByteSize
+		ImportMode                          bool
+		BadBlockHash                        common.Hash
+		Snapshot                            BlocksFreezing
+		Downloader                          *downloadercfg.Cfg
+		CaplinConfig                        clparams.CaplinConfig
+		Dirs                                datadir.Dirs
+		ExternalSnapshotDownloaderAddr      string
+		Whitelist                           map[uint64]common.Hash `toml:"-"`
+		Miner                               params.MiningConfig
+		Ethash                              ethashcfg.Config
+		Clique                              chainspec.ConsensusSnapshotConfig
+		Aura                                chain.AuRaConfig
+		TxPool                              txpoolcfg.Config
+		Shutter                             shuttercfg.Config
+		GPO                                 gaspricecfg.Config
+		RPCGasCap                           uint64  `toml:",omitempty"`
+		RPCTxFeeCap                         float64 `toml:",omitempty"`
+		StateStream                         bool
+		HeimdallURL                         string
+		WithoutHeimdall                     bool
+		Ethstats                            string
+		InternalCL                          bool
+		OverrideOsakaTime                   *big.Int `toml:",omitempty"`
+		SilkwormExecution                   bool
+		SilkwormRpcDaemon                   bool
+		SilkwormSentry                      bool
+		SilkwormVerbosity                   string
+		SilkwormNumContexts                 uint32
+		SilkwormRpcLogEnabled               bool
+		SilkwormRpcLogDirPath               string
+		SilkwormRpcLogMaxFileSize           uint16
+		SilkwormRpcLogMaxFiles              uint16
+		SilkwormRpcLogDumpResponse          bool
+		SilkwormRpcNumWorkers               uint32
+		SilkwormRpcJsonCompatibility        bool
+		PolygonPosSingleSlotFinality        bool
+		PolygonPosSingleSlotFinalityBlockAt uint64
 	}
 	var enc Config
 	enc.Genesis = c.Genesis
@@ -94,13 +94,9 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.StateStream = c.StateStream
 	enc.HeimdallURL = c.HeimdallURL
 	enc.WithoutHeimdall = c.WithoutHeimdall
-	enc.WithHeimdallMilestones = c.WithHeimdallMilestones
-	enc.WithHeimdallWaypointRecording = c.WithHeimdallWaypointRecording
-	enc.PolygonSync = c.PolygonSync
-	enc.PolygonSyncStage = c.PolygonSyncStage
 	enc.Ethstats = c.Ethstats
 	enc.InternalCL = c.InternalCL
-	enc.OverridePragueTime = c.OverridePragueTime
+	enc.OverrideOsakaTime = c.OverrideOsakaTime
 	enc.SilkwormExecution = c.SilkwormExecution
 	enc.SilkwormRpcDaemon = c.SilkwormRpcDaemon
 	enc.SilkwormSentry = c.SilkwormSentry
@@ -113,56 +109,57 @@ func (c Config) MarshalTOML() (interface{}, error) {
 	enc.SilkwormRpcLogDumpResponse = c.SilkwormRpcLogDumpResponse
 	enc.SilkwormRpcNumWorkers = c.SilkwormRpcNumWorkers
 	enc.SilkwormRpcJsonCompatibility = c.SilkwormRpcJsonCompatibility
+	enc.PolygonPosSingleSlotFinality = c.PolygonPosSingleSlotFinality
+	enc.PolygonPosSingleSlotFinalityBlockAt = c.PolygonPosSingleSlotFinalityBlockAt
 	return &enc, nil
 }
 
 // UnmarshalTOML unmarshals from TOML.
 func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	type Config struct {
-		Genesis                        *types.Genesis `toml:",omitempty"`
-		NetworkID                      *uint64
-		EthDiscoveryURLs               []string
-		Prune                          *prune.Mode
-		BatchSize                      *datasize.ByteSize
-		ImportMode                     *bool
-		BadBlockHash                   *common.Hash
-		Snapshot                       *BlocksFreezing
-		Downloader                     *downloadercfg.Cfg
-		CaplinConfig                   *clparams.CaplinConfig
-		Dirs                           *datadir.Dirs
-		ExternalSnapshotDownloaderAddr *string
-		Whitelist                      map[uint64]common.Hash `toml:"-"`
-		Miner                          *params.MiningConfig
-		Ethash                         *ethashcfg.Config
-		Clique                         *params.ConsensusSnapshotConfig
-		Aura                           *chain.AuRaConfig
-		TxPool                         *txpoolcfg.Config
-		Shutter                        *shutter.Config
-		GPO                            *gaspricecfg.Config
-		RPCGasCap                      *uint64  `toml:",omitempty"`
-		RPCTxFeeCap                    *float64 `toml:",omitempty"`
-		StateStream                    *bool
-		HeimdallURL                    *string
-		WithoutHeimdall                *bool
-		WithHeimdallMilestones         *bool
-		WithHeimdallWaypointRecording  *bool
-		PolygonSync                    *bool
-		PolygonSyncStage               *bool
-		Ethstats                       *string
-		InternalCL                     *bool
-		OverridePragueTime             *big.Int `toml:",omitempty"`
-		SilkwormExecution              *bool
-		SilkwormRpcDaemon              *bool
-		SilkwormSentry                 *bool
-		SilkwormVerbosity              *string
-		SilkwormNumContexts            *uint32
-		SilkwormRpcLogEnabled          *bool
-		SilkwormRpcLogDirPath          *string
-		SilkwormRpcLogMaxFileSize      *uint16
-		SilkwormRpcLogMaxFiles         *uint16
-		SilkwormRpcLogDumpResponse     *bool
-		SilkwormRpcNumWorkers          *uint32
-		SilkwormRpcJsonCompatibility   *bool
+		Genesis                             *types.Genesis `toml:",omitempty"`
+		NetworkID                           *uint64
+		EthDiscoveryURLs                    []string
+		Prune                               *prune.Mode
+		BatchSize                           *datasize.ByteSize
+		ImportMode                          *bool
+		BadBlockHash                        *common.Hash
+		Snapshot                            *BlocksFreezing
+		Downloader                          *downloadercfg.Cfg
+		CaplinConfig                        *clparams.CaplinConfig
+		Dirs                                *datadir.Dirs
+		ExternalSnapshotDownloaderAddr      *string
+		Whitelist                           map[uint64]common.Hash `toml:"-"`
+		Miner                               *params.MiningConfig
+		Ethash                              *ethashcfg.Config
+		Clique                              *chainspec.ConsensusSnapshotConfig
+		Aura                                *chain.AuRaConfig
+		TxPool                              *txpoolcfg.Config
+		Shutter                             *shuttercfg.Config
+		GPO                                 *gaspricecfg.Config
+		RPCGasCap                           *uint64  `toml:",omitempty"`
+		RPCTxFeeCap                         *float64 `toml:",omitempty"`
+		StateStream                         *bool
+		HeimdallURL                         *string
+		WithoutHeimdall                     *bool
+		WithHeimdallWaypointRecording       *bool
+		Ethstats                            *string
+		InternalCL                          *bool
+		OverrideOsakaTime                   *big.Int `toml:",omitempty"`
+		SilkwormExecution                   *bool
+		SilkwormRpcDaemon                   *bool
+		SilkwormSentry                      *bool
+		SilkwormVerbosity                   *string
+		SilkwormNumContexts                 *uint32
+		SilkwormRpcLogEnabled               *bool
+		SilkwormRpcLogDirPath               *string
+		SilkwormRpcLogMaxFileSize           *uint16
+		SilkwormRpcLogMaxFiles              *uint16
+		SilkwormRpcLogDumpResponse          *bool
+		SilkwormRpcNumWorkers               *uint32
+		SilkwormRpcJsonCompatibility        *bool
+		PolygonPosSingleSlotFinality        *bool
+		PolygonPosSingleSlotFinalityBlockAt *uint64
 	}
 	var dec Config
 	if err := unmarshal(&dec); err != nil {
@@ -243,26 +240,14 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	if dec.WithoutHeimdall != nil {
 		c.WithoutHeimdall = *dec.WithoutHeimdall
 	}
-	if dec.WithHeimdallMilestones != nil {
-		c.WithHeimdallMilestones = *dec.WithHeimdallMilestones
-	}
-	if dec.WithHeimdallWaypointRecording != nil {
-		c.WithHeimdallWaypointRecording = *dec.WithHeimdallWaypointRecording
-	}
-	if dec.PolygonSync != nil {
-		c.PolygonSync = *dec.PolygonSync
-	}
-	if dec.PolygonSyncStage != nil {
-		c.PolygonSyncStage = *dec.PolygonSyncStage
-	}
 	if dec.Ethstats != nil {
 		c.Ethstats = *dec.Ethstats
 	}
 	if dec.InternalCL != nil {
 		c.InternalCL = *dec.InternalCL
 	}
-	if dec.OverridePragueTime != nil {
-		c.OverridePragueTime = dec.OverridePragueTime
+	if dec.OverrideOsakaTime != nil {
+		c.OverrideOsakaTime = dec.OverrideOsakaTime
 	}
 	if dec.SilkwormExecution != nil {
 		c.SilkwormExecution = *dec.SilkwormExecution
@@ -299,6 +284,12 @@ func (c *Config) UnmarshalTOML(unmarshal func(interface{}) error) error {
 	}
 	if dec.SilkwormRpcJsonCompatibility != nil {
 		c.SilkwormRpcJsonCompatibility = *dec.SilkwormRpcJsonCompatibility
+	}
+	if dec.PolygonPosSingleSlotFinality != nil {
+		c.PolygonPosSingleSlotFinality = *dec.PolygonPosSingleSlotFinality
+	}
+	if dec.PolygonPosSingleSlotFinalityBlockAt != nil {
+		c.PolygonPosSingleSlotFinalityBlockAt = *dec.PolygonPosSingleSlotFinalityBlockAt
 	}
 	return nil
 }

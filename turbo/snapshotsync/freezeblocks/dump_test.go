@@ -19,27 +19,29 @@ package freezeblocks_test
 import (
 	"context"
 	"math/big"
+	"os"
 	"runtime"
 	"testing"
 
 	"github.com/holiman/uint256"
+	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
 
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/chain/snapcfg"
-	libcommon "github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/math"
 	"github.com/erigontech/erigon-lib/crypto"
+	"github.com/erigontech/erigon-lib/kv/prune"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/core"
-	"github.com/erigontech/erigon/core/types"
-	"github.com/erigontech/erigon/ethdb/prune"
-	"github.com/erigontech/erigon/params"
+	"github.com/erigontech/erigon/execution/stages/mock"
 	"github.com/erigontech/erigon/polygon/bor/borcfg"
+	polychain "github.com/erigontech/erigon/polygon/chain"
 	"github.com/erigontech/erigon/turbo/snapshotsync/freezeblocks"
-	"github.com/erigontech/erigon/turbo/stages/mock"
 )
 
 func nonceRange(from, to int) []uint64 {
@@ -62,8 +64,16 @@ func baseIdRange(base, indexer, len int) []uint64 {
 }
 
 func TestDump(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	if runtime.GOOS == "windows" {
 		t.Skip("fix me on win")
+	}
+
+	if os.Getenv("SKIP_FLAKY_TESTS") != "" {
+		t.Skip("skipping flaky tests")
 	}
 
 	type test struct {
@@ -71,33 +81,35 @@ func TestDump(t *testing.T) {
 		chainSize   int
 	}
 
-	withConfig := func(config chain.Config, sprints map[string]uint64) *chain.Config {
+	withConfig := func(config *chain.Config, sprints map[string]uint64) *chain.Config {
+		var copy chain.Config
+		copier.Copy(&copy, config)
 		bor := *config.Bor.(*borcfg.BorConfig)
 		bor.Sprint = sprints
-		config.Bor = &bor
-		return &config
+		copy.Bor = &bor
+		return &copy
 	}
 
 	tests := []test{
 		{
 			chainSize:   5,
-			chainConfig: params.TestChainConfig,
+			chainConfig: chain.TestChainConfig,
 		},
 		{
 			chainSize:   50,
-			chainConfig: params.TestChainConfig,
+			chainConfig: chain.TestChainConfig,
 		},
 		{
 			chainSize:   1000,
-			chainConfig: params.BorDevnetChainConfig,
+			chainConfig: polychain.BorDevnetChainConfig,
 		},
 		{
 			chainSize:   2000,
-			chainConfig: params.BorDevnetChainConfig,
+			chainConfig: polychain.BorDevnetChainConfig,
 		},
 		{
 			chainSize: 1000,
-			chainConfig: withConfig(*params.BorDevnetChainConfig,
+			chainConfig: withConfig(polychain.BorDevnetChainConfig,
 				map[string]uint64{
 					"0":    64,
 					"800":  16,
@@ -106,7 +118,7 @@ func TestDump(t *testing.T) {
 		},
 		{
 			chainSize: 2000,
-			chainConfig: withConfig(*params.BorDevnetChainConfig,
+			chainConfig: withConfig(polychain.BorDevnetChainConfig,
 				map[string]uint64{
 					"0":    64,
 					"800":  16,
@@ -209,7 +221,7 @@ func TestDump(t *testing.T) {
 			require.NoError(err)
 			require.Equal(test.chainSize-3, i)
 			require.Equal(3*(test.chainSize-3)-1, int(txsAmount))
-			require.EqualValues(append([]uint64{0}, baseIdRange(2, 3, test.chainSize-4)...), baseIdList)
+			require.Equal(append([]uint64{0}, baseIdRange(2, 3, test.chainSize-4)...), baseIdList)
 
 			firstTxNum += txsAmount
 			i = 0
@@ -225,7 +237,7 @@ func TestDump(t *testing.T) {
 			require.NoError(err)
 			require.Equal(test.chainSize-1, i)
 			require.Equal(firstTxNum+uint64(3*(test.chainSize-1)), txsAmount)
-			require.EqualValues(baseIdRange(int(firstTxNum), 3, test.chainSize-1), baseIdList)
+			require.Equal(baseIdRange(int(firstTxNum), 3, test.chainSize-1), baseIdList)
 		})
 		t.Run("body_not_from_zero", func(t *testing.T) {
 			require := require.New(t)
@@ -241,7 +253,7 @@ func TestDump(t *testing.T) {
 			}, 1, log.LvlInfo, log.New())
 			require.NoError(err)
 			require.Equal(test.chainSize-2, i)
-			require.EqualValues(baseIdRange(int(firstTxNum), 3, test.chainSize-2), baseIdList)
+			require.Equal(baseIdRange(int(firstTxNum), 3, test.chainSize-2), baseIdList)
 			require.Equal(lastTxNum, baseIdList[len(baseIdList)-1]+3)
 			require.Equal(lastTxNum, firstTxNum+uint64(i*3))
 		})
@@ -255,7 +267,7 @@ func TestDump(t *testing.T) {
 			logger := log.New()
 
 			tmpDir, snapDir := t.TempDir(), t.TempDir()
-			snConfig := snapcfg.KnownCfg(networkname.Mainnet)
+			snConfig, _ := snapcfg.KnownCfg(networkname.Mainnet)
 			snConfig.ExpectBlocks = math.MaxUint64
 
 			err := freezeblocks.DumpBlocks(m.Ctx, 0, uint64(test.chainSize), m.ChainConfig, tmpDir, snapDir, m.DB, 1, log.LvlInfo, logger, m.BlockReader)
@@ -279,8 +291,8 @@ func createDumpTestKV(t *testing.T, chainConfig *chain.Config, chainSize int) *m
 
 	// Generate testing blocks
 	chain, err := core.GenerateChain(m.ChainConfig, m.Genesis, m.Engine, m.DB, chainSize, func(i int, b *core.BlockGen) {
-		b.SetCoinbase(libcommon.Address{1})
-		tx, txErr := types.SignTx(types.NewTransaction(b.TxNonce(addr), libcommon.HexToAddress("deadbeef"), uint256.NewInt(100), 21000, uint256.NewInt(uint64(int64(i+1)*params.GWei)), nil), *signer, key)
+		b.SetCoinbase(common.Address{1})
+		tx, txErr := types.SignTx(types.NewTransaction(b.TxNonce(addr), common.HexToAddress("deadbeef"), uint256.NewInt(100), 21000, uint256.NewInt(uint64(int64(i+1)*common.GWei)), nil), *signer, key)
 		if txErr != nil {
 			t.Fatalf("failed to create tx: %v", txErr)
 		}
