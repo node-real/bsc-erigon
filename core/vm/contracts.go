@@ -69,15 +69,43 @@ func Precompiles(chainRules *chain.Rules) map[common.Address]PrecompiledContract
 	case chainRules.IsBhilai:
 		return PrecompiledContractsBhilai
 	case chainRules.IsPrague:
-		return PrecompiledContractsPrague
+		if chainRules.IsParlia {
+			return PrecompiledContractsPragueForBSC
+		} else {
+			return PrecompiledContractsPrague
+		}
 	case chainRules.IsNapoli:
 		return PrecompiledContractsNapoli
+	case chainRules.IsHaber:
+		return PrecompiledContractsHaber
 	case chainRules.IsCancun:
-		return PrecompiledContractsCancun
+		if chainRules.IsParlia {
+			return PrecompiledContractsCancunForBsc
+		} else {
+			return PrecompiledContractsCancun
+		}
+	case chainRules.IsFeynman:
+		return PrecompiledContractsFeynman
+	case chainRules.IsHertz:
+		return PrecompiledContractsHertz
+	case chainRules.IsPlato:
+		return PrecompiledContractsPlato
+	case chainRules.IsLuban:
+		return PrecompiledContractsLuban
+	case chainRules.IsPlanck:
+		return PrecompiledContractsPlanck
+	case chainRules.IsMoran:
+		return PrecompiledContractsIsMoran
+	case chainRules.IsNano:
+		return PrecompiledContractsNano
 	case chainRules.IsBerlin:
 		return PrecompiledContractsBerlin
 	case chainRules.IsIstanbul:
-		return PrecompiledContractsIstanbul
+		if chainRules.IsParlia {
+			return PrecompiledContractsIstanbulForBSC
+		} else {
+			return PrecompiledContractsIstanbul
+		}
 	case chainRules.IsByzantium:
 		return PrecompiledContractsByzantium
 	default:
@@ -127,9 +155,9 @@ var PrecompiledContractsIstanbulForBSC = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -142,9 +170,9 @@ var PrecompiledContractsNano = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidateNano{},
@@ -157,9 +185,9 @@ var PrecompiledContractsIsMoran = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -232,9 +260,9 @@ var PrecompiledContractsCancunForBsc = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x03}): &ripemd160hash{},
 	common.BytesToAddress([]byte{0x04}): &dataCopy{},
 	common.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{0x06}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{0x07}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{0x08}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{0x09}): &blake2F{},
 	common.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
 
@@ -293,9 +321,9 @@ var PrecompiledContractsPragueForBSC = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{0x03}): &ripemd160hash{},
 	common.BytesToAddress([]byte{0x04}): &dataCopy{},
 	common.BytesToAddress([]byte{0x05}): &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{0x06}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{0x07}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{0x08}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{0x06}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{0x07}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{0x08}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{0x09}): &blake2F{},
 	common.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
 	common.BytesToAddress([]byte{0x0b}): &bls12381G1Add{},
@@ -324,9 +352,9 @@ var PrecompiledContractsHaber = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}):    &ripemd160hash{},
 	common.BytesToAddress([]byte{4}):    &dataCopy{},
 	common.BytesToAddress([]byte{5}):    &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{6}):    &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}):    &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}):    &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}):    &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}):    &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}):    &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}):    &blake2F{},
 	common.BytesToAddress([]byte{0x0a}): &pointEvaluation{},
 
@@ -346,9 +374,9 @@ var PrecompiledContractsPlanck = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -363,9 +391,9 @@ var PrecompiledContractsLuban = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -382,9 +410,9 @@ var PrecompiledContractsPlato = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -400,9 +428,9 @@ var PrecompiledContractsHertz = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{2}): &sha256hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -417,9 +445,9 @@ var PrecompiledContractsFeynman = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{3}): &ripemd160hash{},
 	common.BytesToAddress([]byte{4}): &dataCopy{},
 	common.BytesToAddress([]byte{5}): &bigModExp{eip2565: true},
-	common.BytesToAddress([]byte{6}): &bn256AddIstanbul{},
-	common.BytesToAddress([]byte{7}): &bn256ScalarMulIstanbul{},
-	common.BytesToAddress([]byte{8}): &bn256PairingIstanbul{},
+	common.BytesToAddress([]byte{6}): &bn254AddIstanbul{},
+	common.BytesToAddress([]byte{7}): &bn254ScalarMulIstanbul{},
+	common.BytesToAddress([]byte{8}): &bn254PairingIstanbul{},
 	common.BytesToAddress([]byte{9}): &blake2F{},
 
 	common.BytesToAddress([]byte{100}): &tmHeaderValidate{},
@@ -1690,12 +1718,20 @@ func (c *blsSignatureVerify) Run(input []byte) ([]byte, error) {
 	return big1.Bytes(), nil
 }
 
+func (c *blsSignatureVerify) Name() string {
+	return "BLSSignatureVerify" // note bn254 is the correct name and is required by eth_config
+}
+
 // verifyDoubleSignEvidence implements bsc header verification precompile.
 type verifyDoubleSignEvidence struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *verifyDoubleSignEvidence) RequiredGas(input []byte) uint64 {
 	return params.DoubleSignEvidenceVerifyGas
+}
+
+func (c *verifyDoubleSignEvidence) Name() string {
+	return "VerifyDoubleSignEvidence" // note bn254 is the correct name and is required by eth_config
 }
 
 type DoubleSignEvidence struct {
