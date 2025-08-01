@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"os"
 	"reflect"
 	"time"
 
@@ -69,21 +68,23 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		blocksRetired = true
 
 		logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
-			"range", fmt.Sprintf("%s-%s", common.PrettyCounter(blockFrom), common.PrettyCounter(blockTo)))
-
+			"blockFrom", blockFrom, "blockTo", blockTo)
 		segmentStartTime := time.Now()
-		for i := blockFrom; i < blockTo; i = chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig) {
-			end := chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig)
-			if end-i < snaptype.Erigon2OldMergeLimit {
+		for i := blockFrom; i < blockTo; {
+			if blockTo-i < snaptype.Erigon2OldMergeLimit {
 				break
 			}
-			dumpStartTime := time.Now()
-			if err := DumpBlobs(ctx, i, end, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
-				return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, end, err)
+			to := chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig)
+			logger.Log(lvl, "Dumping blobs sidecars", "from", i, "to", to)
+			blocksRetired = true
+			if err := DumpBlobs(ctx, i, to, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
+				return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, to, err)
 			}
-			dumpDuration := time.Since(dumpStartTime)
-			logger.Log(lvl, "[bsc snapshots] Segment dumped", "range", fmt.Sprintf("%s-%s", common.PrettyCounter(i), common.PrettyCounter(end)), "duration", dumpDuration)
+			logger.Log(lvl, "[bsc snapshots] Segment dumped", "i", i, "to", to)
 			totalSegments++
+
+			// Manually update loop variable
+			i = to
 		}
 		segmentDuration := time.Since(segmentStartTime)
 		logger.Log(lvl, "[bsc snapshots] All segments dumped for type", "type", snap, "duration", segmentDuration, "segments", totalSegments)
@@ -129,138 +130,13 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	retireDuration := time.Since(startTime)
-	mergeStartTime := time.Now()
-	merged, err := br.MergeBscBlocks(ctx, lvl, seedNewSnapshots, onDelete)
-	mergeDuration := time.Since(mergeStartTime)
-
-	if merged {
-		logger.Log(lvl, "[bsc snapshots] BSC merge completed", "duration", mergeDuration)
-	}
 
 	totalDuration := time.Since(startTime)
-	if blocksRetired || merged {
-		logger.Log(lvl, "[bsc snapshots] BSC total operation completed", "totalDuration", totalDuration, "retireDuration", retireDuration, "mergeDuration", mergeDuration)
+	if blocksRetired {
+		logger.Log(lvl, "[bsc snapshots] BSC total operation completed", "totalDuration", totalDuration, "retireDuration", retireDuration)
 	}
 
-	return blocksRetired || merged, err
-}
-
-func (br *BlockRetire) MergeBscBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
-	startTime := time.Now()
-	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
-	snapshots := br.bscSnapshots()
-	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, br.chainConfig, logger)
-	rangesToMerge := merger.FindMergeRanges(snapshots.Ranges(), snapshots.BlocksAvailable())
-	if len(rangesToMerge) > 0 {
-		logger.Log(lvl, "[bsc snapshots] Retire Bsc Blocks", "rangesToMerge", snapshotsync.Ranges(rangesToMerge))
-	}
-	if len(rangesToMerge) == 0 {
-		return false, nil
-	}
-
-	mergeOperationStart := time.Now()
-	onMerge := func(r snapshotsync.Range) error {
-		if notifier != nil && !reflect.ValueOf(notifier).IsNil() { // notify about new snapshots of any size
-			notifier.OnNewSnapshot()
-		}
-
-		if seedNewSnapshots != nil {
-			downloadRequest := []snapshotsync.DownloadRequest{
-				snapshotsync.NewDownloadRequest("", ""),
-			}
-			if err := seedNewSnapshots(downloadRequest); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	if err := merger.Merge(ctx, &snapshots.RoSnapshots, coresnaptype.BscSnapshotTypes, rangesToMerge, snapshots.Dir(), true /* doIndex */, onMerge, onDelete); err != nil {
-		return false, err
-	}
-	mergeOperationDuration := time.Since(mergeOperationStart)
-	logger.Log(lvl, "[bsc snapshots] Merge operation completed", "duration", mergeOperationDuration, "rangesCount", len(rangesToMerge))
-
-	cleanupStart := time.Now()
-	{
-		files, _, err := snapshotsync.TypedSegments(br.bscSnapshots().Dir(), br.bscSnapshots().SegmentsMin(), coresnaptype.BscSnapshotTypes, false)
-		if err != nil {
-			return true, err
-		}
-
-		// this is one off code to fix an issue in 2.49.x->2.52.x which missed
-		// removal of intermediate segments after a merge operation
-		removeBscOverlaps(br.bscSnapshots().Dir(), files, br.bscSnapshots().BlocksAvailable())
-	}
-	cleanupDuration := time.Since(cleanupStart)
-	logger.Log(lvl, "[bsc snapshots] Cleanup completed", "duration", cleanupDuration)
-
-	totalDuration := time.Since(startTime)
-	logger.Log(lvl, "[bsc snapshots] MergeBscBlocks completed", "totalDuration", totalDuration, "mergeOperation", mergeOperationDuration, "cleanup", cleanupDuration)
-
-	return true, nil
-}
-
-// this is one off code to fix an issue in 2.49.x->2.52.x which missed
-// removal of intermediate segments after a merge operation
-func removeBscOverlaps(dir string, active []snaptype.FileInfo, _max uint64) {
-	list, err := snaptype.Segments(dir)
-
-	if err != nil {
-		return
-	}
-
-	var toDel []string
-	l := make([]snaptype.FileInfo, 0, len(list))
-
-	for _, f := range list {
-		if !(f.Type.Enum() == coresnaptype.Enums.BscBlobs) {
-			continue
-		}
-		l = append(l, f)
-	}
-
-	// added overhead to make sure we don't delete in the
-	// current 500k block segment
-	if _max > 500_001 {
-		_max -= 500_001
-	}
-
-	for _, f := range l {
-		if _max < f.From {
-			continue
-		}
-
-		for _, a := range active {
-			if a.Type.Enum() != coresnaptype.Enums.BscBlobs {
-				continue
-			}
-
-			if f.From < a.From {
-				continue
-			}
-
-			if f.From == a.From {
-				if f.To < a.To {
-					toDel = append(toDel, f.Path)
-				}
-
-				break
-			}
-
-			if f.From < a.To {
-				toDel = append(toDel, f.Path)
-				break
-			}
-		}
-	}
-
-	for _, f := range toDel {
-		_ = os.Remove(f)
-		_ = os.Remove(f + ".torrent")
-		withoutExt := "blocksidecars"
-		_ = os.Remove(withoutExt + ".idx")
-		_ = os.Remove(withoutExt + ".idx.torrent")
-	}
+	return blocksRetired, nil
 }
 
 type BscRoSnapshots struct {
