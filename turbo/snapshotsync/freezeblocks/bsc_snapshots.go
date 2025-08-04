@@ -271,8 +271,6 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
 	startTime := time.Now()
-	logger.Log(lvl, "[bsc snapshots] Dumping blobs sidecars", "from", blockFrom, "to", blockTo)
-
 	err := dumpBlobsRange(ctx, blockFrom, blockTo, tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger)
 
 	duration := time.Since(startTime)
