@@ -73,10 +73,10 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 				break
 			}
 			to := chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig)
-			logger.Log(lvl, "Dumping blobs sidecars", "from", i, "to", to)
+			logger.Log(lvl, "[bsc snapshots] Dumping blobs sidecars", "from", i, "to", to)
 			blocksRetired = true
 			if err := DumpBlobs(ctx, i, to, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
-				return blocksRetired, fmt.Errorf("DumpBlobs: %d-%d: %w", i, to, err)
+				return blocksRetired, fmt.Errorf("[bsc snapshots] DumpBlobs: %d-%d: %w", i, to, err)
 			}
 			logger.Log(lvl, "[bsc snapshots] Segment dumped", "i", i, "to", to)
 			totalSegments++
@@ -236,7 +236,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 
 		processedBlocks++
 		if blockNum%20_000 == 0 {
-			logger.Log(lvl, "Dumping bsc blobs", "progress", blockNum)
+			logger.Log(lvl, "[bsc snapshots] Dumping bsc blobs", "progress", blockNum)
 		}
 
 		return true, nil
@@ -271,13 +271,13 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 
 func DumpBlobs(ctx context.Context, blockFrom, blockTo uint64, chainConfig *chain.Config, tmpDir, snapDir string, chainDB kv.RoDB, workers int, lvl log.Lvl, blockReader services.FullBlockReader, blobStore services.BlobStorage, logger log.Logger) error {
 	startTime := time.Now()
-	logger.Log(lvl, "Dumping blobs sidecars", "from", blockFrom, "to", blockTo)
+	logger.Log(lvl, "[bsc snapshots] Dumping blobs sidecars", "from", blockFrom, "to", blockTo)
 
 	err := dumpBlobsRange(ctx, blockFrom, blockTo, tmpDir, snapDir, chainDB, blobStore, blockReader, chainConfig, workers, lvl, logger)
 
 	duration := time.Since(startTime)
 	blockCount := blockTo - blockFrom
-	logger.Log(lvl, "Dumping blobs sidecars completed", "from", blockFrom, "to", blockTo, "duration", duration, "blocks", blockCount, "blocks/sec", float64(blockCount)/duration.Seconds())
+	logger.Log(lvl, "[bsc snapshots] Dumping blobs sidecars completed", "from", blockFrom, "to", blockTo, "duration", duration, "blocks", blockCount, "blocks/sec", float64(blockCount)/duration.Seconds())
 
 	return err
 }
