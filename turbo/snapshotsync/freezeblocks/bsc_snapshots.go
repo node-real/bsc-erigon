@@ -65,8 +65,6 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 		blockFrom = minSnapBlockNum + 1
 		blockTo := maxBlockNum
 
-		blocksRetired = true
-
 		logger.Log(lvl, "[bsc snapshots] Retire BSC Blobs", "type", snap,
 			"blockFrom", blockFrom, "blockTo", blockTo)
 		segmentStartTime := time.Now()
