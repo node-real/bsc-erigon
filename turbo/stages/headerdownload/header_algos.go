@@ -1030,7 +1030,7 @@ func (hi *HeaderInserter) FeedHeaderPoW(db kv.StatelessRwTx, headerReader servic
 		return nil, fmt.Errorf("[%s] failed to WriteTd: %w", hi.logPrefix, err)
 	}
 	if err = rawdb.WriteCanonicalHash(db, hash, blockHeight); err != nil {
-		return nil, fmt.Errorf("[%s] failed to save canonical hash: %w", err)
+		return nil, fmt.Errorf("[%s] failed to save canonical hash: %w", hi.logPrefix, err)
 	}
 	hi.prevHash = hash
 	return td, nil
