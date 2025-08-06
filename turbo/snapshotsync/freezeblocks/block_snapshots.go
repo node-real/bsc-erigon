@@ -542,12 +542,6 @@ func (br *BlockRetire) RemoveOverlaps() error {
 		}
 	}
 
-	if br.chainConfig.Parlia != nil {
-		if err := br.bscSnapshots().RoSnapshots.RemoveOverlaps(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
