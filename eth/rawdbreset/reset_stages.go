@@ -426,7 +426,7 @@ const (
 		a situation when we need to read indexes and we choose to read them from either a corrupt index or an incomplete index.
 		so we need to extend the threshold to > max_merge_segment_size.
 	*/
-	pruneMarkerSafeThreshold = snaptype.Erigon2MergeLimit * 1.5 // 1.5x the merge limit
+	pruneMarkerSafeThreshold = snaptype.Erigon2OldMergeLimit // 1.5x the merge limit
 )
 
 func GetPruneMarkerSafeThreshold(blockReader services.FullBlockReader) uint64 {
