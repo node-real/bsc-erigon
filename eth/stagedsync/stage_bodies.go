@@ -244,9 +244,8 @@ func BodiesForward(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, c
 
 				if cfg.chanConfig.Parlia != nil && cfg.chanConfig.IsCancun(headerNumber, header.Time) {
 					if err = core.IsDataAvailable(cr, header, rawBody, cfg.bd.LatestBlockTime); err != nil {
-						cfg.bd.ClearBodyCache()
-						logger.Error("blob missed", "err", err)
-						return true, nil
+						logger.Debug("blob data temporarily unavailable, will retry", "number", blockHeight, "hash", header.Hash().String(), "err", err)
+						return false, nil
 					}
 				}
 
