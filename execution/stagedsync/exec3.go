@@ -967,27 +967,29 @@ func flushAndCheckCommitmentV3(ctx context.Context, header *types.Header, applyT
 		return false, times, errors.New("header is nil")
 	}
 
-	if dbg.DiscardCommitment() {
-		return true, times, nil
-	}
 	if doms.BlockNum() != header.Number.Uint64() {
 		panic(fmt.Errorf("%d != %d", doms.BlockNum(), header.Number.Uint64()))
 	}
 
-	computedRootHash, err := doms.ComputeCommitment(ctx, true, header.Number.Uint64(), doms.TxNum(), e.LogPrefix())
-	times.ComputeCommitment = time.Since(start)
-	if err != nil {
-		return false, times, fmt.Errorf("ParallelExecutionState.Apply: %w", err)
-	}
+	if dbg.DiscardCommitment() {
+		doms.ResetCommitment()
+		_ = doms.SaveCommitment(doms.BlockNum(), doms.TxNum(), header.Root.Bytes())
+	} else {
+		computedRootHash, err := doms.ComputeCommitment(ctx, true, header.Number.Uint64(), doms.TxNum(), e.LogPrefix())
+		times.ComputeCommitment = time.Since(start)
+		if err != nil {
+			return false, times, fmt.Errorf("ParallelExecutionState.Apply: %w", err)
+		}
 
-	if cfg.blockProduction {
-		header.Root = common.BytesToHash(computedRootHash)
-		return true, times, nil
-	}
-	if !bytes.Equal(computedRootHash, header.Root.Bytes()) {
-		logger.Error(fmt.Sprintf("[%s] Wrong trie root of block %d: %x, expected (from header): %x. Block hash: %x", e.LogPrefix(), header.Number.Uint64(), computedRootHash, header.Root.Bytes(), header.Hash()))
-		ok, err = handleIncorrectRootHashError(header, applyTx.(kv.TemporalRwTx), cfg, e, maxBlockNum, logger, u)
-		return ok, times, err
+		if cfg.blockProduction {
+			header.Root = common.BytesToHash(computedRootHash)
+			return true, times, nil
+		}
+		if !bytes.Equal(computedRootHash, header.Root.Bytes()) {
+			logger.Error(fmt.Sprintf("[%s] Wrong trie root of block %d: %x, expected (from header): %x. Block hash: %x", e.LogPrefix(), header.Number.Uint64(), computedRootHash, header.Root.Bytes(), header.Hash()))
+			ok, err = handleIncorrectRootHashError(header, applyTx.(kv.TemporalRwTx), cfg, e, maxBlockNum, logger, u)
+			return ok, times, err
+		}
 	}
 	if !inMemExec {
 		start = time.Now()
