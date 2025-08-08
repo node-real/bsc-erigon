@@ -450,7 +450,7 @@ func (br *BlockRetire) RetireBlocks(ctx context.Context, requestedMinBlockNum ui
 		br.maxScheduledBlock.Store(requestedMaxBlockNum)
 	}
 	includeBor := br.chainConfig.Bor != nil
-	includeBsc := br.chainConfig.Parlia != nil
+	includeBsc := br.chainConfig.Parlia != nil && br.bs.BlobKept()
 
 	if err := br.BuildMissedIndicesIfNeed(ctx, "RetireBlocks", br.notifier); err != nil {
 		return err
