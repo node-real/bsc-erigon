@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/chain/networkname"
 	"math"
 	"time"
 
@@ -336,7 +337,13 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 	// because on slow disks - prune is slower. but for now - let's tune for nvme first, and add `tx.SpaceDirty()` check later https://github.com/erigontech/erigon/issues/11635
 	quickPruneTimeout := 250 * time.Millisecond
 
-	if s.ForwardProgress > config3.MaxReorgDepthV3 && !cfg.syncCfg.AlwaysGenerateChangesets {
+	var maxReorgDepth uint64
+	if cfg.chainConfig.ChainName == networkname.Chapel {
+		// Chapel may have bigger unwind block
+		maxReorgDepth = config3.MaxReorgDepthV3 * 16
+	}
+
+	if s.ForwardProgress > maxReorgDepth && !cfg.syncCfg.AlwaysGenerateChangesets {
 		// (chunkLen is 8Kb) * (1_000 chunks) = 8mb
 		// Some blocks on bor-mainnet have 400 chunks of diff = 3mb
 		var pruneDiffsLimitOnChainTip = 1_000
@@ -349,7 +356,7 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 		if err := rawdb.PruneTable(
 			tx,
 			kv.ChangeSets3,
-			s.ForwardProgress-config3.MaxReorgDepthV3,
+			s.ForwardProgress-maxReorgDepth,
 			ctx,
 			pruneDiffsLimitOnChainTip,
 			pruneTimeout,
