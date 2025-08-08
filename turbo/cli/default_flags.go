@@ -42,6 +42,7 @@ var DefaultFlags = []cli.Flag{
 	&PruneDistanceFlag,
 	&PruneBlocksDistanceFlag,
 	&PruneModeFlag,
+	&utils.KeepExecutionProofsFlag,
 	&BscDisableBlobPruningFlag,
 	&BatchSizeFlag,
 	&BodyCacheLimitFlag,
@@ -88,7 +89,6 @@ var DefaultFlags = []cli.Flag{
 	&utils.RPCGlobalTxFeeCapFlag,
 	&utils.TxpoolApiAddrFlag,
 	&utils.TraceMaxtracesFlag,
-	&utils.KeepExecutionProofsFlag,
 
 	&HTTPReadTimeoutFlag,
 	&HTTPWriteTimeoutFlag,
@@ -118,8 +118,10 @@ var DefaultFlags = []cli.Flag{
 	&utils.TorrentConnsPerFileFlag,
 	&utils.TorrentDownloadSlotsFlag,
 	&utils.TorrentStaticPeersFlag,
+	&utils.TorrentDisableTrackers,
 	&utils.TorrentUploadRateFlag,
 	&utils.TorrentDownloadRateFlag,
+	&utils.TorrentWebseedDownloadRateFlag,
 	&utils.TorrentVerbosityFlag,
 	&utils.ListenPortFlag,
 	&utils.P2pProtocolVersionFlag,
@@ -139,7 +141,6 @@ var DefaultFlags = []cli.Flag{
 	&utils.DeveloperPeriodFlag,
 	&utils.VMEnableDebugFlag,
 	&utils.NetworkIdFlag,
-	&utils.PersistReceiptsFlag,
 	&utils.PersistReceiptsV2Flag,
 	&utils.FakePoWFlag,
 	&utils.GpoBlocksFlag,
@@ -173,13 +174,9 @@ var DefaultFlags = []cli.Flag{
 	&utils.WithoutHeimdallFlag,
 	&utils.BorBlockPeriodFlag,
 	&utils.BorBlockSizeFlag,
-	&utils.WithHeimdallMilestones,
-	&utils.WithHeimdallWaypoints,
-	&utils.PolygonSyncFlag,
-	&utils.PolygonSyncStageFlag,
-	&utils.PolygonLogIndex,
+	&utils.AAFlag,
 	&utils.EthStatsURLFlag,
-	&utils.OverridePragueFlag,
+	&utils.OverrideOsakaFlag,
 
 	&utils.CaplinDiscoveryAddrFlag,
 	&utils.CaplinDiscoveryPortFlag,
@@ -239,7 +236,6 @@ var DefaultFlags = []cli.Flag{
 	&utils.RPCSlowFlag,
 
 	&utils.TxPoolGossipDisableFlag,
-
 	&SyncLoopBlockLimitFlag,
 	&SyncLoopBreakAfterFlag,
 	&SyncParallelStateFlushing,
@@ -252,4 +248,7 @@ var DefaultFlags = []cli.Flag{
 
 	&utils.PolygonPosSingleSlotFinalityFlag,
 	&utils.PolygonPosSingleSlotFinalityBlockAtFlag,
+	&utils.GDBMeFlag,
+
+	&utils.ExperimentalConcurrentCommitmentFlag,
 }

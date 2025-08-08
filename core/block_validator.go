@@ -20,7 +20,7 @@
 package core
 
 import (
-	"github.com/erigontech/erigon/params"
+	"github.com/erigontech/erigon-lib/chain/params"
 )
 
 // CalcGasLimit computes the gas limit of the next block after parent. It aims
@@ -30,22 +30,13 @@ func CalcGasLimit(parentGasLimit, desiredLimit uint64) uint64 {
 	// change GasLimitBoundDivisor to 1024 from 256 from lorentz hard fork, but no need hard fork control here.
 	delta := parentGasLimit/params.GasLimitBoundDivisor - 1
 	limit := parentGasLimit
-	if desiredLimit < params.MinGasLimit {
-		desiredLimit = params.MinGasLimit
-	}
+	desiredLimit = max(desiredLimit, params.MinBlockGasLimit)
 	// If we're outside our allowed gas range, we try to hone towards them
 	if limit < desiredLimit {
-		limit = parentGasLimit + delta
-		if limit > desiredLimit {
-			limit = desiredLimit
-		}
-		return limit
+		return min(parentGasLimit+delta, desiredLimit)
 	}
 	if limit > desiredLimit {
-		limit = parentGasLimit - delta
-		if limit < desiredLimit {
-			limit = desiredLimit
-		}
+		return max(parentGasLimit-delta, desiredLimit)
 	}
 	return limit
 }

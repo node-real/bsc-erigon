@@ -227,6 +227,8 @@ func makeDecoder(typ reflect.Type, tags tags) (dec decoder, err error) {
 		return decodeDecoder, nil
 	case isUint(kind):
 		return decodeUint, nil
+	case isInt(kind):
+		return decodeInt, nil
 	case kind == reflect.Bool:
 		return decodeBool, nil
 	case kind == reflect.String:
@@ -258,6 +260,16 @@ func decodeUint(s *Stream, val reflect.Value) error {
 		return wrapStreamError(err, val.Type())
 	}
 	val.SetUint(num)
+	return nil
+}
+
+func decodeInt(s *Stream, val reflect.Value) error {
+	typ := val.Type()
+	num, err := s.uint(typ.Bits())
+	if err != nil {
+		return wrapStreamError(err, val.Type())
+	}
+	val.SetInt(int64(num))
 	return nil
 }
 
@@ -327,7 +339,7 @@ func makeListDecoder(typ reflect.Type, tag tags) (decoder, error) {
 		}
 		return decodeByteSlice, nil
 	}
-	etypeinfo := cachedTypeInfo1(etype, tags{})
+	etypeinfo := theTC.infoWhileGenerating(etype, tags{})
 	if etypeinfo.decoderErr != nil {
 		return nil, etypeinfo.decoderErr
 	}
@@ -506,7 +518,7 @@ func zeroFields(structval reflect.Value, fields []field) {
 // makePtrDecoder creates a decoder that decodes into the pointer's element type.
 func makePtrDecoder(typ reflect.Type, tag tags) (decoder, error) {
 	etype := typ.Elem()
-	etypeinfo := cachedTypeInfo1(etype, tags{})
+	etypeinfo := theTC.infoWhileGenerating(etype, tags{})
 	switch {
 	case etypeinfo.decoderErr != nil:
 		return nil, etypeinfo.decoderErr
@@ -692,6 +704,17 @@ func NewListStream(r io.Reader, len uint64) *Stream {
 	return s
 }
 
+func NewStreamFromPool(r io.Reader, inputLimit uint64) (stream *Stream, done func()) {
+	stream, ok := streamPool.Get().(*Stream)
+	if !ok {
+		log.Warn("Failed to get stream from pool")
+	}
+	stream.Reset(r, inputLimit)
+	return stream, func() {
+		streamPool.Put(stream)
+	}
+}
+
 // Remaining returns number of bytes remaining to be read
 func (s *Stream) Remaining() uint64 {
 	return s.remaining
@@ -720,6 +743,35 @@ func (s *Stream) Bytes() ([]byte, error) {
 		return b, nil
 	default:
 		return nil, ErrExpectedString
+	}
+}
+
+func (s *Stream) ReadBytes(b []byte) error {
+	kind, size, err := s.Kind()
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case Byte:
+		if len(b) != 1 {
+			return fmt.Errorf("input value has wrong size 1, want %d", len(b))
+		}
+		b[0] = s.byteval
+		s.kind = -1 // rearm Kind
+		return nil
+	case String:
+		if uint64(len(b)) != size {
+			return fmt.Errorf("input value has wrong size %d, want %d", size, len(b))
+		}
+		if err = s.readFull(b); err != nil {
+			return err
+		}
+		if size == 1 && b[0] < 128 {
+			return ErrCanonSize
+		}
+		return nil
+	default:
+		return ErrExpectedString
 	}
 }
 
@@ -1148,6 +1200,22 @@ func (s *Stream) willRead(n uint64) error {
 		s.remaining -= n
 	}
 	return nil
+}
+
+// MoreDataInList reports whether the current list context contains
+// more data to be read.
+func (s *Stream) MoreDataInList() bool {
+	_, listLimit := s.listLimit()
+	return listLimit > 0
+}
+
+// listLimit returns the amount of data remaining in the innermost list.
+func (s *Stream) listLimit() (inList bool, limit uint64) {
+	if len(s.stack) == 0 {
+		return false, 0
+	}
+	a := s.stack[len(s.stack)-1]
+	return true, a.size - a.pos
 }
 
 type sliceReader []byte

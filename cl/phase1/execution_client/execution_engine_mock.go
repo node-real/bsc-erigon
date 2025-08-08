@@ -15,11 +15,11 @@ import (
 	reflect "reflect"
 
 	common "github.com/erigontech/erigon-lib/common"
-	hexutility "github.com/erigontech/erigon-lib/common/hexutility"
+	hexutil "github.com/erigontech/erigon-lib/common/hexutil"
 	typesproto "github.com/erigontech/erigon-lib/gointerfaces/typesproto"
+	types "github.com/erigontech/erigon-lib/types"
 	cltypes "github.com/erigontech/erigon/cl/cltypes"
-	types "github.com/erigontech/erigon/core/types"
-	engine_types "github.com/erigontech/erigon/turbo/engineapi/engine_types"
+	engine_types "github.com/erigontech/erigon/execution/engineapi/engine_types"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -476,7 +476,7 @@ func (c *MockExecutionEngineIsCanonicalHashCall) DoAndReturn(f func(context.Cont
 }
 
 // NewPayload mocks base method.
-func (m *MockExecutionEngine) NewPayload(ctx context.Context, payload *cltypes.Eth1Block, beaconParentRoot *common.Hash, versionedHashes []common.Hash, executionRequestsList []hexutility.Bytes) (PayloadStatus, error) {
+func (m *MockExecutionEngine) NewPayload(ctx context.Context, payload *cltypes.Eth1Block, beaconParentRoot *common.Hash, versionedHashes []common.Hash, executionRequestsList []hexutil.Bytes) (PayloadStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewPayload", ctx, payload, beaconParentRoot, versionedHashes, executionRequestsList)
 	ret0, _ := ret[0].(PayloadStatus)
@@ -503,13 +503,13 @@ func (c *MockExecutionEngineNewPayloadCall) Return(arg0 PayloadStatus, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockExecutionEngineNewPayloadCall) Do(f func(context.Context, *cltypes.Eth1Block, *common.Hash, []common.Hash, []hexutility.Bytes) (PayloadStatus, error)) *MockExecutionEngineNewPayloadCall {
+func (c *MockExecutionEngineNewPayloadCall) Do(f func(context.Context, *cltypes.Eth1Block, *common.Hash, []common.Hash, []hexutil.Bytes) (PayloadStatus, error)) *MockExecutionEngineNewPayloadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockExecutionEngineNewPayloadCall) DoAndReturn(f func(context.Context, *cltypes.Eth1Block, *common.Hash, []common.Hash, []hexutility.Bytes) (PayloadStatus, error)) *MockExecutionEngineNewPayloadCall {
+func (c *MockExecutionEngineNewPayloadCall) DoAndReturn(f func(context.Context, *cltypes.Eth1Block, *common.Hash, []common.Hash, []hexutil.Bytes) (PayloadStatus, error)) *MockExecutionEngineNewPayloadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

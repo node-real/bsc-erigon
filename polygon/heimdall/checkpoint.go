@@ -25,7 +25,6 @@ import (
 	"strconv"
 
 	"github.com/erigontech/erigon-lib/common"
-	libcommon "github.com/erigontech/erigon-lib/common"
 )
 
 type CheckpointId uint64
@@ -62,7 +61,7 @@ func (c *Checkpoint) BlockNumRange() ClosedRange {
 	}
 }
 
-func (c *Checkpoint) RootHash() libcommon.Hash {
+func (c *Checkpoint) RootHash() common.Hash {
 	return c.Fields.RootHash
 }
 
@@ -92,13 +91,13 @@ func (c *Checkpoint) String() string {
 
 func (c *Checkpoint) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Id         CheckpointId      `json:"id"`
-		Proposer   libcommon.Address `json:"proposer"`
-		StartBlock *big.Int          `json:"start_block"`
-		EndBlock   *big.Int          `json:"end_block"`
-		RootHash   libcommon.Hash    `json:"root_hash"`
-		ChainID    string            `json:"bor_chain_id"`
-		Timestamp  uint64            `json:"timestamp"`
+		Id         CheckpointId   `json:"id"`
+		Proposer   common.Address `json:"proposer"`
+		StartBlock *big.Int       `json:"start_block"`
+		EndBlock   *big.Int       `json:"end_block"`
+		RootHash   common.Hash    `json:"root_hash"`
+		ChainID    string         `json:"bor_chain_id"`
+		Timestamp  uint64         `json:"timestamp"`
 	}{
 		c.Id,
 		c.Fields.Proposer,
@@ -113,8 +112,8 @@ func (c *Checkpoint) MarshalJSON() ([]byte, error) {
 func (c *Checkpoint) UnmarshalJSON(b []byte) error {
 	dto := struct {
 		WaypointFields
-		RootHash libcommon.Hash `json:"root_hash"`
-		Id       CheckpointId   `json:"id"`
+		RootHash common.Hash  `json:"root_hash"`
+		Id       CheckpointId `json:"id"`
 	}{}
 
 	if err := json.Unmarshal(b, &dto); err != nil {
@@ -149,12 +148,12 @@ type CheckpointResponseV1 struct {
 
 type CheckpointResponseV2 struct {
 	Checkpoint struct {
-		Proposer   libcommon.Address `json:"proposer"`
-		StartBlock string            `json:"start_block"`
-		EndBlock   string            `json:"end_block"`
-		RootHash   string            `json:"root_hash"`
-		ChainID    string            `json:"bor_chain_id"`
-		Timestamp  string            `json:"timestamp"`
+		Proposer   common.Address `json:"proposer"`
+		StartBlock string         `json:"start_block"`
+		EndBlock   string         `json:"end_block"`
+		RootHash   string         `json:"root_hash"`
+		ChainID    string         `json:"bor_chain_id"`
+		Timestamp  string         `json:"timestamp"`
 	} `json:"checkpoint"`
 }
 
@@ -182,7 +181,7 @@ func (v *CheckpointResponseV2) ToCheckpoint(id int64) (*Checkpoint, error) {
 		return nil, err
 	}
 
-	r.Fields.RootHash = libcommon.BytesToHash(decoded)
+	r.Fields.RootHash = common.BytesToHash(decoded)
 	r.Fields.StartBlock = big.NewInt(int64(startBlock))
 	r.Fields.EndBlock = big.NewInt(int64(endBlock))
 
@@ -216,13 +215,13 @@ type CheckpointListResponseV1 struct {
 
 type CheckpointListResponseV2 struct {
 	CheckpointList []struct {
-		ID         string            `json:"id"`
-		Proposer   libcommon.Address `json:"proposer"`
-		StartBlock string            `json:"start_block"`
-		EndBlock   string            `json:"end_block"`
-		RootHash   string            `json:"root_hash"`
-		ChainID    string            `json:"bor_chain_id"`
-		Timestamp  string            `json:"timestamp"`
+		ID         string         `json:"id"`
+		Proposer   common.Address `json:"proposer"`
+		StartBlock string         `json:"start_block"`
+		EndBlock   string         `json:"end_block"`
+		RootHash   string         `json:"root_hash"`
+		ChainID    string         `json:"bor_chain_id"`
+		Timestamp  string         `json:"timestamp"`
 	} `json:"checkpoint_list"`
 }
 

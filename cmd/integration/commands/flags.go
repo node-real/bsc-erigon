@@ -65,7 +65,7 @@ func withConfig(cmd *cobra.Command) {
 func withMining(cmd *cobra.Command) {
 	cmd.Flags().Bool("mine", false, "Enable mining")
 	cmd.Flags().StringArray("miner.notify", nil, "Comma separated HTTP URL list to notify of new work packages")
-	cmd.Flags().Uint64("miner.gaslimit", ethconfig.DefaultMinerGasLimitEthMainnet, "Target gas limit for mined blocks")
+	cmd.Flags().Uint64("miner.gaslimit", ethconfig.DefaultBlockGasLimit, "Target gas limit for mined blocks")
 	cmd.Flags().Int64("miner.gasprice", ethconfig.Defaults.Miner.GasPrice.Int64(), "Target gas price for mined blocks")
 	cmd.Flags().String("miner.etherbase", "0", "Public address for block mining rewards (default = first account")
 	cmd.Flags().String("miner.extradata", "", "Block extra data set by the miner (default = client version)")
@@ -144,7 +144,7 @@ func withBatchSize(cmd *cobra.Command) {
 }
 
 func withDomain(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&domain, "domain", "", "Comma separated names of domains/inverted_indices")
+	cmd.Flags().StringVar(&domain, "domain", "", "Comma separated names of domain/inverted_indices")
 }
 
 func withIntegrityChecks(cmd *cobra.Command) {
@@ -161,7 +161,7 @@ func withTxTrace(cmd *cobra.Command) {
 }
 
 func withChain(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&chain, "chain", "mainnet", "pick a chain to assume (mainnet, sepolia, etc.)")
+	cmd.Flags().StringVar(&chain, "chain", "", "pick a chain to assume (mainnet, sepolia, etc.)")
 	must(cmd.MarkFlagRequired("chain"))
 }
 

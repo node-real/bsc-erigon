@@ -30,10 +30,10 @@ import (
 	libcommon "github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/log/v3"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/testlog"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/polygon/bor/borcfg"
 	"github.com/erigontech/erigon/polygon/heimdall"
-	"github.com/erigontech/erigon/turbo/testlog"
 )
 
 var defaultBorConfig = borcfg.BorConfig{
@@ -172,7 +172,7 @@ func TestService(t *testing.T) {
 
 	res, err := b.Events(ctx, blocks[1].Hash(), 2)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
 	res, err = b.Events(ctx, blocks[3].Hash(), 4)
 	require.NoError(t, err)
@@ -192,16 +192,16 @@ func TestService(t *testing.T) {
 
 	// get non-sprint block
 	res, err = b.Events(ctx, blocks[0].Hash(), 1)
-	require.Equal(t, len(res), 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	res, err = b.Events(ctx, blocks[2].Hash(), 3)
-	require.Equal(t, len(res), 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	// check block 0
 	res, err = b.Events(ctx, libcommon.Hash{}, 0)
-	require.Equal(t, len(res), 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	cancel()
@@ -300,10 +300,10 @@ func TestService_Unwind(t *testing.T) {
 	require.Len(t, res, 2)
 	res, err = b.Events(ctx, blocks[5].Hash(), 6)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 	res, err = b.Events(ctx, blocks[9].Hash(), 10)
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
 	cancel()
 	wg.Wait()
@@ -455,7 +455,7 @@ func TestService_ProcessNewBlocksWithZeroOverride(t *testing.T) {
 
 	res, err := b.Events(ctx, blocks[3].Hash(), 4) // both event1 and event2 are in block 6
 	require.NoError(t, err)
-	require.Len(t, res, 0)
+	require.Empty(t, res)
 
 	res, err = b.Events(ctx, blocks[5].Hash(), 6)
 	require.NoError(t, err)
@@ -566,7 +566,7 @@ func TestReaderEventsWithinTime(t *testing.T) {
 	require.Equal(t, event3Data, res[0].Data()) // check data fields
 
 	res, err = b.EventsWithinTime(ctx, time.Unix(500, 0), time.Unix(600, 0))
-	require.Equal(t, len(res), 0)
+	require.Empty(t, res)
 	require.NoError(t, err)
 
 	cancel()

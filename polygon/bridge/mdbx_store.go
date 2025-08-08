@@ -25,12 +25,12 @@ import (
 	"math/big"
 	"time"
 
-	libcommon "github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
+	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/order"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
+	"github.com/erigontech/erigon-lib/snaptype"
 	"github.com/erigontech/erigon/polygon/heimdall"
 	"github.com/erigontech/erigon/polygon/polygoncommon"
 )
@@ -156,7 +156,7 @@ func (s *MdbxStore) LastFrozenEventId() uint64 {
 	return 0
 }
 
-func (s *MdbxStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNum map[libcommon.Hash]uint64) error {
+func (s *MdbxStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNum map[common.Hash]uint64) error {
 	if len(eventTxnToBlockNum) == 0 {
 		return nil
 	}
@@ -174,7 +174,7 @@ func (s *MdbxStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNu
 	return tx.Commit()
 }
 
-func (s *MdbxStore) EventTxnToBlockNum(ctx context.Context, borTxHash libcommon.Hash) (uint64, bool, error) {
+func (s *MdbxStore) EventTxnToBlockNum(ctx context.Context, borTxHash common.Hash) (uint64, bool, error) {
 	tx, err := s.db.BeginRo(ctx)
 	if err != nil {
 		return 0, false, err
@@ -249,10 +249,10 @@ func (s *MdbxStore) PutEvents(ctx context.Context, events []*heimdall.EventRecor
 	return tx.Commit()
 }
 
-func (s *MdbxStore) EventsByTimeframe(ctx context.Context, timeFrom, timeTo uint64) ([][]byte, error) {
+func (s *MdbxStore) EventsByTimeframe(ctx context.Context, timeFrom, timeTo uint64) ([][]byte, []uint64, error) {
 	tx, err := s.db.BeginRo(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer tx.Rollback()
 
@@ -279,11 +279,11 @@ func (s *MdbxStore) PutBlockNumToEventId(ctx context.Context, blockNumToEventId 
 
 // BlockEventIdsRange returns the [start, end] event Id for the given block number
 // If the given block number is the first in the database, then the first uint64 (representing start Id) is 0.
-func (s *MdbxStore) BlockEventIdsRange(ctx context.Context, blockHash libcommon.Hash, blockNum uint64) (uint64, uint64, bool, error) {
+func (s *MdbxStore) BlockEventIdsRange(ctx context.Context, blockHash common.Hash, blockNum uint64) (uint64, uint64, bool, error) {
 	return s.blockEventIdsRange(ctx, blockHash, blockNum, s.LastFrozenEventId())
 }
 
-func (s *MdbxStore) blockEventIdsRange(ctx context.Context, blockHash libcommon.Hash, blockNum uint64, lastFrozenId uint64) (uint64, uint64, bool, error) {
+func (s *MdbxStore) blockEventIdsRange(ctx context.Context, blockHash common.Hash, blockNum uint64, lastFrozenId uint64) (uint64, uint64, bool, error) {
 	var start, end uint64
 
 	tx, err := s.db.BeginRo(ctx)
@@ -311,7 +311,7 @@ func (s *MdbxStore) Unwind(ctx context.Context, blockNum uint64) error {
 	return tx.Commit()
 }
 
-func (s *MdbxStore) BorStartEventId(ctx context.Context, hash libcommon.Hash, blockHeight uint64) (uint64, error) {
+func (s *MdbxStore) BorStartEventId(ctx context.Context, hash common.Hash, blockHeight uint64) (uint64, error) {
 	tx, err := s.db.BeginRo(ctx)
 	if err != nil {
 		return 0, err
@@ -321,7 +321,7 @@ func (s *MdbxStore) BorStartEventId(ctx context.Context, hash libcommon.Hash, bl
 	return txStore{tx}.BorStartEventId(ctx, hash, blockHeight)
 }
 
-func (s *MdbxStore) EventsByBlock(ctx context.Context, hash libcommon.Hash, blockHeight uint64) ([]rlp.RawValue, error) {
+func (s *MdbxStore) EventsByBlock(ctx context.Context, hash common.Hash, blockHeight uint64) ([]rlp.RawValue, error) {
 	tx, err := s.db.BeginRo(ctx)
 	if err != nil {
 		return nil, err
@@ -441,7 +441,7 @@ func (s txStore) LastFrozenEventId() uint64 {
 	return 0
 }
 
-func (s txStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNum map[libcommon.Hash]uint64) error {
+func (s txStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNum map[common.Hash]uint64) error {
 	if len(eventTxnToBlockNum) == 0 {
 		return nil
 	}
@@ -463,7 +463,7 @@ func (s txStore) PutEventTxnToBlockNum(ctx context.Context, eventTxnToBlockNum m
 	return nil
 }
 
-func (s txStore) EventTxnToBlockNum(ctx context.Context, borTxHash libcommon.Hash) (uint64, bool, error) {
+func (s txStore) EventTxnToBlockNum(ctx context.Context, borTxHash common.Hash) (uint64, bool, error) {
 	var blockNum uint64
 
 	v, err := s.tx.GetOne(kv.BorTxLookup, borTxHash.Bytes())
@@ -511,9 +511,10 @@ func (s txStore) PutEvents(ctx context.Context, events []*heimdall.EventRecordWi
 	return nil
 }
 
-// returns events withing [timeFrom, timeTo) interval.
-func (s txStore) EventsByTimeframe(ctx context.Context, timeFrom, timeTo uint64) ([][]byte, error) {
+// EventsByTimeframe returns events withing [timeFrom, timeTo) interval.
+func (s txStore) EventsByTimeframe(ctx context.Context, timeFrom, timeTo uint64) ([][]byte, []uint64, error) {
 	var events [][]byte
+	var ids []uint64
 
 	kStart := make([]byte, 8)
 	binary.BigEndian.PutUint64(kStart, timeFrom)
@@ -523,24 +524,25 @@ func (s txStore) EventsByTimeframe(ctx context.Context, timeFrom, timeTo uint64)
 
 	it, err := s.tx.Range(kv.BorEventTimes, kStart, kEnd, order.Asc, kv.Unlim)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	for it.HasNext() {
 		_, evID, err := it.Next()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		v, err := s.tx.GetOne(kv.BorEvents, evID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		events = append(events, bytes.Clone(v))
+		ids = append(ids, binary.BigEndian.Uint64(evID))
 	}
 
-	return events, nil
+	return events, ids, nil
 }
 
 // Events gets raw events, start inclusive, end exclusive
@@ -597,13 +599,13 @@ func (s txStore) PutBlockNumToEventId(ctx context.Context, blockNumToEventId map
 	return nil
 }
 
-func (s txStore) BlockEventIdsRange(ctx context.Context, blockHash libcommon.Hash, blockNum uint64) (uint64, uint64, bool, error) {
+func (s txStore) BlockEventIdsRange(ctx context.Context, blockHash common.Hash, blockNum uint64) (uint64, uint64, bool, error) {
 	return s.blockEventIdsRange(ctx, blockHash, blockNum, 0)
 }
 
 // BlockEventIdsRange returns the [start, end] event Id for the given block number
 // If the given block number is the first in the database, then the first uint64 (representing start Id) is 0.
-func (s txStore) blockEventIdsRange(ctx context.Context, blockHash libcommon.Hash, blockNum uint64, lastFrozenId uint64) (uint64, uint64, bool, error) {
+func (s txStore) blockEventIdsRange(ctx context.Context, blockHash common.Hash, blockNum uint64, lastFrozenId uint64) (uint64, uint64, bool, error) {
 	var start, end uint64
 
 	kByte := make([]byte, 8)
@@ -641,7 +643,7 @@ func (s txStore) blockEventIdsRange(ctx context.Context, blockHash libcommon.Has
 	return start, end, true, nil
 }
 
-func (s txStore) BorStartEventId(ctx context.Context, hash libcommon.Hash, blockHeight uint64) (uint64, error) {
+func (s txStore) BorStartEventId(ctx context.Context, hash common.Hash, blockHeight uint64) (uint64, error) {
 	startEventId, _, ok, err := s.blockEventIdsRange(ctx, hash, blockHeight, 0)
 	if !ok || err != nil {
 		return 0, err
@@ -649,7 +651,7 @@ func (s txStore) BorStartEventId(ctx context.Context, hash libcommon.Hash, block
 	return startEventId, nil
 }
 
-func (s txStore) EventsByBlock(ctx context.Context, hash libcommon.Hash, blockHeight uint64) ([]rlp.RawValue, error) {
+func (s txStore) EventsByBlock(ctx context.Context, hash common.Hash, blockHeight uint64) ([]rlp.RawValue, error) {
 	startEventId, endEventId, ok, err := s.blockEventIdsRange(ctx, hash, blockHeight, 0)
 	if err != nil {
 		return nil, err
@@ -711,18 +713,16 @@ func (s txStore) PruneEvents(ctx context.Context, blocksTo uint64, blocksDeleteL
 		if eventId >= eventIdTo {
 			break
 		}
-
 		var event heimdall.EventRecordWithTime
 		if err := event.UnmarshallBytes(v); err != nil {
 			return deleted, err
 		}
 
-		// this needs to be called after v is unmarshalled - it may alter the contents of v
-		if err = c1.DeleteCurrent(); err != nil {
+		if err := tx.Delete(kv.BorEventTimes, event.MarshallTimeBytes()); err != nil {
 			return deleted, err
 		}
 
-		if err := tx.Delete(kv.BorEventTimes, event.MarshallTimeBytes()); err != nil {
+		if err = c1.DeleteCurrent(); err != nil {
 			return deleted, err
 		}
 
@@ -818,16 +818,15 @@ func UnwindEvents(tx kv.RwTx, unwindPoint uint64) error {
 	var v []byte
 
 	for k, v, err = eventCursor.Seek(from); err == nil && k != nil; k, v, err = eventCursor.Next() {
-		if err = eventCursor.DeleteCurrent(); err != nil {
-			return err
-		}
-
 		var event heimdall.EventRecordWithTime
 		if err := event.UnmarshallBytes(v); err != nil {
 			return err
 		}
 
 		if err := tx.Delete(kv.BorEventTimes, event.MarshallTimeBytes()); err != nil {
+			return err
+		}
+		if err = eventCursor.DeleteCurrent(); err != nil {
 			return err
 		}
 	}

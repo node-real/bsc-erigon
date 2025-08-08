@@ -24,11 +24,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/valyala/fastjson"
-
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
-	"github.com/erigontech/erigon-lib/common/hexutility"
+	"github.com/valyala/fastjson"
 )
 
 type CallResult struct {
@@ -94,7 +92,7 @@ func (g *RequestGenerator) getTransactionReceipt(hash string) string {
 
 func (g *RequestGenerator) getBlockReceipts(bn uint64) string {
 	const template = `{"jsonrpc":"2.0","method":"eth_getBlockReceipts","params":["0x%x"],"id":%d}`
-	return fmt.Sprintf(template, bn, g.reqID.Load())
+	return fmt.Sprintf(template, bn, g.reqID.Add(1))
 }
 
 func (g *RequestGenerator) getBalance(miner common.Address, bn uint64) string {
@@ -168,7 +166,7 @@ func (g *RequestGenerator) getProof(bn uint64, account common.Address, storageLi
 	return fmt.Sprintf(template, account, strings.Join(storageStr, ","), bn, g.reqID.Add(1))
 }
 
-func (g *RequestGenerator) traceCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutility.Bytes, bn uint64) string {
+func (g *RequestGenerator) traceCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutil.Bytes, bn uint64) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "trace_call", "params": [{"from":"0x%x"`, from)
 	if to != nil {
@@ -191,7 +189,7 @@ func (g *RequestGenerator) traceCall(from common.Address, to *common.Address, ga
 	return sb.String()
 }
 
-func (g *RequestGenerator) traceCallMany(from []common.Address, to []*common.Address, gas []*hexutil.Big, gasPrice []*hexutil.Big, value []*hexutil.Big, data []hexutility.Bytes, bn uint64) string {
+func (g *RequestGenerator) traceCallMany(from []common.Address, to []*common.Address, gas []*hexutil.Big, gasPrice []*hexutil.Big, value []*hexutil.Big, data []hexutil.Bytes, bn uint64) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "trace_callMany", "params": [[`)
 	for i, f := range from {
@@ -220,7 +218,7 @@ func (g *RequestGenerator) traceCallMany(from []common.Address, to []*common.Add
 	return sb.String()
 }
 
-func (g *RequestGenerator) debugTraceCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutility.Bytes, bn uint64) string {
+func (g *RequestGenerator) debugTraceCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutil.Bytes, bn uint64) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "debug_traceCall", "params": [{"from":"0x%x"`, from)
 	if to != nil {
@@ -268,7 +266,12 @@ func (g *RequestGenerator) traceReplayTransaction(hash string) string {
 	return fmt.Sprintf(template, hash, g.reqID.Add(1))
 }
 
-func (g *RequestGenerator) ethCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutility.Bytes, bn uint64) string {
+func (g *RequestGenerator) traceTransaction(hash string) string {
+	const template = `{"jsonrpc":"2.0","method":"trace_transaction","params":["%s"],"id":%d}`
+	return fmt.Sprintf(template, hash, g.reqID.Add(1))
+}
+
+func (g *RequestGenerator) ethCall(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutil.Bytes, bn uint64) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "eth_call", "params": [{"from":"0x%x"`, from)
 	if to != nil {
@@ -290,7 +293,7 @@ func (g *RequestGenerator) ethCall(from common.Address, to *common.Address, gas 
 	return sb.String()
 }
 
-func (g *RequestGenerator) ethCreateAccessList(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutility.Bytes, bn uint64) string {
+func (g *RequestGenerator) ethCreateAccessList(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutil.Bytes, bn uint64) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "eth_createAccessList", "params": [{"from":"0x%x"`, from)
 	if to != nil {
@@ -312,7 +315,7 @@ func (g *RequestGenerator) ethCreateAccessList(from common.Address, to *common.A
 	return sb.String()
 }
 
-func (g *RequestGenerator) ethCallLatest(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutility.Bytes) string {
+func (g *RequestGenerator) ethCallLatest(from common.Address, to *common.Address, gas *hexutil.Big, gasPrice *hexutil.Big, value *hexutil.Big, data hexutil.Bytes) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, `{ "jsonrpc": "2.0", "method": "eth_call", "params": [{"from":"0x%x"`, from)
 	if to != nil {

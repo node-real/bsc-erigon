@@ -4,24 +4,23 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"reflect"
-	"time"
-
+	coresnaptype "github.com/erigontech/erigon-db/snaptype"
 	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
-	"github.com/erigontech/erigon-lib/common/hexutility"
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon-lib/rlp"
 	"github.com/erigontech/erigon-lib/seg"
-	coresnaptype "github.com/erigontech/erigon/core/snaptype"
-	"github.com/erigontech/erigon/core/types"
+	"github.com/erigontech/erigon-lib/snaptype"
+	"github.com/erigontech/erigon-lib/types"
 	"github.com/erigontech/erigon/eth/ethconfig"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
+	"reflect"
+	"time"
 )
 
 const (
@@ -42,7 +41,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 
 	startTime := time.Now()
 	snapshots := br.bscSnapshots()
-	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers.Load()
 
 	var minimumBlob uint64
 	if br.chainConfig.ChainName == networkname.BSC {
@@ -75,7 +74,7 @@ func (br *BlockRetire) retireBscBlocks(ctx context.Context, minBlockNum uint64, 
 			to := chooseSegmentEnd(i, blockTo, snap.Enum(), br.chainConfig)
 			logger.Log(lvl, "[bsc snapshots] Dumping blobs sidecars", "from", i, "to", to)
 			blocksRetired = true
-			if err := DumpBlobs(ctx, i, to, br.chainConfig, tmpDir, snapshots.Dir(), db, workers, lvl, blockReader, br.bs, logger); err != nil {
+			if err := DumpBlobs(ctx, i, to, br.chainConfig, tmpDir, snapshots.Dir(), db, int(workers), lvl, blockReader, br.bs, logger); err != nil {
 				return blocksRetired, fmt.Errorf("[bsc snapshots] DumpBlobs: %d-%d: %w", i, to, err)
 			}
 			logger.Log(lvl, "[bsc snapshots] Segment dumped", "i", i, "to", to)
@@ -187,7 +186,7 @@ func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snap
 	defer sn.Close()
 
 	// Use BigChunks pattern to avoid long transactions
-	from := hexutility.EncodeTs(blockFrom)
+	from := hexutil.EncodeTs(blockFrom)
 
 	dataProcessingStart := time.Now()
 	processedBlocks := uint64(0)

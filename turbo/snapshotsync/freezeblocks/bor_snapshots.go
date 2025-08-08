@@ -24,9 +24,8 @@ import (
 	"reflect"
 
 	"github.com/erigontech/erigon-lib/common"
-
-	"github.com/erigontech/erigon-lib/downloader/snaptype"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon-lib/snaptype"
 	"github.com/erigontech/erigon/cmd/hack/tool/fromdb"
 	"github.com/erigontech/erigon/polygon/heimdall"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
@@ -44,9 +43,8 @@ func (br *BlockRetire) retireBorBlocks(ctx context.Context, minBlockNum uint64, 
 	}
 
 	snapshots := br.borSnapshots()
-
 	chainConfig := fromdb.ChainConfig(br.db)
-	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	notifier, logger, blockReader, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, int(br.workers.Load())
 
 	blocksRetired := false
 
@@ -105,7 +103,7 @@ func (br *BlockRetire) retireBorBlocks(ctx context.Context, minBlockNum uint64, 
 }
 
 func (br *BlockRetire) MergeBorBlocks(ctx context.Context, lvl log.Lvl, seedNewSnapshots func(downloadRequest []snapshotsync.DownloadRequest) error, onDelete func(l []string) error) (mergedBlocks bool, err error) {
-	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, br.workers
+	notifier, logger, _, tmpDir, db, workers := br.notifier, br.logger, br.blockReader, br.tmpDir, br.db, int(br.workers.Load())
 	snapshots := br.borSnapshots()
 	chainConfig := fromdb.ChainConfig(br.db)
 	merger := snapshotsync.NewMerger(tmpDir, workers, lvl, db, chainConfig, logger)

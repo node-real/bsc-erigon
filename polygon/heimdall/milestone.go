@@ -25,7 +25,6 @@ import (
 	"strconv"
 
 	"github.com/erigontech/erigon-lib/common"
-	libcommon "github.com/erigontech/erigon-lib/common"
 )
 
 type MilestoneId uint64
@@ -63,7 +62,7 @@ func (m *Milestone) BlockNumRange() ClosedRange {
 	}
 }
 
-func (m *Milestone) RootHash() libcommon.Hash {
+func (m *Milestone) RootHash() common.Hash {
 	return m.Fields.RootHash
 }
 
@@ -93,14 +92,14 @@ func (m *Milestone) String() string {
 
 func (m *Milestone) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Id          MilestoneId       `json:"id"`
-		MilestoneId string            `json:"milestone_id"`
-		Proposer    libcommon.Address `json:"proposer"`
-		StartBlock  *big.Int          `json:"start_block"`
-		EndBlock    *big.Int          `json:"end_block"`
-		RootHash    libcommon.Hash    `json:"hash"`
-		ChainID     string            `json:"bor_chain_id"`
-		Timestamp   uint64            `json:"timestamp"`
+		Id          MilestoneId    `json:"id"`
+		MilestoneId string         `json:"milestone_id"`
+		Proposer    common.Address `json:"proposer"`
+		StartBlock  *big.Int       `json:"start_block"`
+		EndBlock    *big.Int       `json:"end_block"`
+		RootHash    common.Hash    `json:"hash"`
+		ChainID     string         `json:"bor_chain_id"`
+		Timestamp   uint64         `json:"timestamp"`
 	}{
 		m.Id,
 		m.MilestoneId,
@@ -116,9 +115,9 @@ func (m *Milestone) MarshalJSON() ([]byte, error) {
 func (m *Milestone) UnmarshalJSON(b []byte) error {
 	dto := struct {
 		WaypointFields
-		RootHash    libcommon.Hash `json:"hash"`
-		Id          MilestoneId    `json:"id"`
-		MilestoneId string         `json:"milestone_id"`
+		RootHash    common.Hash `json:"hash"`
+		Id          MilestoneId `json:"id"`
+		MilestoneId string      `json:"milestone_id"`
 	}{}
 
 	if err := json.Unmarshal(b, &dto); err != nil {
@@ -175,7 +174,7 @@ func (v *MilestoneResponseV2) ToMilestone(id int64) (*Milestone, error) {
 		return nil, err
 	}
 
-	r.Fields.RootHash = libcommon.BytesToHash(decoded)
+	r.Fields.RootHash = common.BytesToHash(decoded)
 	r.Fields.StartBlock = big.NewInt(int64(startBlock))
 	r.Fields.EndBlock = big.NewInt(int64(endBlock))
 

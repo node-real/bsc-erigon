@@ -18,32 +18,27 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"time"
-
-	"github.com/erigontech/erigon-lib/common/hexutil"
-	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
-
-	libcommon "github.com/erigontech/erigon-lib/common"
-
-	"github.com/erigontech/erigon/rpc"
-	"github.com/erigontech/erigon/rpc/rpccfg"
 
 	"github.com/c2h5oh/datasize"
 	"github.com/spf13/pflag"
 	"github.com/urfave/cli/v2"
 
-	"github.com/erigontech/erigon-lib/log/v3"
-
+	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/etl"
 	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/kv/kvcache"
-
+	"github.com/erigontech/erigon-lib/kv/prune"
+	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/cmd/rpcdaemon/cli/httpcfg"
 	"github.com/erigontech/erigon/cmd/utils"
 	"github.com/erigontech/erigon/eth/ethconfig"
-	"github.com/erigontech/erigon/ethdb/prune"
 	"github.com/erigontech/erigon/node/nodecfg"
-	"github.com/erigontech/erigon/turbo/rpchelper"
+	"github.com/erigontech/erigon/rpc"
+	"github.com/erigontech/erigon/rpc/rpccfg"
+	"github.com/erigontech/erigon/rpc/rpchelper"
 )
 
 var (
@@ -96,11 +91,6 @@ var (
 	PruneBlocksDistanceFlag = cli.Uint64Flag{
 		Name:  "prune.distance.blocks",
 		Usage: `Keep block history for the latest N blocks (default: everything)`,
-	}
-	ExperimentsFlag = cli.StringFlag{
-		Usage: `Enable some experimental stages:
-* tevm - write TEVM translated code to the DB`,
-		Value: "default",
 	}
 	BscDisableBlobPruningFlag = cli.BoolFlag{
 		Name:  "bsc.blobSidecars.no-pruning",
@@ -199,7 +189,7 @@ var (
 	}
 	HTTPIdleTimeoutFlag = cli.DurationFlag{
 		Name:  "http.timeouts.idle",
-		Usage: "Maximum amount of time to wait for the next request when keep-alives are enabled. If http.timeouts.idle is zero, the value of http.timeouts.read is used.",
+		Usage: "Maximum amount of time to wait for the next request when keep-alive connections are enabled. If http.timeouts.idle is zero, the value of http.timeouts.read is used.",
 		Value: rpccfg.DefaultHTTPTimeouts.IdleTimeout,
 	}
 
@@ -215,7 +205,7 @@ var (
 	}
 	AuthRpcIdleTimeoutFlag = cli.DurationFlag{
 		Name:  "authrpc.timeouts.idle",
-		Usage: "Maximum amount of time to wait for the next request when keep-alives are enabled. If authrpc.timeouts.idle is zero, the value of authrpc.timeouts.read is used.",
+		Usage: "Maximum amount of time to wait for the next request when keep-alive connections are enabled. If authrpc.timeouts.idle is zero, the value of authrpc.timeouts.read is used.",
 		Value: rpccfg.DefaultHTTPTimeouts.IdleTimeout,
 	}
 
@@ -262,27 +252,37 @@ var (
 		Usage: "Maximum number of topics per subscription to filter logs by.",
 		Value: rpchelper.DefaultFiltersConfig.RpcSubscriptionFiltersMaxTopics,
 	}
-
-	TxPoolCommitEvery = cli.DurationFlag{
-		Name:  "txpool.commit.every",
-		Usage: "How often transactions should be committed to the storage",
-		Value: txpoolcfg.DefaultConfig.CommitEvery,
-	}
 )
 
 func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.Logger) {
+	chainId := cfg.NetworkID
+	if cfg.Genesis != nil {
+		chainId = cfg.Genesis.Config.ChainID.Uint64()
+	}
+	_ = chainId
 
 	blockDistance := ctx.Uint64(PruneBlocksDistanceFlag.Name)
 	distance := ctx.Uint64(PruneDistanceFlag.Name)
 
-	mode, err := prune.FromCli(ctx.String(PruneModeFlag.Name), distance, blockDistance, libcommon.CliString2Array(ctx.String(ExperimentsFlag.Name)))
+	// check if the prune.mode flag is not set to archive
+	persistenceReceiptsV2 := ctx.String(PruneModeFlag.Name) != prune.ArchiveMode.String()
+
+	// overwrite receipts persistence if the flag is set
+	if ctx.IsSet(utils.PersistReceiptsV2Flag.Name) {
+		persistenceReceiptsV2 = ctx.Bool(utils.PersistReceiptsV2Flag.Name)
+	}
+
+	if persistenceReceiptsV2 {
+		cfg.PersistReceiptsCacheV2 = true
+	}
+
+	cfg.DisableBlobPrune = ctx.Bool(BscDisableBlobPruningFlag.Name)
+	mode, err := prune.FromCli(ctx.String(PruneModeFlag.Name), distance, blockDistance)
 	if err != nil {
 		utils.Fatalf(fmt.Sprintf("error while parsing mode: %v", err))
 	}
+
 	cfg.Prune = mode
-
-	cfg.DisableBlobPrune = ctx.Bool(BscDisableBlobPruningFlag.Name)
-
 	if ctx.String(BatchSizeFlag.Name) != "" {
 		err := cfg.BatchSize.UnmarshalText([]byte(ctx.String(BatchSizeFlag.Name)))
 		if err != nil {
@@ -344,16 +344,10 @@ func ApplyFlagsForEthConfig(ctx *cli.Context, cfg *ethconfig.Config, logger log.
 		if err != nil {
 			logger.Warn("Error decoding block hash", "hash", ctx.String(BadBlockFlag.Name), "err", err)
 		} else {
-			cfg.BadBlockHash = libcommon.BytesToHash(bytes)
+			cfg.BadBlockHash = common.BytesToHash(bytes)
 		}
 	}
 
-	disableIPV6 := ctx.Bool(utils.DisableIPV6.Name)
-	disableIPV4 := ctx.Bool(utils.DisableIPV4.Name)
-	downloadRate := ctx.String(utils.TorrentDownloadRateFlag.Name)
-	uploadRate := ctx.String(utils.TorrentUploadRateFlag.Name)
-
-	logger.Info("[Downloader] Running with", "ipv6-enabled", !disableIPV6, "ipv4-enabled", !disableIPV4, "download.rate", downloadRate, "upload.rate", uploadRate)
 	if ctx.Bool(utils.DisableIPV6.Name) {
 		cfg.Downloader.ClientConfig.DisableIPv6 = true
 	}
@@ -372,7 +366,7 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 	pruneBlockDistance := f.Uint64(PruneBlocksDistanceFlag.Name, PruneBlocksDistanceFlag.Value, PruneBlocksDistanceFlag.Usage)
 	pruneDistance := f.Uint64(PruneDistanceFlag.Name, PruneDistanceFlag.Value, PruneDistanceFlag.Usage)
 
-	var distance, blockDistance uint64
+	var distance, blockDistance uint64 = math.MaxUint64, math.MaxUint64
 	if pruneBlockDistance != nil {
 		blockDistance = *pruneBlockDistance
 	}
@@ -380,12 +374,7 @@ func ApplyFlagsForEthConfigCobra(f *pflag.FlagSet, cfg *ethconfig.Config) {
 		distance = *pruneDistance
 	}
 
-	experiments := f.String(ExperimentsFlag.Name, ExperimentsFlag.Value, ExperimentsFlag.Usage)
-	experimentsVal := ""
-	if experiments != nil {
-		experimentsVal = *experiments
-	}
-	mode, err := prune.FromCli(*pruneMode, distance, blockDistance, libcommon.CliString2Array(experimentsVal))
+	mode, err := prune.FromCli(*pruneMode, distance, blockDistance)
 	if err != nil {
 		utils.Fatalf(fmt.Sprintf("error while parsing mode: %v", err))
 	}
@@ -458,10 +447,10 @@ func setEmbeddedRpcDaemon(ctx *cli.Context, cfg *nodecfg.Config, logger log.Logg
 		JWTSecretPath:            jwtSecretPath,
 		TraceRequests:            ctx.Bool(utils.HTTPTraceFlag.Name),
 		DebugSingleRequest:       ctx.Bool(utils.HTTPDebugSingleFlag.Name),
-		HttpCORSDomain:           libcommon.CliString2Array(ctx.String(utils.HTTPCORSDomainFlag.Name)),
-		HttpVirtualHost:          libcommon.CliString2Array(ctx.String(utils.HTTPVirtualHostsFlag.Name)),
-		AuthRpcVirtualHost:       libcommon.CliString2Array(ctx.String(utils.AuthRpcVirtualHostsFlag.Name)),
-		API:                      libcommon.CliString2Array(apis),
+		HttpCORSDomain:           common.CliString2Array(ctx.String(utils.HTTPCORSDomainFlag.Name)),
+		HttpVirtualHost:          common.CliString2Array(ctx.String(utils.HTTPVirtualHostsFlag.Name)),
+		AuthRpcVirtualHost:       common.CliString2Array(ctx.String(utils.AuthRpcVirtualHostsFlag.Name)),
+		API:                      common.CliString2Array(apis),
 		HTTPTimeouts: rpccfg.HTTPTimeouts{
 			ReadTimeout:  ctx.Duration(HTTPReadTimeoutFlag.Name),
 			WriteTimeout: ctx.Duration(HTTPWriteTimeoutFlag.Name),
@@ -472,16 +461,15 @@ func setEmbeddedRpcDaemon(ctx *cli.Context, cfg *nodecfg.Config, logger log.Logg
 			WriteTimeout: ctx.Duration(AuthRpcWriteTimeoutFlag.Name),
 			IdleTimeout:  ctx.Duration(HTTPIdleTimeoutFlag.Name),
 		},
-		EvmCallTimeout:                    ctx.Duration(EvmCallTimeoutFlag.Name),
-		OverlayGetLogsTimeout:             ctx.Duration(OverlayGetLogsFlag.Name),
-		OverlayReplayBlockTimeout:         ctx.Duration(OverlayReplayBlockFlag.Name),
-		WebsocketPort:                     ctx.Int(utils.WSPortFlag.Name),
-		WebsocketEnabled:                  ctx.IsSet(utils.WSEnabledFlag.Name),
-		WebsocketSubscribeLogsChannelSize: ctx.Int(utils.WSSubscribeLogsChannelSize.Name),
-		RpcBatchConcurrency:               ctx.Uint(utils.RpcBatchConcurrencyFlag.Name),
-		RpcStreamingDisable:               ctx.Bool(utils.RpcStreamingDisableFlag.Name),
-		DBReadConcurrency:                 ctx.Int(utils.DBReadConcurrencyFlag.Name),
-		RpcAllowListFilePath:              ctx.String(utils.RpcAccessListFlag.Name),
+		EvmCallTimeout:            ctx.Duration(EvmCallTimeoutFlag.Name),
+		OverlayGetLogsTimeout:     ctx.Duration(OverlayGetLogsFlag.Name),
+		OverlayReplayBlockTimeout: ctx.Duration(OverlayReplayBlockFlag.Name),
+		WebsocketPort:             ctx.Int(utils.WSPortFlag.Name),
+		WebsocketEnabled:          ctx.IsSet(utils.WSEnabledFlag.Name),
+		RpcBatchConcurrency:       ctx.Uint(utils.RpcBatchConcurrencyFlag.Name),
+		RpcStreamingDisable:       ctx.Bool(utils.RpcStreamingDisableFlag.Name),
+		DBReadConcurrency:         ctx.Int(utils.DBReadConcurrencyFlag.Name),
+		RpcAllowListFilePath:      ctx.String(utils.RpcAccessListFlag.Name),
 		RpcFiltersConfig: rpchelper.FiltersConfig{
 			RpcSubscriptionFiltersMaxLogs:      ctx.Int(RpcSubscriptionFiltersMaxLogsFlag.Name),
 			RpcSubscriptionFiltersMaxHeaders:   ctx.Int(RpcSubscriptionFiltersMaxHeadersFlag.Name),
@@ -505,19 +493,31 @@ func setEmbeddedRpcDaemon(ctx *cli.Context, cfg *nodecfg.Config, logger log.Logg
 		RPCSlowLogThreshold: ctx.Duration(utils.RPCSlowFlag.Name),
 	}
 
-	if c.Enabled {
-		logger.Info("starting HTTP APIs", "port", c.HttpPort, "APIs", apis)
+	if ctx.IsSet(utils.WSSubscribeLogsChannelSize.Name) {
+		c.WebsocketSubscribeLogsChannelSize = ctx.Int(utils.WSSubscribeLogsChannelSize.Name)
+	} else {
+		c.WebsocketSubscribeLogsChannelSize = 8192
 	}
 
-	if ctx.IsSet(utils.HttpCompressionFlag.Name) {
-		c.HttpCompression = ctx.Bool(utils.HttpCompressionFlag.Name)
+	if c.Enabled {
+		if ctx.IsSet(utils.HttpCompressionFlag.Name) {
+			c.HttpCompression = ctx.Bool(utils.HttpCompressionFlag.Name)
+		} else {
+			c.HttpCompression = true
+		}
+		logger.Info("starting HTTP APIs", "port", c.HttpPort, "APIs", apis, "http.compression", c.HttpCompression)
 	} else {
-		c.HttpCompression = true
+		c.HttpCompression = false
 	}
-	if ctx.IsSet(utils.WsCompressionFlag.Name) {
-		c.WebsocketCompression = ctx.Bool(utils.WsCompressionFlag.Name)
+
+	if c.WebsocketEnabled {
+		if ctx.IsSet(utils.WsCompressionFlag.Name) {
+			c.WebsocketCompression = ctx.Bool(utils.WsCompressionFlag.Name)
+		} else {
+			c.WebsocketCompression = true
+		}
 	} else {
-		c.WebsocketCompression = true
+		c.WebsocketCompression = false
 	}
 
 	err := c.StateCache.CacheSize.UnmarshalText([]byte(ctx.String(utils.StateCacheFlag.Name)))

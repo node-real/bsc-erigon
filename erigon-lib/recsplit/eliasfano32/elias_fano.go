@@ -226,10 +226,8 @@ func (ef *EliasFano) upper(i uint64) uint64 {
 	return currWord*64 + uint64(sel) - i
 }
 
-// TODO: optimize me - to avoid object allocation
 func Seek(data []byte, n uint64) (uint64, bool) {
-	ef, _ := ReadEliasFano(data)
-	//TODO: if startTxNum==0, can do ef.Get(0)
+	ef, _ := ReadEliasFano(data) //for better perf: app-code can use ef.Reset(data).Seek(n)
 	return ef.Seek(n)
 }
 
