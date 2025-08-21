@@ -51,10 +51,6 @@ func (se *serialExecutor) execute(ctx context.Context, tasks []*state.TxTask, gp
 				return fmt.Errorf("%w, txnIdx=%d, %v", consensus.ErrInvalidBlock, txTask.TxIndex, txTask.Error) //same as in stage_exec.go
 			}
 
-			if txTask.BlockNum == 31103034 {
-				se.logger.Debug("Bad block receipts", "txTask.TxIndex", txTask.TxIndex, "txTask.GasUsed", txTask.GasUsed)
-			}
-
 			se.txCount++
 			se.gasUsed += txTask.GasUsed
 			mxExecGas.Add(float64(txTask.GasUsed))
