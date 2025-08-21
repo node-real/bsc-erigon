@@ -414,7 +414,7 @@ func (hd *HeaderDownload) RequestMoreHeaders(currentTime time.Time) (*HeaderRequ
 			dataflow.HeaderDownloadStates.AddChange(anchor.blockHeight-1, dataflow.HeaderRetryNotReady)
 			return true
 		}
-		if anchor.timeouts >= 10 {
+		if anchor.timeouts >= 100 {
 			// Ancestors of this anchor seem to be unavailable, invalidate and move on
 			hd.invalidateAnchor(anchor, "suspected unavailability")
 			// Add header invalidate
