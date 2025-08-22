@@ -23,6 +23,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/erigontech/erigon-lib/chain/networkname"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -131,7 +132,10 @@ func chooseSegmentEnd(from, to uint64, snapType snaptype.Enum, chainConfig *chai
 	if chainConfig != nil {
 		chainName = chainConfig.ChainName
 	}
-	blocksPerFile := snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(chainName), snapType, from)
+	blocksPerFile := uint64(snaptype.Erigon2OldMergeLimit)
+	if chainName != networkname.BSC && chainName != networkname.Chapel {
+		blocksPerFile = snapcfg.MergeLimitFromCfg(snapcfg.KnownCfg(chainName), snapType, from)
+	}
 
 	next := (from/blocksPerFile + 1) * blocksPerFile
 	to = min(next, to)
