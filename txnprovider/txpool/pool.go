@@ -44,6 +44,8 @@ import (
 	"github.com/erigontech/erigon-lib/common/fixedgas"
 	"github.com/erigontech/erigon-lib/common/hexutility"
 	"github.com/erigontech/erigon-lib/common/u256"
+	"github.com/erigontech/erigon-lib/crypto"
+	"github.com/erigontech/erigon-lib/crypto/cryptopool"
 	libkzg "github.com/erigontech/erigon-lib/crypto/kzg"
 	"github.com/erigontech/erigon-lib/gointerfaces"
 	"github.com/erigontech/erigon-lib/gointerfaces/grpcutil"
@@ -1138,6 +1140,28 @@ func (p *TxPool) ValidateSerializedTxn(serializedTxn []byte) error {
 		maxSize = blobTxnMaxSize
 	}
 	if len(serializedTxn) > maxSize {
+		// Log detailed error information including transaction hash
+		var txHash [32]byte
+		if txnType == LegacyTxnType {
+			// For legacy transactions, hash the RLP data directly
+			keccak := crypto.NewKeccakState()
+			keccak.Write(serializedTxn)
+			keccak.Read(txHash[:])
+			cryptopool.ReturnToPoolKeccak256(keccak)
+		} else {
+			// For typed transactions, include the type prefix
+			keccak := crypto.NewKeccakState()
+			keccak.Write([]byte{txnType})
+			keccak.Write(serializedTxn[1:]) // Skip the type byte that's already included
+			keccak.Read(txHash[:])
+			cryptopool.ReturnToPoolKeccak256(keccak)
+		}
+
+		p.logger.Warn("Transaction RLP too big",
+			"size", len(serializedTxn),
+			"maxSize", maxSize,
+			"txType", txnType,
+			"hash", fmt.Sprintf("%x", txHash))
 		return ErrRlpTooBig
 	}
 	return nil
