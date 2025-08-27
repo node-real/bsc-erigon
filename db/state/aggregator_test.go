@@ -1673,9 +1673,9 @@ func TestReceiptFilesVersionAdjust(t *testing.T) {
 		kv_versions := agg.d[kv.ReceiptDomain].version.DataKV
 		v_versions := agg.d[kv.ReceiptDomain].hist.version.DataV
 
-		require.Equal(kv_versions.Current, version.V1_1)
+		require.Equal(kv_versions.Current, version.V1_0)
 		require.Equal(kv_versions.MinSupported, version.V1_0)
-		require.Equal(v_versions.Current, version.V1_1)
+		require.Equal(v_versions.Current, version.V1_0)
 		require.Equal(v_versions.MinSupported, version.V1_0)
 	})
 
@@ -1702,9 +1702,9 @@ func TestReceiptFilesVersionAdjust(t *testing.T) {
 		kv_versions := agg.d[kv.ReceiptDomain].version.DataKV
 		v_versions := agg.d[kv.ReceiptDomain].hist.version.DataV
 
-		require.Equal(kv_versions.Current, version.V1_1)
+		require.Equal(kv_versions.Current, version.V1_0)
 		require.Equal(kv_versions.MinSupported, version.V1_0)
-		require.Equal(v_versions.Current, version.V1_1)
+		require.Equal(v_versions.Current, version.V1_0)
 		require.Equal(v_versions.MinSupported, version.V1_0)
 	})
 
