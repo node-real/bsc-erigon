@@ -175,7 +175,7 @@ func NewHeimdallSimulator(ctx context.Context, snapDir string, logger log.Logger
 
 	h := HeimdallSimulator{
 		snapshots:     snapshots,
-		blockReader:   freezeblocks.NewBlockReader(nil, snapshots),
+		blockReader:   freezeblocks.NewBlockReader(nil, snapshots, nil),
 		bridgeStore:   bridge.NewSnapshotStore(noopBridgeStore{}, snapshots, sprintLengthCalculator{}),
 		heimdallStore: heimdall.NewSnapshotStore(noopHeimdallStore{}, snapshots),
 		iterations:    iterations,

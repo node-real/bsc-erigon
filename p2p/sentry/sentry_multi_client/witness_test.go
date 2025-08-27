@@ -106,7 +106,7 @@ func createTestMultiClient(t *testing.T) (*MultiClient, kv.TemporalRwDB) {
 		db:            tdb,
 		WitnessBuffer: witnessBuffer,
 		logger:        logger,
-		blockReader:   freezeblocks.NewBlockReader(nil, nil),
+		blockReader:   freezeblocks.NewBlockReader(nil, nil, nil),
 	}, tdb
 }
 
