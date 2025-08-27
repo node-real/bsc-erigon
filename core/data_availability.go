@@ -3,9 +3,9 @@ package core
 import (
 	"errors"
 	"fmt"
-	params2 "github.com/erigontech/erigon-lib/chain/params"
-	"github.com/erigontech/erigon-lib/types"
+	params2 "github.com/erigontech/erigon/execution/chain/params"
 	"github.com/erigontech/erigon/execution/consensus"
+	"github.com/erigontech/erigon/execution/types"
 )
 
 // IsDataAvailable it checks that the blobTx block has available blob data

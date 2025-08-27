@@ -19,20 +19,19 @@ package stagedsync
 import (
 	"context"
 	"fmt"
+	"github.com/erigontech/erigon/core"
 	"runtime"
 	"time"
 
-	"github.com/erigontech/erigon-db/rawdb"
-	"github.com/erigontech/erigon-db/rawdb/blockio"
-	"github.com/erigontech/erigon/core"
-
-	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/common/metrics"
-	"github.com/erigontech/erigon-lib/diagnostics"
-	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
+	"github.com/erigontech/erigon/db/kv"
+	"github.com/erigontech/erigon/db/rawdb"
+	"github.com/erigontech/erigon/db/rawdb/blockio"
+	"github.com/erigontech/erigon/diagnostics/diaglib"
+	"github.com/erigontech/erigon/execution/chain"
 	"github.com/erigontech/erigon/execution/dataflow"
 	"github.com/erigontech/erigon/execution/stagedsync/stages"
 	"github.com/erigontech/erigon/execution/stages/bodydownload"
@@ -124,7 +123,7 @@ func BodiesForward(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, c
 		timeout = 1
 	} else {
 		// Do not print logs for short periods
-		diagnostics.Send(diagnostics.BodiesProcessingUpdate{
+		diaglib.Send(diaglib.BodiesProcessingUpdate{
 			From: bodyProgress,
 			To:   headerProgress,
 		})
@@ -348,7 +347,7 @@ func BodiesForward(s *StageState, u Unwinder, ctx context.Context, tx kv.RwTx, c
 		blocks := bodyProgress - s.BlockNumber
 		secs := time.Since(startTime).Seconds()
 
-		diagnostics.Send(diagnostics.BodiesProcessedUpdate{
+		diaglib.Send(diaglib.BodiesProcessedUpdate{
 			HighestBlock: bodyProgress,
 			Blocks:       blocks,
 			TimeElapsed:  secs,
@@ -373,7 +372,7 @@ func logDownloadingBodies(logPrefix string, committed, remaining uint64, totalDe
 	var m runtime.MemStats
 	dbg.ReadMemStats(&m)
 
-	diagnostics.Send(diagnostics.BodiesDownloadBlockUpdate{
+	diaglib.Send(diaglib.BodiesDownloadBlockUpdate{
 		BlockNumber:    committed,
 		DeliveryPerSec: uint64(speed),
 		WastedPerSec:   uint64(wastedSpeed),
@@ -403,7 +402,7 @@ func logWritingBodies(logPrefix string, committed, headerProgress uint64, logger
 	dbg.ReadMemStats(&m)
 	remaining := headerProgress - committed
 
-	diagnostics.Send(diagnostics.BodiesWriteBlockUpdate{
+	diaglib.Send(diaglib.BodiesWriteBlockUpdate{
 		BlockNumber: committed,
 		Remaining:   remaining,
 		Alloc:       m.Alloc,

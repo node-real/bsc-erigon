@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	params2 "github.com/erigontech/erigon-lib/chain/params"
+	params2 "github.com/erigontech/erigon/execution/chain/params"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	"net/url"
 	"strings"
