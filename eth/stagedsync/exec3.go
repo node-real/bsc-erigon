@@ -64,7 +64,7 @@ var (
 )
 
 const (
-	changesetSafeRange     = 32   // Safety net for long-sync, keep last 32 changesets
+	changesetSafeRange     = 8    // Safety net for long-sync, keep last 8 changesets
 	maxUnwindJumpAllowance = 1000 // Maximum number of blocks we are allowed to unwind
 )
 
