@@ -337,10 +337,10 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 	// because on slow disks - prune is slower. but for now - let's tune for nvme first, and add `tx.SpaceDirty()` check later https://github.com/erigontech/erigon/issues/11635
 	quickPruneTimeout := 250 * time.Millisecond
 
-	var maxReorgDepth uint64
+	maxReorgDepth := uint64(config3.MaxReorgDepthV3)
 	if cfg.chainConfig.ChainName == networkname.Chapel {
 		// Chapel may have bigger unwind block
-		maxReorgDepth = config3.MaxReorgDepthV3 * 16
+		maxReorgDepth = maxReorgDepth * 16
 	}
 
 	if s.ForwardProgress > maxReorgDepth && !cfg.syncCfg.AlwaysGenerateChangesets {
