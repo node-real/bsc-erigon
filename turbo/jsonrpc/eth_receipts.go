@@ -71,14 +71,6 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 	var begin, end uint64
 	logs := types.Logs{}
 
-	api.logger.Info("eth_getLogs: start",
-		"hasBlockHash", crit.BlockHash != nil,
-		"fromBlock", crit.FromBlock,
-		"toBlock", crit.ToBlock,
-		"addresses", len(crit.Addresses),
-		"topics", len(crit.Topics),
-	)
-
 	tx, beginErr := api.db.BeginTemporalRo(ctx)
 	if beginErr != nil {
 		return logs, beginErr
@@ -97,15 +89,12 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 		num := block.NumberU64()
 		begin = num
 		end = num
-		api.logger.Info("eth_getLogs: resolved blockHash", "blockHash", *crit.BlockHash, "blockNumber", num)
 	} else {
 		// Convert the RPC block numbers into internal representations
 		latest, _, _, err := rpchelper.GetBlockNumber(ctx, rpc.BlockNumberOrHashWithNumber(rpc.LatestExecutedBlockNumber), tx, api._blockReader, nil)
 		if err != nil {
 			return nil, err
 		}
-
-		api.logger.Info("eth_getLogs: latest executed block", "latest", latest)
 
 		begin = latest
 		if crit.FromBlock != nil {
@@ -121,7 +110,6 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 			}
 
 			if begin > latest {
-				api.logger.Info("eth_getLogs: begin > latest -> empty", "begin", begin, "latest", latest)
 				return types.Logs{}, nil
 			}
 		}
@@ -140,8 +128,6 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 		}
 	}
 
-	api.logger.Info("eth_getLogs: latest executed block", "begin", begin, "end", end)
-
 	if end < begin {
 		return nil, fmt.Errorf("end (%d) < begin (%d)", end, begin)
 	}
@@ -156,7 +142,6 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 		end = latest
 	}
 
-	api.logger.Info("eth_getLogs: executing query", "begin", begin, "end", end)
 	erigonLogs, err := api.getLogsV3(ctx, tx, begin, end, crit)
 	if err != nil {
 		return nil, err
@@ -175,7 +160,6 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 			Removed:     log.Removed,
 		}
 	}
-	api.logger.Info("eth_getLogs: done", "count", len(logs), "begin", begin, "end", end)
 	return logs, nil
 }
 
@@ -226,17 +210,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		addrMap[v] = struct{}{}
 	}
 
-	// Extra diagnostics for txnum window
-	fromTxNum, err := api._txNumReader.Min(tx, begin)
-	if err != nil {
-		return nil, err
-	}
-	toTxNum, err := api._txNumReader.Max(tx, end)
-	if err != nil {
-		return nil, err
-	}
-	log.Info("eth_getLogs/v3: txnum window", "begin", begin, "end", end, "fromTxNum", fromTxNum, "toTxNum", toTxNum)
-
 	chainConfig, err := api.chainConfig(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -245,10 +218,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 	defer exec.Close()
 
 	var header *types.Header
-	var currentBlock uint64
-	var matchedInBlock uint64
-	var blocksVisited uint64
-	var txVisited uint64
 
 	txNumbers, err := applyFiltersV3(api._txNumReader, tx, begin, end, crit)
 	if err != nil {
@@ -274,12 +243,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		// if block number changed, calculate all related field
 
 		if blockNumChanged {
-			if currentBlock != 0 {
-				log.Info("eth_getLogs/v3: block processed", "block", currentBlock, "matched", matchedInBlock)
-			}
-			currentBlock = blockNum
-			matchedInBlock = 0
-			blocksVisited++
 			if header, err = api._blockReader.HeaderByNumber(ctx, tx, blockNum); err != nil {
 				return nil, err
 			}
@@ -298,7 +261,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		if txn == nil {
 			continue
 		}
-		txVisited++
 
 		r, err := api.receiptsGenerator.GetReceipt(ctx, chainConfig, tx, header, txn, txIndex, txNum+1)
 		if err != nil {
@@ -308,7 +270,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 			return nil, err
 		}
 		filtered := r.Logs.Filter(addrMap, crit.Topics, 0)
-		matchedInBlock += uint64(len(filtered))
 
 		for _, filteredLog := range filtered {
 			logs = append(logs, &types.ErigonLog{
@@ -326,15 +287,9 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		}
 	}
 
-	if currentBlock != 0 {
-		log.Info("eth_getLogs/v3: block processed", "block", currentBlock, "matched", matchedInBlock)
-	}
-	log.Info("eth_getLogs/v3: totals", "blocksVisited", blocksVisited, "txVisited", txVisited, "matched", len(logs))
-
 	// Get logs from state sync events for block range
 	if chainConfig.Bor != nil {
 		var allBorLogs []*types.ErigonLog
-		var borBlocksWithEvents uint64
 		for blockNum := begin; blockNum <= end; blockNum++ {
 			header, err := api._blockReader.HeaderByNumber(ctx, tx, blockNum)
 			if err != nil {
@@ -353,7 +308,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 			if len(events) == 0 {
 				continue
 			}
-			borBlocksWithEvents++
 
 			lastTxNum, err := api._txNumReader.Max(tx, blockNum)
 			if err != nil {
@@ -392,8 +346,6 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 				})
 			}
 		}
-
-		log.Info("eth_getLogs/v3: bor", "blocksWithEvents", borBlocksWithEvents, "matched", len(allBorLogs))
 
 		// merge bor logs in the correct order
 		logs = mergeSortedLogs(logs, allBorLogs)
