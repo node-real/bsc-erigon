@@ -120,7 +120,8 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 				}
 			}
 
-			if uint64(fromBlock) > latest {
+			if begin > latest {
+				api.logger.Info("eth_getLogs: begin > latest -> empty", "begin", begin, "latest", latest)
 				return types.Logs{}, nil
 			}
 		}
@@ -138,6 +139,8 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 			}
 		}
 	}
+
+	api.logger.Info("eth_getLogs: latest executed block", "begin", begin, "end", end)
 
 	if end < begin {
 		return nil, fmt.Errorf("end (%d) < begin (%d)", end, begin)
@@ -223,6 +226,17 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		addrMap[v] = struct{}{}
 	}
 
+	// Extra diagnostics for txnum window
+	fromTxNum, err := api._txNumReader.Min(tx, begin)
+	if err != nil {
+		return nil, err
+	}
+	toTxNum, err := api._txNumReader.Max(tx, end)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("eth_getLogs/v3: txnum window", "begin", begin, "end", end, "fromTxNum", fromTxNum, "toTxNum", toTxNum)
+
 	chainConfig, err := api.chainConfig(ctx, tx)
 	if err != nil {
 		return nil, err
@@ -231,6 +245,10 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 	defer exec.Close()
 
 	var header *types.Header
+	var currentBlock uint64
+	var matchedInBlock uint64
+	var blocksVisited uint64
+	var txVisited uint64
 
 	txNumbers, err := applyFiltersV3(api._txNumReader, tx, begin, end, crit)
 	if err != nil {
@@ -256,6 +274,12 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		// if block number changed, calculate all related field
 
 		if blockNumChanged {
+			if currentBlock != 0 {
+				log.Info("eth_getLogs/v3: block processed", "block", currentBlock, "matched", matchedInBlock)
+			}
+			currentBlock = blockNum
+			matchedInBlock = 0
+			blocksVisited++
 			if header, err = api._blockReader.HeaderByNumber(ctx, tx, blockNum); err != nil {
 				return nil, err
 			}
@@ -274,6 +298,7 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		if txn == nil {
 			continue
 		}
+		txVisited++
 
 		r, err := api.receiptsGenerator.GetReceipt(ctx, chainConfig, tx, header, txn, txIndex, txNum+1)
 		if err != nil {
@@ -283,6 +308,7 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 			return nil, err
 		}
 		filtered := r.Logs.Filter(addrMap, crit.Topics, 0)
+		matchedInBlock += uint64(len(filtered))
 
 		for _, filteredLog := range filtered {
 			logs = append(logs, &types.ErigonLog{
@@ -300,9 +326,15 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 		}
 	}
 
+	if currentBlock != 0 {
+		log.Info("eth_getLogs/v3: block processed", "block", currentBlock, "matched", matchedInBlock)
+	}
+	log.Info("eth_getLogs/v3: totals", "blocksVisited", blocksVisited, "txVisited", txVisited, "matched", len(logs))
+
 	// Get logs from state sync events for block range
 	if chainConfig.Bor != nil {
 		var allBorLogs []*types.ErigonLog
+		var borBlocksWithEvents uint64
 		for blockNum := begin; blockNum <= end; blockNum++ {
 			header, err := api._blockReader.HeaderByNumber(ctx, tx, blockNum)
 			if err != nil {
@@ -321,6 +353,7 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 			if len(events) == 0 {
 				continue
 			}
+			borBlocksWithEvents++
 
 			lastTxNum, err := api._txNumReader.Max(tx, blockNum)
 			if err != nil {
@@ -359,6 +392,8 @@ func (api *BaseAPI) getLogsV3(ctx context.Context, tx kv.TemporalTx, begin, end 
 				})
 			}
 		}
+
+		log.Info("eth_getLogs/v3: bor", "blocksWithEvents", borBlocksWithEvents, "matched", len(allBorLogs))
 
 		// merge bor logs in the correct order
 		logs = mergeSortedLogs(logs, allBorLogs)
