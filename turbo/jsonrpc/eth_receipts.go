@@ -71,6 +71,14 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 	var begin, end uint64
 	logs := types.Logs{}
 
+	api.logger.Info("eth_getLogs: start",
+		"hasBlockHash", crit.BlockHash != nil,
+		"fromBlock", crit.FromBlock,
+		"toBlock", crit.ToBlock,
+		"addresses", len(crit.Addresses),
+		"topics", len(crit.Topics),
+	)
+
 	tx, beginErr := api.db.BeginTemporalRo(ctx)
 	if beginErr != nil {
 		return logs, beginErr
@@ -89,12 +97,15 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 		num := block.NumberU64()
 		begin = num
 		end = num
+		api.logger.Info("eth_getLogs: resolved blockHash", "blockHash", *crit.BlockHash, "blockNumber", num)
 	} else {
 		// Convert the RPC block numbers into internal representations
 		latest, _, _, err := rpchelper.GetBlockNumber(ctx, rpc.BlockNumberOrHashWithNumber(rpc.LatestExecutedBlockNumber), tx, api._blockReader, nil)
 		if err != nil {
 			return nil, err
 		}
+
+		api.logger.Info("eth_getLogs: latest executed block", "latest", latest)
 
 		begin = latest
 		if crit.FromBlock != nil {
@@ -142,6 +153,7 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 		end = latest
 	}
 
+	api.logger.Info("eth_getLogs: executing query", "begin", begin, "end", end)
 	erigonLogs, err := api.getLogsV3(ctx, tx, begin, end, crit)
 	if err != nil {
 		return nil, err
@@ -160,6 +172,7 @@ func (api *APIImpl) GetLogs(ctx context.Context, crit filters.FilterCriteria) (t
 			Removed:     log.Removed,
 		}
 	}
+	api.logger.Info("eth_getLogs: done", "count", len(logs), "begin", begin, "end", end)
 	return logs, nil
 }
 
