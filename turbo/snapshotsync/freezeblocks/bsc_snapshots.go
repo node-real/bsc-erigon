@@ -4,19 +4,19 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	coresnaptype "github.com/erigontech/erigon-db/snaptype"
-	"github.com/erigontech/erigon-lib/chain"
-	"github.com/erigontech/erigon-lib/chain/networkname"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/background"
 	"github.com/erigontech/erigon-lib/common/hexutil"
-	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
-	"github.com/erigontech/erigon-lib/rlp"
-	"github.com/erigontech/erigon-lib/seg"
-	"github.com/erigontech/erigon-lib/snaptype"
-	"github.com/erigontech/erigon-lib/types"
+	"github.com/erigontech/erigon/db/kv"
+	"github.com/erigontech/erigon/db/seg"
+	"github.com/erigontech/erigon/db/snaptype"
+	"github.com/erigontech/erigon/db/snaptype2"
 	"github.com/erigontech/erigon/eth/ethconfig"
+	"github.com/erigontech/erigon/execution/chain"
+	"github.com/erigontech/erigon/execution/chain/networkname"
+	"github.com/erigontech/erigon/execution/rlp"
+	"github.com/erigontech/erigon/execution/types"
 	"github.com/erigontech/erigon/turbo/services"
 	"github.com/erigontech/erigon/turbo/snapshotsync"
 	"reflect"
@@ -146,7 +146,7 @@ type BscRoSnapshots struct {
 //   - gaps are not allowed
 //   - segment have [from:to) semantic
 func NewBscRoSnapshots(cfg ethconfig.BlocksFreezing, snapDir string, segmentsMin uint64, logger log.Logger) *BscRoSnapshots {
-	return &BscRoSnapshots{*snapshotsync.NewRoSnapshots(cfg, snapDir, coresnaptype.BscSnapshotTypes, segmentsMin, false, logger)}
+	return &BscRoSnapshots{*snapshotsync.NewRoSnapshots(cfg, snapDir, snaptype2.BscSnapshotTypes, segmentsMin, false, logger)}
 }
 
 func (s *BscRoSnapshots) Ranges() []snapshotsync.Range {
@@ -160,7 +160,7 @@ type BscView struct {
 }
 
 func (s *BscRoSnapshots) View() *BscView {
-	v := &BscView{base: s.RoSnapshots.View().WithBaseSegType(coresnaptype.BlobSidecars)}
+	v := &BscView{base: s.RoSnapshots.View().WithBaseSegType(snaptype.BlobSidecars)}
 	return v
 }
 
@@ -169,16 +169,16 @@ func (v *BscView) Close() {
 }
 
 func (v *BscView) BlobSidecars() []*snapshotsync.VisibleSegment {
-	return v.base.Segments(coresnaptype.BlobSidecars)
+	return v.base.Segments(snaptype.BlobSidecars)
 }
 
 func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*snapshotsync.VisibleSegment, bool) {
-	return v.base.Segment(coresnaptype.BlobSidecars, blockNum)
+	return v.base.Segment(snaptype.BlobSidecars, blockNum)
 }
 
 func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger) (err error) {
 	startTime := time.Now()
-	f := coresnaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
+	f := snaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
 	sn, err := seg.NewCompressor(ctx, "Snapshot "+f.Type.Name(), f.Path, tmpDir, seg.DefaultCfg, log.LvlTrace, logger)
 	if err != nil {
 		return err

@@ -30,17 +30,17 @@ import (
 
 	"github.com/holiman/uint256"
 
-	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/common/empty"
 	"github.com/erigontech/erigon-lib/common/u256"
 	"github.com/erigontech/erigon-lib/crypto"
-	"github.com/erigontech/erigon-lib/trie"
-	"github.com/erigontech/erigon-lib/types"
-	"github.com/erigontech/erigon-lib/types/accounts"
 	"github.com/erigontech/erigon/core/tracing"
 	"github.com/erigontech/erigon/core/vm/evmtypes"
+	"github.com/erigontech/erigon/execution/chain"
+	"github.com/erigontech/erigon/execution/trie"
+	"github.com/erigontech/erigon/execution/types"
+	"github.com/erigontech/erigon/execution/types/accounts"
 )
 
 var _ evmtypes.IntraBlockState = new(IntraBlockState) // compile-time interface-check
@@ -1534,6 +1534,9 @@ func (sdb *IntraBlockState) AddAddressToAccessList(addr common.Address) (addrMod
 
 // AddSlotToAccessList adds the given (address, slot)-tuple to the access list
 func (sdb *IntraBlockState) AddSlotToAccessList(addr common.Address, slot common.Hash) (addrMod, slotMod bool) {
+	if sdb.accessList == nil {
+		sdb.accessList = newAccessList()
+	}
 	addrMod, slotMod = sdb.accessList.AddSlot(addr, slot)
 	if addrMod {
 		// In practice, this should not happen, since there is no way to enter the
@@ -1727,4 +1730,8 @@ func (sdb *IntraBlockState) ApplyVersionedWrites(writes VersionedWrites) error {
 		}
 	}
 	return nil
+}
+
+func (sdb *IntraBlockState) ClearAccessList() {
+	sdb.accessList = nil
 }

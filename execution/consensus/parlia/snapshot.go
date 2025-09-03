@@ -24,17 +24,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	params2 "github.com/erigontech/erigon-lib/chain/params"
-	"github.com/erigontech/erigon-lib/types"
+	"github.com/erigontech/erigon/db/kv"
+	"github.com/erigontech/erigon/execution/chain"
+	params2 "github.com/erigontech/erigon/execution/chain/params"
 	"github.com/erigontech/erigon/execution/consensus"
+	"github.com/erigontech/erigon/execution/types"
 	"math"
 	"sort"
 
-	"github.com/erigontech/erigon-lib/chain"
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/common/length"
-	"github.com/erigontech/erigon-lib/kv"
 	"github.com/erigontech/erigon-lib/log/v3"
 	lru "github.com/hashicorp/golang-lru/arc/v2"
 )
@@ -179,7 +179,7 @@ func (s *Snapshot) store(db kv.RwDB) error {
 	if err != nil {
 		return err
 	}
-	return db.UpdateNosync(context.Background(), func(tx kv.RwTx) error {
+	return db.Update(context.Background(), func(tx kv.RwTx) error {
 		if err = tx.Put(kv.ParliaSnapshot, SnapshotFullKey(s.Number, s.Hash), blob); err != nil {
 			return err
 		}

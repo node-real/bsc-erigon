@@ -3,17 +3,17 @@ package parlia
 import (
 	"container/heap"
 	"errors"
-	params2 "github.com/erigontech/erigon-lib/chain/params"
-	"github.com/erigontech/erigon-lib/common/hexutil"
-	"github.com/erigontech/erigon-lib/types"
-	"github.com/erigontech/erigon/execution/consensus"
+	params2 "github.com/erigontech/erigon/execution/chain/params"
 	"math/big"
 
 	"github.com/erigontech/erigon-lib/common"
+	"github.com/erigontech/erigon-lib/common/hexutil"
 	"github.com/erigontech/erigon-lib/common/u256"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/core/state"
 	"github.com/erigontech/erigon/core/systemcontracts"
+	"github.com/erigontech/erigon/execution/consensus"
+	"github.com/erigontech/erigon/execution/types"
 )
 
 // the params should be two blocks' time(timestamp)
