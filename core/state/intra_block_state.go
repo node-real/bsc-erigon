@@ -1534,6 +1534,9 @@ func (sdb *IntraBlockState) AddAddressToAccessList(addr common.Address) (addrMod
 
 // AddSlotToAccessList adds the given (address, slot)-tuple to the access list
 func (sdb *IntraBlockState) AddSlotToAccessList(addr common.Address, slot common.Hash) (addrMod, slotMod bool) {
+	if sdb.accessList == nil {
+		sdb.accessList = newAccessList()
+	}
 	addrMod, slotMod = sdb.accessList.AddSlot(addr, slot)
 	if addrMod {
 		// In practice, this should not happen, since there is no way to enter the
@@ -1727,4 +1730,8 @@ func (sdb *IntraBlockState) ApplyVersionedWrites(writes VersionedWrites) error {
 		}
 	}
 	return nil
+}
+
+func (sdb *IntraBlockState) ClearAccessList() {
+	sdb.accessList = nil
 }

@@ -312,6 +312,8 @@ func (rw *Worker) RunTxTaskNoLock(txTask *state.TxTask, isMining, skipPostEvalua
 			msg := txTask.TxAsMessage
 			if rw.chainConfig.IsCancun(header.Time) {
 				ibs.Prepare(rules, msg.From(), txTask.EvmBlockContext.Coinbase, msg.To(), vm.ActivePrecompiles(rules), msg.AccessList(), nil)
+			} else {
+				ibs.ClearAccessList()
 			}
 			rw.evm.ResetBetweenBlocks(txTask.EvmBlockContext, core.NewEVMTxContext(msg), ibs, rw.vmCfg, rules)
 			if hooks != nil && hooks.OnTxStart != nil {
