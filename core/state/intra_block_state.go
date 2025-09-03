@@ -1525,6 +1525,9 @@ func (sdb *IntraBlockState) Prepare(rules *chain.Rules, sender, coinbase common.
 
 // AddAddressToAccessList adds the given address to the access list
 func (sdb *IntraBlockState) AddAddressToAccessList(addr common.Address) (addrMod bool) {
+	if sdb.accessList == nil {
+		sdb.accessList = newAccessList()
+	}
 	addrMod = sdb.accessList.AddAddress(addr)
 	if addrMod {
 		sdb.journal.append(accessListAddAccountChange{addr})
@@ -1556,10 +1559,16 @@ func (sdb *IntraBlockState) AddSlotToAccessList(addr common.Address, slot common
 
 // AddressInAccessList returns true if the given address is in the access list.
 func (sdb *IntraBlockState) AddressInAccessList(addr common.Address) bool {
+	if sdb.accessList == nil {
+		return false
+	}
 	return sdb.accessList.ContainsAddress(addr)
 }
 
 func (sdb *IntraBlockState) SlotInAccessList(addr common.Address, slot common.Hash) (addressPresent bool, slotPresent bool) {
+	if sdb.accessList == nil {
+		return false, false
+	}
 	return sdb.accessList.Contains(addr, slot)
 }
 
