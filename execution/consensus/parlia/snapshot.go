@@ -179,7 +179,7 @@ func (s *Snapshot) store(db kv.RwDB) error {
 	if err != nil {
 		return err
 	}
-	return db.UpdateNosync(context.Background(), func(tx kv.RwTx) error {
+	return db.Update(context.Background(), func(tx kv.RwTx) error {
 		if err = tx.Put(kv.ParliaSnapshot, SnapshotFullKey(s.Number, s.Hash), blob); err != nil {
 			return err
 		}
