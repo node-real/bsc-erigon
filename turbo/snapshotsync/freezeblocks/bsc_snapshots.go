@@ -160,7 +160,7 @@ type BscView struct {
 }
 
 func (s *BscRoSnapshots) View() *BscView {
-	v := &BscView{base: s.RoSnapshots.View().WithBaseSegType(snaptype.BlobSidecars)}
+	v := &BscView{base: s.RoSnapshots.View().WithBaseSegType(snaptype2.BlobSidecars)}
 	return v
 }
 
@@ -169,16 +169,16 @@ func (v *BscView) Close() {
 }
 
 func (v *BscView) BlobSidecars() []*snapshotsync.VisibleSegment {
-	return v.base.Segments(snaptype.BlobSidecars)
+	return v.base.Segments(snaptype2.BlobSidecars)
 }
 
 func (v *BscView) BlobSidecarsSegment(blockNum uint64) (*snapshotsync.VisibleSegment, bool) {
-	return v.base.Segment(snaptype.BlobSidecars, blockNum)
+	return v.base.Segment(snaptype2.BlobSidecars, blockNum)
 }
 
 func dumpBlobsRange(ctx context.Context, blockFrom, blockTo uint64, tmpDir, snapDir string, chainDB kv.RoDB, blobStore services.BlobStorage, blockReader services.FullBlockReader, chainConfig *chain.Config, workers int, lvl log.Lvl, logger log.Logger) (err error) {
 	startTime := time.Now()
-	f := snaptype.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
+	f := snaptype2.BlobSidecars.FileInfo(snapDir, blockFrom, blockTo)
 	sn, err := seg.NewCompressor(ctx, "Snapshot "+f.Type.Name(), f.Path, tmpDir, seg.DefaultCfg, log.LvlTrace, logger)
 	if err != nil {
 		return err
