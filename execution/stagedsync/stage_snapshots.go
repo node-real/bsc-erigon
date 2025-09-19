@@ -331,6 +331,11 @@ func DownloadAndIndexSnapshotsIfNeed(s *StageState, ctx context.Context, tx kv.R
 				return err
 			}
 		}
+		if cfg.chainConfig.Parlia != nil {
+			if err := cfg.blockReader.BscSnapshots().OpenFolder(); err != nil {
+				return err
+			}
+		}
 		if err := agg.OpenFolder(); err != nil {
 			return err
 		}
