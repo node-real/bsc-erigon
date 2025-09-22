@@ -27,7 +27,6 @@ import (
 	"github.com/erigontech/erigon-lib/common"
 	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/common/hexutil"
-	"github.com/erigontech/erigon-lib/jsonstream"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/state"
@@ -39,6 +38,7 @@ import (
 	polygontracer "github.com/erigontech/erigon/polygon/tracer"
 	"github.com/erigontech/erigon/rpc"
 	"github.com/erigontech/erigon/rpc/ethapi"
+	"github.com/erigontech/erigon/rpc/jsonstream"
 	"github.com/erigontech/erigon/rpc/rpchelper"
 	"github.com/erigontech/erigon/turbo/transactions"
 )
@@ -64,6 +64,12 @@ func (api *DebugAPIImpl) traceBlock(ctx context.Context, blockNrOrHash rpc.Block
 	if err != nil {
 		return err
 	}
+
+	if blockNumber == 0 {
+		stream.WriteNil()
+		return fmt.Errorf("genesis is not traceable")
+	}
+
 	block, err := api.blockWithSenders(ctx, tx, hash, blockNumber)
 	if err != nil {
 		return err
@@ -234,6 +240,7 @@ func (api *DebugAPIImpl) TraceTransaction(ctx context.Context, hash common.Hash,
 	if err != nil {
 		return err
 	}
+
 	if !ok {
 		if chainConfig.Bor == nil {
 			stream.WriteNil()
@@ -256,6 +263,11 @@ func (api *DebugAPIImpl) TraceTransaction(ctx context.Context, hash common.Hash,
 		}
 
 		isBorStateSyncTxn = true
+	}
+
+	if blockNum == 0 {
+		stream.WriteNil()
+		return fmt.Errorf("genesis is not traceable")
 	}
 
 	// check pruning to ensure we have history at this block level

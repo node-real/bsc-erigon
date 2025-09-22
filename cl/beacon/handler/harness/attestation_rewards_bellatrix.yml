@@ -21,7 +21,7 @@ tests:
       method: post
       path: /eth/v1/beacon/rewards/attestations/{{.Vars.justified_epoch}}
       body:
-        data: ["1","4"]
+        data: [ "1","4" ]
   - name: not found
     actual:
       handler: i

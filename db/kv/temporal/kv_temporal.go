@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/erigontech/erigon/db/datadir"
 	"github.com/erigontech/erigon/db/kv"
 	"github.com/erigontech/erigon/db/kv/mdbx"
 	"github.com/erigontech/erigon/db/kv/order"
@@ -72,13 +73,13 @@ var ( // Compile time interface checks
 
 type DB struct {
 	kv.RwDB
-	agg             *state.Aggregator
+	stateFiles      *state.Aggregator
 	forkaggs        []*state.ForkableAgg
 	forkaggsEnabled bool
 }
 
 func New(db kv.RwDB, agg *state.Aggregator, forkaggs ...*state.ForkableAgg) (*DB, error) {
-	tdb := &DB{RwDB: db, agg: agg}
+	tdb := &DB{RwDB: db, stateFiles: agg}
 	if len(forkaggs) > 0 {
 		tdb.forkaggs = make([]*state.ForkableAgg, len(forkaggs))
 		for i, forkagg := range forkaggs {
@@ -91,7 +92,7 @@ func New(db kv.RwDB, agg *state.Aggregator, forkaggs ...*state.ForkableAgg) (*DB
 	return tdb, nil
 }
 func (db *DB) EnableForkable()           { db.forkaggsEnabled = true }
-func (db *DB) Agg() any                  { return db.agg }
+func (db *DB) Agg() any                  { return db.stateFiles }
 func (db *DB) InternalDB() kv.RwDB       { return db.RwDB }
 func (db *DB) Debug() kv.TemporalDebugDB { return kv.TemporalDebugDB(db) }
 
@@ -102,7 +103,7 @@ func (db *DB) BeginTemporalRo(ctx context.Context) (kv.TemporalTx, error) {
 	}
 	tx := &Tx{Tx: kvTx, tx: tx{db: db, ctx: ctx}}
 
-	tx.aggtx = db.agg.BeginFilesRo()
+	tx.aggtx = db.stateFiles.BeginFilesRo()
 
 	if db.forkaggsEnabled {
 		tx.forkaggs = make([]*state.ForkableAggTemporalTx, len(db.forkaggs))
@@ -141,7 +142,7 @@ func (db *DB) BeginTemporalRw(ctx context.Context) (kv.TemporalRwTx, error) {
 	}
 	tx := &RwTx{RwTx: kvTx, tx: tx{db: db, ctx: ctx}}
 
-	tx.aggtx = db.agg.BeginFilesRo()
+	tx.aggtx = db.stateFiles.BeginFilesRo()
 	return tx, nil
 }
 func (db *DB) BeginRw(ctx context.Context) (kv.RwTx, error) {
@@ -178,7 +179,7 @@ func (db *DB) BeginTemporalRwNosync(ctx context.Context) (kv.RwTx, error) {
 	}
 	tx := &RwTx{RwTx: kvTx, tx: tx{db: db, ctx: ctx}}
 
-	tx.aggtx = db.agg.BeginFilesRo()
+	tx.aggtx = db.stateFiles.BeginFilesRo()
 	return tx, nil
 }
 func (db *DB) BeginRwNosync(ctx context.Context) (kv.RwTx, error) {
@@ -197,11 +198,13 @@ func (db *DB) UpdateNosync(ctx context.Context, f func(tx kv.RwTx) error) error 
 }
 
 func (db *DB) Close() {
-	db.agg.Close()
+	//db.stateFiles.Close()
 	db.RwDB.Close()
 }
 
-func (db *DB) OnFilesChange(onChange, onDel kv.OnFilesChange) { db.agg.OnFilesChange(onChange, onDel) }
+func (db *DB) OnFilesChange(onChange, onDel kv.OnFilesChange) {
+	db.stateFiles.OnFilesChange(onChange, onDel)
+}
 
 type tx struct {
 	db               *DB
@@ -229,7 +232,7 @@ func (tx *tx) ForceReopenAggCtx() {
 func (tx *tx) FreezeInfo() kv.FreezeInfo { return tx.aggtx }
 
 func (tx *tx) AggTx() any             { return tx.aggtx }
-func (tx *tx) Agg() *state.Aggregator { return tx.db.agg }
+func (tx *tx) Agg() *state.Aggregator { return tx.db.stateFiles }
 func (tx *tx) Rollback() {
 	tx.autoClose()
 }
@@ -568,29 +571,31 @@ func (tx *tx) GetLatestFromFiles(domain kv.Domain, k []byte, maxTxNum uint64) (v
 	return tx.aggtx.DebugGetLatestFromFiles(domain, k, maxTxNum)
 }
 
-func (db *DB) DomainTables(domain ...kv.Domain) []string { return db.agg.DomainTables(domain...) }
-func (db *DB) InvertedIdxTables(domain ...kv.InvertedIdx) []string {
-	return db.agg.InvertedIdxTables(domain...)
+func (db *DB) DomainTables(domain ...kv.Domain) []string {
+	return db.stateFiles.DomainTables(domain...)
 }
-func (db *DB) ReloadFiles() error { return db.agg.ReloadFiles() }
+func (db *DB) InvertedIdxTables(domain ...kv.InvertedIdx) []string {
+	return db.stateFiles.InvertedIdxTables(domain...)
+}
+func (db *DB) ReloadFiles() error { return db.stateFiles.ReloadFiles() }
 func (db *DB) BuildMissedAccessors(ctx context.Context, workers int) error {
-	return db.agg.BuildMissedAccessors(ctx, workers)
+	return db.stateFiles.BuildMissedAccessors(ctx, workers)
 }
 func (db *DB) EnableReadAhead() kv.TemporalDebugDB {
-	db.agg.MadvNormal()
+	db.stateFiles.MadvNormal()
 	return db
 }
 
 func (db *DB) DisableReadAhead() {
-	db.agg.DisableReadAhead()
+	db.stateFiles.DisableReadAhead()
 }
 
 func (db *DB) Files() []string {
-	return db.agg.Files()
+	return db.stateFiles.Files()
 }
 
 func (db *DB) MergeLoop(ctx context.Context) error {
-	return db.agg.MergeLoop(ctx)
+	return db.stateFiles.MergeLoop(ctx)
 }
 
 func (tx *Tx) DomainFiles(domain ...kv.Domain) kv.VisibleFiles {
@@ -643,25 +648,15 @@ func (tx *Tx) IIProgress(domain kv.InvertedIdx) uint64 {
 func (tx *RwTx) IIProgress(domain kv.InvertedIdx) uint64 {
 	return tx.aggtx.IIProgress(domain, tx.RwTx)
 }
+
+func (tx *tx) dirs() datadir.Dirs   { return tx.aggtx.Dirs() }
+func (tx *Tx) Dirs() datadir.Dirs   { return tx.dirs() }
+func (tx *RwTx) Dirs() datadir.Dirs { return tx.dirs() }
+
 func (tx *tx) stepSize() uint64 {
 	return tx.aggtx.StepSize()
 }
-func (tx *Tx) StepSize() uint64 {
-	return tx.stepSize()
-}
+func (tx *Tx) StepSize() uint64 { return tx.stepSize() }
 func (tx *RwTx) StepSize() uint64 {
 	return tx.stepSize()
-}
-
-func (tx *Tx) CanUnwindToBlockNum() (uint64, error) {
-	return tx.aggtx.CanUnwindToBlockNum(tx.Tx)
-}
-func (tx *RwTx) CanUnwindToBlockNum() (uint64, error) {
-	return tx.aggtx.CanUnwindToBlockNum(tx.RwTx)
-}
-func (tx *Tx) CanUnwindBeforeBlockNum(blockNum uint64) (unwindableBlockNum uint64, ok bool, err error) {
-	return tx.aggtx.CanUnwindBeforeBlockNum(blockNum, tx.Tx)
-}
-func (tx *RwTx) CanUnwindBeforeBlockNum(blockNum uint64) (unwindableBlockNum uint64, ok bool, err error) {
-	return tx.aggtx.CanUnwindBeforeBlockNum(blockNum, tx.RwTx)
 }

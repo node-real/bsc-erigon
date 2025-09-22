@@ -16,8 +16,8 @@ tests:
       fs: td
     compare:
       exprs:
-       - actual_code == 200
-       - actual == expect
+        - actual_code == 200
+        - actual == expect
     actual:
       handler: i
       path: /eth/v2/beacon/blocks/head
@@ -82,16 +82,16 @@ tests:
       path: /eth/v1/beacon/blocks/{{.Vars.head_hash}}/root
     compare:
       exprs:
-       - actual_code == 200
-       - actual.data.root == "{{.Vars.head_hash}}"
+        - actual_code == 200
+        - actual.data.root == "{{.Vars.head_hash}}"
   - name: root by head
     actual:
       handler: i
       path: /eth/v1/beacon/blocks/head/root
     compare:
       exprs:
-       - actual_code == 200
-       - actual.data.root == "{{.Vars.head_hash}}"
+        - actual_code == 200
+        - actual.data.root == "{{.Vars.head_hash}}"
   - name: root not found
     actual:
       handler: i

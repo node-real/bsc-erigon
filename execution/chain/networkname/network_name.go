@@ -16,12 +16,18 @@
 
 package networkname
 
+import (
+	"slices"
+	"strings"
+)
+
 const (
 	Mainnet             = "mainnet"
 	Holesky             = "holesky"
 	Sepolia             = "sepolia"
 	Hoodi               = "hoodi"
 	Dev                 = "dev"
+	Mumbai              = "mumbai"
 	Amoy                = "amoy"
 	BorMainnet          = "bor-mainnet"
 	BorDevnet           = "bor-devnet"
@@ -39,6 +45,7 @@ var All = []string{
 	Holesky,
 	Sepolia,
 	Hoodi,
+	Mumbai,
 	Amoy,
 	BorMainnet,
 	BorDevnet,
@@ -48,3 +55,6 @@ var All = []string{
 	Chapel,
 	Test,
 }
+
+// Supported checks if the given network name is supported by Erigon.
+func Supported(name string) bool { return slices.Contains(All, strings.ToLower(name)) }

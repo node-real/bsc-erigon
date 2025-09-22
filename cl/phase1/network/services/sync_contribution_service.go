@@ -26,7 +26,7 @@ import (
 	"sync"
 
 	"github.com/erigontech/erigon-lib/common"
-	sentinel "github.com/erigontech/erigon-lib/gointerfaces/sentinelproto"
+	"github.com/erigontech/erigon-lib/gointerfaces/sentinelproto"
 	"github.com/erigontech/erigon/cl/beacon/beaconevents"
 	"github.com/erigontech/erigon/cl/beacon/synced_data"
 	"github.com/erigontech/erigon/cl/clparams"
@@ -61,7 +61,7 @@ type syncContributionService struct {
 // SignedContributionAndProofWithGossipData type represents SignedContributionAndProof with the gossip data where it's coming from.
 type SignedContributionAndProofForGossip struct {
 	SignedContributionAndProof *cltypes.SignedContributionAndProof
-	Receiver                   *sentinel.Peer
+	Receiver                   *sentinelproto.Peer
 	ImmediateVerification      bool
 }
 

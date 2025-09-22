@@ -16,8 +16,8 @@ tests:
         slot: "8322"
     compare:
       exprs:
-       - "actual_code == 200"
-       - "expect[0] == actual"
+        - "actual_code == 200"
+        - "expect[0] == actual"
   - name: empty index
     expect:
       file: "committees_1"
@@ -29,8 +29,8 @@ tests:
         index: "1"
     compare:
       exprs:
-       - "actual_code == 200"
-       - "expect[1] == actual"
+        - "actual_code == 200"
+        - "expect[1] == actual"
   - name: all queries
     expect:
       file: "committees_1"
@@ -44,12 +44,12 @@ tests:
         epoch: "{{sub .Vars.head_epoch 1}}"
     compare:
       exprs:
-       - "actual_code == 200"
-       - "expect[2] == actual"
+        - "actual_code == 200"
+        - "expect[2] == actual"
   - name: "404"
     actual:
       handler: i
       path: /eth/v1/beacon/states/{{.Vars.bad_hash}}/committees
     compare:
       exprs:
-       - "actual_code == 404"
+        - "actual_code == 404"

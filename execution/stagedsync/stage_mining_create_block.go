@@ -26,7 +26,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 
 	"github.com/erigontech/erigon-lib/common"
-	"github.com/erigontech/erigon-lib/common/debug"
+	"github.com/erigontech/erigon-lib/common/dbg"
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/core"
 	"github.com/erigontech/erigon/core/state"
@@ -253,7 +253,7 @@ func SpawnMiningCreateBlockStage(s *StageState, txc wrap.TxContainer, cfg Mining
 	header.Extra = cfg.miner.MiningConfig.ExtraData
 
 	logger.Info(fmt.Sprintf("[%s] Start mine", logPrefix), "block", executionAt+1, "baseFee", header.BaseFee, "gasLimit", header.GasLimit)
-	ibs := state.New(state.NewReaderV3(txc.Doms.AsGetter(txc.Tx)))
+	ibs := state.New(state.NewReaderV3(txc.Doms.AsGetter(txc.Ttx)))
 
 	if err = cfg.engine.Prepare(chain, header, ibs); err != nil {
 		logger.Error("Failed to prepare header for mining",
@@ -263,7 +263,7 @@ func SpawnMiningCreateBlockStage(s *StageState, txc wrap.TxContainer, cfg Mining
 			"headerParentHash", header.ParentHash.String(),
 			"parentNumber", parent.Number.Uint64(),
 			"parentHash", parent.Hash().String(),
-			"callers", debug.Callers(10))
+			"stack", dbg.Stack())
 		return err
 	}
 
