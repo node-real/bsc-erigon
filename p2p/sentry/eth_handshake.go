@@ -146,7 +146,7 @@ func handShake[T StatusPacket](
 		}
 	}
 
-	if version >= direct.ETH68 {
+	if version >= direct.ETH68 && (status.NetworkId == 56 || status.NetworkId == 97) {
 		var upgradeStatus eth.UpgradeStatusPacket
 		extensionRaw, err := (&eth.UpgradeStatusExtension{}).Encode()
 		if err != nil {
