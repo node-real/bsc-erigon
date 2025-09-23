@@ -232,7 +232,7 @@ var (
 		GenesisHash: common.HexToHash("0x6d3c66c5357ec91d5c43af47e234a939b22557cbb552dc45bebbceeed90fbe34"),
 		Config:      ReadChainConfig(chainspecs, "chainspecs/chapel.json"),
 		Bootnodes:   chapelBootnodes,
-		Genesis:     BSCGenesisBlock(),
+		Genesis:     ChapelGenesisBlock(),
 	}
 
 	Rialto = Spec{
