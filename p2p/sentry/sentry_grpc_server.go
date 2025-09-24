@@ -1258,7 +1258,7 @@ func (ss *GrpcServer) SendMessageToAll(ctx context.Context, req *sentryproto.Out
 		eth.NewBlockMsg,
 		eth.NewPooledTransactionHashesMsg, // to broadcast new local transactions
 		eth.NewBlockHashesMsg,
-		eth.BlockRangeUpdateMsg,
+		// eth.BlockRangeUpdateMsg,
 	}
 
 	msgcode, protocolVersions := ss.messageCode(req.Id)
