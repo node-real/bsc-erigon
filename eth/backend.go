@@ -404,6 +404,8 @@ func New(ctx context.Context, stack *node.Node, config *ethconfig.Config, logger
 	setBorDefaultMinerGasPrice(chainConfig, config, logger)
 	setBorDefaultTxPoolPriceLimit(chainConfig, config.TxPool, logger)
 
+	setBscDefaultTxPoolPriceLimit(chainConfig, config.TxPool, logger)
+
 	logger.Info("Initialised chain configuration", "config", chainConfig, "genesis", genesis.Hash())
 	if dbg.OnlyCreateDB {
 		logger.Info("done")
@@ -1971,6 +1973,14 @@ func setBorDefaultTxPoolPriceLimit(chainConfig *chain.Config, config txpoolcfg.C
 	if chainConfig.Bor != nil && config.MinFeeCap != txpoolcfg.BorDefaultTxPoolPriceLimit {
 		logger.Warn("Sanitizing invalid bor min fee cap", "provided", config.MinFeeCap, "updated", txpoolcfg.BorDefaultTxPoolPriceLimit)
 		config.MinFeeCap = txpoolcfg.BorDefaultTxPoolPriceLimit
+	}
+}
+
+// setBscDefaultTxPoolPriceLimit enforces MinFeeCap to be equal to BscDefaultTxPoolPriceLimit (0.05gwei by default)
+func setBscDefaultTxPoolPriceLimit(chainConfig *chain.Config, config txpoolcfg.Config, logger log.Logger) {
+	if chainConfig.Parlia != nil && config.MinFeeCap != txpoolcfg.BscDefaultTxPoolPriceLimit {
+		logger.Warn("Sanitizing invalid bor min fee cap", "provided", config.MinFeeCap, "updated", txpoolcfg.BscDefaultTxPoolPriceLimit)
+		config.MinFeeCap = txpoolcfg.BscDefaultTxPoolPriceLimit
 	}
 }
 

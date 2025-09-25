@@ -27,7 +27,7 @@ var DefaultIgnorePrice = big.NewInt(2 * common.Wei)
 // BorDefaultGpoIgnorePrice defines the minimum gas price below which bor gpo will ignore transactions.
 var BorDefaultGpoIgnorePrice = big.NewInt(25 * common.Wei)
 
-var BscMinimalAcceptPrice = big.NewInt(0.1 * common.GWei)
+var BscMinimalAcceptPrice = big.NewInt(0.05 * common.GWei)
 
 var (
 	DefaultMaxPrice = big.NewInt(500 * common.GWei)
