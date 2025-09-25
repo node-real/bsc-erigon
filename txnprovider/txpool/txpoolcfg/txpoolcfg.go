@@ -27,6 +27,7 @@ import (
 
 // BorDefaultTxPoolPriceLimit defines the minimum gas price limit for bor to enforce txns acceptance into the pool.
 const BorDefaultTxPoolPriceLimit = 25 * common.GWei
+const BscDefaultTxPoolPriceLimit = 0.05 * common.GWei
 
 type Config struct {
 	Disable             bool
