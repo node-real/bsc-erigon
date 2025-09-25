@@ -303,7 +303,7 @@ func (sdc *SharedDomainsCommitmentContext) encodeAndStoreCommitmentState(blockNu
 		return nil
 	}
 
-	log.Debug("[commitment] store state", "block", blockNum, "txNum", txNum, "rootHash", hex.EncodeToString(rootHash))
+	log.Trace("[commitment] store state", "block", blockNum, "txNum", txNum, "rootHash", hex.EncodeToString(rootHash))
 	return sdc.mainTtx.PutBranch(KeyCommitmentState, encodedState, prevState, prevStep)
 }
 
