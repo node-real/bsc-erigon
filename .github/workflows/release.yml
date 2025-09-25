@@ -11,7 +11,7 @@ env:
   DOCKER_BASE_IMAGE: "debian:12-slim"
   APP_REPO: "node-real/bsc-erigon"
   PACKAGE: "github.com/erigontech/erigon"
-  BINARIES: "erigon downloader devnet evm caplin diag integration rpcdaemon sentry txpool"
+  BINARIES: "erigon downloader evm caplin capcli integration rpcdaemon sentry txpool"
   DOCKERHUB_REPOSITORY: "ghcr.io/node-real/bsc-erigon"
   DOCKERHUB_REPOSITORY_DEV: "erigontech/dev-erigon"
   DOCKERFILE_PATH: "Dockerfile.release"
@@ -196,7 +196,7 @@ jobs:
           retention-days: 3
           compression-level: 0
           if-no-files-found: error
-
+#
 #  test-release:
 #    name: test on ${{ matrix.id }}
 #    if: ${{ ! inputs.skip_tests }}
@@ -219,12 +219,12 @@ jobs:
 #        run: rm -drfv *
 #
 #      - name: Set up Python
-#        uses: actions/setup-python@v5
+#        uses: actions/setup-python@v6
 #        with:
 #          python-version: '3.12'
 #
 #      - name: Download artifact ${{ env.APPLICATION }}_${{ inputs.release_version }}_${{ matrix.artifact }}.tar
-#        uses: actions/download-artifact@v4
+#        uses: actions/download-artifact@v5
 #        with:
 #          name: ${{ env.APPLICATION }}_${{ inputs.release_version }}_${{ matrix.artifact }}.tar
 #          path: .
@@ -237,7 +237,7 @@ jobs:
 #          ls -lR
 #
 #      - name: Fast checkout git repository erigontech/erigon-qa
-#        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 ## 4.2.2
+#        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 ## 5.0.0
 #        with:
 #          token: ${{ secrets.ORG_GITHUB_ERIGONTECH_ERIGON_QA_READ }}
 #          repository: erigontech/erigon-qa

@@ -188,6 +188,7 @@ var (
 		ShanghaiTime:                  big.NewInt(0),
 		CancunTime:                    big.NewInt(0),
 		PragueTime:                    big.NewInt(0),
+		DepositContract:               common.HexToAddress("0x00000000219ab540356cBB839Cbe05303d7705Fa"),
 		Ethash:                        new(EthashConfig),
 	}
 )
@@ -202,11 +203,12 @@ type BorConfig interface {
 	GetAhmedabadBlock() *big.Int
 	IsBhilai(num uint64) bool
 	GetBhilaiBlock() *big.Int
-	IsVeBlop(num uint64) bool
-	GetVeBlopBlock() *big.Int
+	IsRio(num uint64) bool
+	GetRioBlock() *big.Int
 	StateReceiverContractAddress() common.Address
 	CalculateSprintNumber(number uint64) uint64
 	CalculateSprintLength(number uint64) uint64
+	CalculateCoinbase(number uint64) common.Address
 }
 
 func timestampToTime(unixTime *big.Int) *time.Time {
@@ -717,6 +719,22 @@ func (c *Config) IsOnMaxwell(currentBlockNumber *big.Int, lastBlockTime uint64, 
 		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
 	}
 	return !c.IsMaxwell(lastBlockNumber.Uint64(), lastBlockTime) && c.IsMaxwell(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
+func (c *Config) SlotsPerEpoch() uint64 {
+	if c.Bor != nil {
+		// Polygon does not have slots, this is such that block range is updated ~5 minutes similar to Ethereum
+		return 192
+	}
+	if c.Aura != nil {
+		return 16 // Gnosis
+	}
+	return 32 // Ethereum
+}
+
+// EpochDuration returns the duration of one epoch in seconds
+func (c *Config) EpochDuration() time.Duration {
+	return time.Duration(c.SecondsPerSlot()*c.SlotsPerEpoch()) * time.Second
 }
 
 func (c *Config) SystemContracts(time uint64) map[string]common.Address {

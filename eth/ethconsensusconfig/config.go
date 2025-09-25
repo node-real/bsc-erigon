@@ -29,6 +29,7 @@ import (
 
 	"github.com/erigontech/erigon-lib/log/v3"
 	"github.com/erigontech/erigon/db/kv"
+	"github.com/erigontech/erigon/db/kv/dbcfg"
 	"github.com/erigontech/erigon/execution/chain"
 	chainspec "github.com/erigontech/erigon/execution/chain/spec"
 	"github.com/erigontech/erigon/execution/consensus"
@@ -92,7 +93,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			var err error
 			var db kv.RwDB
 
-			db, err = node.OpenDatabase(ctx, nodeConfig, kv.ConsensusDB, "clique", readonly, logger)
+			db, err = node.OpenDatabase(ctx, nodeConfig, dbcfg.ConsensusDB, "clique", readonly, logger)
 
 			if err != nil {
 				panic(err)
@@ -105,7 +106,7 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 			var err error
 			var db kv.RwDB
 
-			db, err = node.OpenDatabase(ctx, nodeConfig, kv.ConsensusDB, "aura", readonly, logger)
+			db, err = node.OpenDatabase(ctx, nodeConfig, dbcfg.ConsensusDB, "aura", readonly, logger)
 
 			if err != nil {
 				panic(err)
@@ -129,12 +130,12 @@ func CreateConsensusEngine(ctx context.Context, nodeConfig *nodecfg.Config, chai
 				}
 			}
 
-			db, err = node.OpenDatabase(ctx, nodeConfig, kv.ConsensusDB, "parlia", readonly, logger)
+			db, err = node.OpenDatabase(ctx, nodeConfig, dbcfg.ConsensusDB, "parlia", readonly, logger)
 			if err != nil {
 				panic(err)
 			}
 			nodeConfig.Dirs.DataDir = filepath.Join(nodeConfig.Dirs.DataDir, "blobs")
-			blobDb, err := node.OpenDatabase(ctx, nodeConfig, kv.BlobDB, "", false, logger)
+			blobDb, err := node.OpenDatabase(ctx, nodeConfig, dbcfg.BlobDB, "", false, logger)
 			if err != nil {
 				panic(err)
 			}

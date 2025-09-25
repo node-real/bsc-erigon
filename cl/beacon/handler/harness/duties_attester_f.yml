@@ -14,11 +14,11 @@ tests:
       path: /eth/v1/validator/duties/attester/{{.Vars.head_epoch}}
       method: post
       body:
-       data: ["0","1","2","3","4","5","6","7","8","9"]
+        data: [ "0","1","2","3","4","5","6","7","8","9" ]
     compare:
       exprs:
-       - "actual_code == 200"
-       - "expect[0] == actual"
+        - "actual_code == 200"
+        - "expect[0] == actual"
   - name: empty index
     expect:
       file: "duties_1"
@@ -28,18 +28,18 @@ tests:
       path: /eth/v1/validator/duties/attester/{{.Vars.head_epoch}}
       method: post
       body:
-       data: []
+        data: [ ]
     compare:
       exprs:
-       - "actual_code == 200"
-       - "expect[1] == actual"
+        - "actual_code == 200"
+        - "expect[1] == actual"
   - name: 400 non antiquated
     actual:
       handler: i
       path: /eth/v1/validator/duties/attester/999999999
       method: post
       body:
-       data: ["0","1","2","3","4","5","6","7","8","9"]
+        data: [ "0","1","2","3","4","5","6","7","8","9" ]
     compare:
       exprs:
-       - "actual_code == 400"
+        - "actual_code == 400"

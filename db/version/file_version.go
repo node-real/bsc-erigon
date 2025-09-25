@@ -3,11 +3,12 @@ package version
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Version struct {
@@ -177,6 +178,20 @@ func FindFilesWithVersionsByPattern(pattern string) (string, Version, bool, erro
 	return matches[0], ver, true, nil
 }
 
+func CheckIsThereFileWithSupportedVersion(pattern string, minSup Version) error {
+	_, fileVer, ok, err := FindFilesWithVersionsByPattern(pattern)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return errors.New("file with this pattern not found")
+	}
+	if fileVer.Less(minSup) {
+		return fmt.Errorf("file version %s is less than supported version %s", fileVer.String(), minSup.String())
+	}
+	return nil
+}
+
 func ReplaceVersionWithMask(path string) (string, error) {
 	_, fName := filepath.Split(path)
 
@@ -201,4 +216,13 @@ func (v *Version) UnmarshalYAML(node *yaml.Node) error {
 	}
 	*v = ver
 	return nil
+}
+
+func VersionTooLowPanic(filename string, version Versions) {
+	panic(fmt.Sprintf(
+		"Version is too low, try to run snapshot reset: `erigon --datadir $DATADIR --chain $CHAIN snapshots reset`. file=%s, min_supported=%s, current=%s",
+		filename,
+		version.MinSupported,
+		version.Current,
+	))
 }

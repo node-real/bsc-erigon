@@ -43,7 +43,6 @@ import (
 	chainspec "github.com/erigontech/erigon/execution/chain/spec"
 	"github.com/erigontech/erigon/execution/consensus/ethash/ethashcfg"
 	"github.com/erigontech/erigon/execution/types"
-	"github.com/erigontech/erigon/rpc"
 	"github.com/erigontech/erigon/txnprovider/shutter/shuttercfg"
 	"github.com/erigontech/erigon/txnprovider/txpool/txpoolcfg"
 )
@@ -118,6 +117,8 @@ var Defaults = Config{
 		ProduceE3:  true,
 	},
 }
+
+const DefaultChainDBPageSize = 16 * datasize.KB
 
 func init() {
 	home := os.Getenv("HOME")
@@ -251,6 +252,9 @@ type Config struct {
 
 	OverrideOsakaTime *big.Int `toml:",omitempty"`
 
+	// Whether to avoid overriding chain config already stored in the DB
+	KeepStoredChainConfig bool
+
 	// Embedded Silkworm support
 	SilkwormExecution            bool
 	SilkwormRpcDaemon            bool
@@ -287,12 +291,9 @@ type Sync struct {
 	LoopBlockLimit             uint
 	ParallelStateFlushing      bool
 
-	UploadLocation   string
-	UploadFrom       rpc.BlockNumber
-	FrozenBlockLimit uint64
-
 	ChaosMonkey              bool
 	AlwaysGenerateChangesets bool
 	KeepExecutionProofs      bool
 	PersistReceiptsCacheV2   bool
+	SnapshotDownloadToBlock  uint64 // exclusive [0,toBlock)
 }

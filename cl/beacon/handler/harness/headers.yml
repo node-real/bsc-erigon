@@ -15,24 +15,24 @@ tests:
       path: /eth/v1/beacon/headers/{{.Vars.block_1_hash}}
     compare:
       exprs:
-       - actual_code == 200
-       - actual.data.canonical == true
-       - actual.data.header.message.body_root == "{{.Vars.body_root_1}}"
-       - actual.data.header.message.slot == "{{.Vars.first_slot}}"
+        - actual_code == 200
+        - actual.data.canonical == true
+        - actual.data.header.message.body_root == "{{.Vars.body_root_1}}"
+        - actual.data.header.message.slot == "{{.Vars.first_slot}}"
   - name: head
     actual:
       handler: i
       path: /eth/v1/beacon/headers/head
     compare:
       exprs:
-       - actual_code == 200
-       - actual.data.canonical == true
-       - actual.data.header.message.body_root == "{{.Vars.body_root_2}}"
-       - actual.data.header.message.slot == "{{.Vars.head_slot}}"
+        - actual_code == 200
+        - actual.data.canonical == true
+        - actual.data.header.message.body_root == "{{.Vars.body_root_2}}"
+        - actual.data.header.message.slot == "{{.Vars.head_slot}}"
   - name: not head
     actual:
       handler: i
       path: /eth/v1/beacon/headers/{{.Vars.bad_hash}}
     compare:
       exprs:
-       - actual_code == 404
+        - actual_code == 404
