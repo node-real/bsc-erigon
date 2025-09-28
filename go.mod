@@ -8,7 +8,7 @@ require github.com/erigontech/erigon-lib v0.0.0-00010101000000-000000000000
 
 replace (
 	github.com/cometbft/cometbft => github.com/bnb-chain/greenfield-cometbft v1.3.1
-	github.com/erigontech/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20250808070752-4613e53834cd
+	github.com/erigontech/erigon-snapshot => github.com/node-real/bsc-erigon-snapshot v1.0.1-0.20250928065523-7037b095e6ca
 	github.com/holiman/bloomfilter/v2 => github.com/AskAlexSharov/bloomfilter/v2 v2.0.9
 	github.com/tendermint/tendermint => github.com/bnb-chain/tendermint v0.31.16
 )
