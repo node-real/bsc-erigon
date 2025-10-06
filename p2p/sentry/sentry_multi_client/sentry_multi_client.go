@@ -68,10 +68,13 @@ import (
 // RecvUploadMessage - sending bodies/receipts - may be heavy, it's ok to not process this messages enough fast, it's also ok to drop some of these messages if we can't process.
 // RecvUploadHeadersMessage - sending headers - dedicated stream because headers propagation speed important for network health
 // PeerEventsLoop - logging peer connect/disconnect events
-// AnnounceBlockRangeLoop - announces available block range to all peers every epoch
+// AnnounceBlockRangeLoop - announces available block range to all peers every epoch (ETH69, not supported on BSC)
 func (cs *MultiClient) StartStreamLoops(ctx context.Context) {
 	sentries := cs.Sentries()
-	go cs.AnnounceBlockRangeLoop(ctx)
+	// Only start AnnounceBlockRangeLoop for chains that support ETH69 protocol (not BSC/Parlia)
+	if cs.ChainConfig.Parlia == nil {
+		go cs.AnnounceBlockRangeLoop(ctx)
+	}
 	for i := range sentries {
 		sentry := sentries[i]
 		go cs.RecvMessageLoop(ctx, sentry, nil)
