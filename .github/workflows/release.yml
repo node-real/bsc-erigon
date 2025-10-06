@@ -115,8 +115,6 @@ jobs:
           docker buildx build \
             --output type=local,dest=${GITHUB_WORKSPACE}/docker-build-output \
             --output type=registry \
-            --cache-from type=registry,ref=${{ env.DOCKER_URL }}:buildcache \
-            --cache-to type=registry,ref=${{ env.DOCKER_URL }}:buildcache,mode=max \
             --attest type=provenance,mode=max \
             --sbom=true \
             --platform linux/amd64,linux/amd64/v2,linux/arm64 \
