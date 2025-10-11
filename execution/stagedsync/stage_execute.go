@@ -440,7 +440,7 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 	if s.ForwardProgress > uint64(dbg.MaxReorgDepth) && !cfg.syncCfg.AlwaysGenerateChangesets {
 		// (chunkLen is 8Kb) * (1_000 chunks) = 8mb
 		// Some blocks on bor-mainnet have 400 chunks of diff = 3mb
-		var pruneDiffsLimitOnChainTip = 1_000
+		var pruneDiffsLimitOnChainTip = 3_000
 		pruneTimeout := quickPruneTimeout
 		if s.CurrentSyncCycle.IsInitialCycle {
 			pruneDiffsLimitOnChainTip = math.MaxInt
@@ -459,14 +459,14 @@ func PruneExecutionStage(s *PruneState, tx kv.RwTx, cfg ExecuteBlockCfg, ctx con
 		); err != nil {
 			return err
 		}
-		if duration := time.Since(pruneChangeSetsStartTime); duration > quickPruneTimeout {
-			logger.Debug(
-				fmt.Sprintf("[%s] prune changesets timing", s.LogPrefix()),
-				"duration", duration,
-				"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
-				"externalTx", useExternalTx,
-			)
-		}
+		duration := time.Since(pruneChangeSetsStartTime)
+		logger.Debug(
+			fmt.Sprintf("[%s] prune changesets timing", s.LogPrefix()),
+			"duration", duration,
+			"ForwardProgress", s.ForwardProgress,
+			"initialCycle", s.CurrentSyncCycle.IsInitialCycle,
+			"externalTx", useExternalTx,
+		)
 	}
 
 	mxExecStepsInDB.Set(rawdbhelpers.IdxStepsCountV3(tx) * 100)
