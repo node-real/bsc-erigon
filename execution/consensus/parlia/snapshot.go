@@ -353,7 +353,9 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 			}
 		}
 		snap.RecentForkHashes[number] = hex.EncodeToString(header.Extra[extraVanity-nextForkHashSize : extraVanity])
-		if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
+		if chainConfig.IsFermi(header.Number, header.Time) {
+			snap.BlockInterval = params2.FermiBlockInterval
+		} else if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
 			snap.BlockInterval = params2.MaxwellBlockInterval
 		} else if chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
 			snap.BlockInterval = params2.LorentzBlockInterval

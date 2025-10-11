@@ -37,6 +37,7 @@
   "pascalTime": 1742436600,
   "lorentzTime": 1745903100,
   "maxwellTime": 1751250600,
+  "fermiTime": 9999999999,
   "blobSchedule": {
     "cancun": {
       "target": 3,
