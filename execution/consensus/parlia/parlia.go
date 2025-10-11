@@ -74,6 +74,8 @@ const (
 
 	// `finalityRewardInterval` should be smaller than `inMemorySnapshots`, otherwise, it will result in excessive computation.
 	finalityRewardInterval = 200
+
+	kAncestorGenerationDepth = 2
 )
 
 var (
@@ -402,8 +404,17 @@ func (p *Parlia) getParent(chain consensus.ChainHeaderReader, header *types.Head
 	return parent, nil
 }
 
+// trimParents safely removes last element if exists.
+func trimParents(parents []*types.Header) []*types.Header {
+	if len(parents) > 1 {
+		return parents[:len(parents)-1]
+	}
+	return nil
+}
+
 // verifyVoteAttestation checks whether the vote attestation in the header is valid.
 func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header *types.Header, parents []*types.Header) error {
+	// === Step 1: Extract attestation ===
 	epochLength, err := p.epochLength(chain, header, parents)
 	if err != nil {
 		return err
@@ -421,18 +432,14 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	if len(attestation.Extra) > types.MaxAttestationExtraLength {
 		return fmt.Errorf("invalid attestation, too large extra length: %d", len(attestation.Extra))
 	}
+	if attestation.Data.SourceNumber >= attestation.Data.TargetNumber {
+		return errors.New("invalid attestation, SourceNumber not lower than TargetNumber")
+	}
 
+	// === Step 2: Verify source block ===
 	parent, err := p.getParent(chain, header, parents)
 	if err != nil {
 		return err
-	}
-
-	// The target block should be direct parent.
-	targetNumber := attestation.Data.TargetNumber
-	targetHash := attestation.Data.TargetHash
-	if targetNumber != parent.Number.Uint64() || targetHash != parent.Hash() {
-		return fmt.Errorf("invalid attestation, target mismatch, expected block: %d, hash: %s; real block: %d, hash: %s",
-			parent.Number.Uint64(), parent.Hash(), targetNumber, targetHash)
 	}
 
 	// The source block should be the highest justified block.
@@ -447,16 +454,31 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 			justifiedBlockNumber, justifiedBlockHash, sourceNumber, sourceHash)
 	}
 
+	// === Step 3: Verify target block ===
+	targetNumber := attestation.Data.TargetNumber
+	targetHash := attestation.Data.TargetHash
+	match := false
+	ancestor := parent
+	ancestorParents := trimParents(parents)
+	for range p.GetAncestorGenerationDepth(header) {
+		if targetNumber == ancestor.Number.Uint64() && targetHash == ancestor.Hash() {
+			match = true
+			break
+		}
+
+		ancestor, err = p.getParent(chain, ancestor, ancestorParents)
+		if err != nil {
+			return err
+		}
+		ancestorParents = trimParents(ancestorParents)
+	}
+	if !match {
+		return fmt.Errorf("invalid attestation, target mismatch, real block: %d, hash: %s", targetNumber, targetHash)
+	}
+
+	// === Step 4: Check quorum ===
 	// The snapshot should be the targetNumber-1 block's snapshot.
-	if len(parents) > 1 {
-		parents = parents[:len(parents)-1]
-	} else {
-		parents = nil
-	}
-	snap, err := p.snapshot(chain, parent.Number.Uint64()-1, parent.ParentHash, parents, true)
-	if err != nil {
-		return err
-	}
+	snap, err := p.snapshot(chain, ancestor.Number.Uint64()-1, ancestor.ParentHash, ancestorParents, true)
 
 	// Filter out valid validator from attestation.
 	validators := snap.validators()
@@ -477,7 +499,7 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 		votedAddrs = append(votedAddrs, voteAddr)
 	}
 
-	// The valid voted validators should be no less than 2/3 validators.
+	// === Step 5: Signature verification ===
 	if len(votedAddrs) < math.CeilDiv(len(snap.Validators)*2, 3) {
 		return errors.New("invalid attestation, not enough validators voted")
 	}
@@ -491,6 +513,14 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	}
 
 	return nil
+}
+
+func (p *Parlia) GetAncestorGenerationDepth(header *types.Header) uint64 {
+	if p.chainConfig.IsFermi(header.Number.Uint64(), header.Time) {
+		return kAncestorGenerationDepth
+	}
+
+	return 1
 }
 
 // verifyHeader checks whether a header conforms to the consensus rules.The
