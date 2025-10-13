@@ -479,7 +479,9 @@ func (p *Parlia) verifyVoteAttestation(chain consensus.ChainHeaderReader, header
 	// === Step 4: Check quorum ===
 	// The snapshot should be the targetNumber-1 block's snapshot.
 	snap, err := p.snapshot(chain, ancestor.Number.Uint64()-1, ancestor.ParentHash, ancestorParents, true)
-
+	if err != nil {
+		return err
+	}
 	// Filter out valid validator from attestation.
 	validators := snap.validators()
 	validatorsBitSet := bitset.From([]uint64{uint64(attestation.VoteAddressSet)})
