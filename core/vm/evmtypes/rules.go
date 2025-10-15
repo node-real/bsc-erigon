@@ -58,6 +58,7 @@ func (bc *BlockContext) Rules(c *chain.Config) *chain.Rules {
 		IsPascal:           c.IsPascal(bc.BlockNumber, bc.Time),
 		IsLorentz:          c.IsLorentz(bc.BlockNumber, bc.Time),
 		IsMaxwell:          c.IsMaxwell(bc.BlockNumber, bc.Time),
+		IsFermi:            c.IsFermi(bc.BlockNumber, bc.Time),
 		IsBhilai:           c.IsBhilai(bc.BlockNumber),
 		IsPrague:           c.IsPrague(bc.Time) || c.IsBhilai(bc.BlockNumber),
 		IsOsaka:            c.IsOsaka(bc.Time),
