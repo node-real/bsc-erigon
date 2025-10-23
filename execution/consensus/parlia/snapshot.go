@@ -252,14 +252,15 @@ func (s *Snapshot) updateAttestation(header *types.Header, chainConfig *chain.Co
 
 	// Headers with bad attestation are accepted before Plato upgrade,
 	// but Attestation of snapshot is only updated when the target block is direct parent of the header
-	targetNumber := attestation.Data.TargetNumber
-	targetHash := attestation.Data.TargetHash
-	if targetHash != header.ParentHash || targetNumber+1 != header.Number.Uint64() {
-		log.Warn("updateAttestation failed", "error", fmt.Errorf("invalid attestation, target mismatch, expected block: %d, hash: %s; real block: %d, hash: %s",
-			header.Number.Uint64()-1, header.ParentHash, targetNumber, targetHash))
-		return
+	if !chainConfig.IsFermi(header.Number.Uint64(), header.Time) {
+		targetNumber := attestation.Data.TargetNumber
+		targetHash := attestation.Data.TargetHash
+		if targetHash != header.ParentHash || targetNumber+1 != header.Number.Uint64() {
+			log.Warn("updateAttestation failed", "error", fmt.Errorf("invalid attestation, target mismatch, expected block: %d, hash: %s; real block: %d, hash: %s",
+				header.Number.Uint64()-1, header.ParentHash, targetNumber, targetHash))
+			return
+		}
 	}
-
 	// Update attestation
 	// Two scenarios for s.Attestation being nil:
 	// 1) The first attestation is assembled.
@@ -353,7 +354,9 @@ func (s *Snapshot) apply(headers []*types.Header, chain consensus.ChainHeaderRea
 			}
 		}
 		snap.RecentForkHashes[number] = hex.EncodeToString(header.Extra[extraVanity-nextForkHashSize : extraVanity])
-		if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
+		if chainConfig.IsFermi(header.Number.Uint64(), header.Time) {
+			snap.BlockInterval = params2.FermiBlockInterval
+		} else if chainConfig.IsMaxwell(header.Number.Uint64(), header.Time) {
 			snap.BlockInterval = params2.MaxwellBlockInterval
 		} else if chainConfig.IsLorentz(header.Number.Uint64(), header.Time) {
 			snap.BlockInterval = params2.LorentzBlockInterval

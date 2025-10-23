@@ -83,6 +83,7 @@ type Config struct {
 	OsakaTime      *big.Int `json:"osakaTime,omitempty"`
 	LorentzTime    *big.Int `json:"lorentzTime,omitempty"` // Lorentz switch time (nil = no fork, 0 = already on lorentz)
 	MaxwellTime    *big.Int `json:"maxwellTime,omitempty"` // Maxwell switch time (nil = no fork, 0 = already on maxwell)
+	FermiTime      *big.Int `json:"fermiTime,omitempty"`   // Fermi switch time (nil = no fork, 0 = already on Fermi)
 	// Parlia fork blocks
 	RamanujanBlock  *big.Int `json:"ramanujanBlock,omitempty" toml:",omitempty"`  // ramanujanBlock switch block (nil = no fork, 0 = already activated)
 	NielsBlock      *big.Int `json:"nielsBlock,omitempty" toml:",omitempty"`      // nielsBlock switch block (nil = no fork, 0 = already activated)
@@ -223,7 +224,7 @@ func (c *Config) String() string {
 	engine := c.getEngine()
 
 	if c.Consensus == ParliaConsensus {
-		return fmt.Sprintf("{ChainID: %v, Terminal Total Difficulty: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, c.PascalTime %v, c.PragueTime %v, c.LorentzTime %v, c.MaxwellTime %v, Engine: %v}",
+		return fmt.Sprintf("{ChainID: %v, Terminal Total Difficulty: %v, ShanghaiTime: %v, KeplerTime %v, FeynmanTime %v, FeynmanFixTime %v, CancunTime %v, HaberTime %v, HaberFixTime %v, c.BohrTime %v, c.PascalTime %v, c.PragueTime %v, c.LorentzTime %v, c.MaxwellTime %v, c.FermiTime %v, Engine: %v}",
 			c.ChainID,
 			c.TerminalTotalDifficulty,
 			timestampToTime(c.ShanghaiTime),
@@ -238,6 +239,7 @@ func (c *Config) String() string {
 			timestampToTime(c.PragueTime),
 			timestampToTime(c.LorentzTime),
 			timestampToTime(c.MaxwellTime),
+			timestampToTime(c.FermiTime),
 			engine,
 		)
 	}
@@ -721,6 +723,20 @@ func (c *Config) IsOnMaxwell(currentBlockNumber *big.Int, lastBlockTime uint64, 
 	return !c.IsMaxwell(lastBlockNumber.Uint64(), lastBlockTime) && c.IsMaxwell(currentBlockNumber.Uint64(), currentBlockTime)
 }
 
+// IsFermi returns whether time is either equal to the Fermi fork time or greater.
+func (c *Config) IsFermi(num uint64, time uint64) bool {
+	return c.IsLondon(num) && isForked(c.FermiTime, time)
+}
+
+// IsOnFermi returns whether currentBlockTime is either equal to the Fermi fork time or greater firstly.
+func (c *Config) IsOnFermi(currentBlockNumber *big.Int, lastBlockTime uint64, currentBlockTime uint64) bool {
+	lastBlockNumber := new(big.Int)
+	if currentBlockNumber.Cmp(big.NewInt(1)) >= 0 {
+		lastBlockNumber.Sub(currentBlockNumber, big.NewInt(1))
+	}
+	return !c.IsFermi(lastBlockNumber.Uint64(), lastBlockTime) && c.IsFermi(currentBlockNumber.Uint64(), currentBlockTime)
+}
+
 func (c *Config) SlotsPerEpoch() uint64 {
 	if c.Bor != nil {
 		// Polygon does not have slots, this is such that block range is updated ~5 minutes similar to Ethereum
@@ -987,7 +1003,7 @@ type Rules struct {
 	IsSharding, IsPrague, IsOsaka, IsNapoli, IsBhilai             bool
 	IsNano, IsMoran, IsGibbs, IsPlanck, IsLuban, IsPlato, IsHertz bool
 	IsHertzfix, IsFeynman, IsFeynmanFix, IsParlia, IsAura         bool
-	IsHaber, IsBohr, IsPascal, IsLorentz, IsMaxwell               bool
+	IsHaber, IsBohr, IsPascal, IsLorentz, IsMaxwell, IsFermi      bool
 }
 
 // isForked returns whether a fork scheduled at block s is active at the given head block.
