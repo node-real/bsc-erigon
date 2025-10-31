@@ -2,9 +2,9 @@
 
 **BSC-Erigon Client: End of Life Notice**
 
-Dear Community,
+Dear BSC Community,
 
-As the BSC continues to evolve with increasingly demanding performance requirements, we are announcing that the **BSC-Erigon client will discontinue development and maintenance at the end of 2025**.
+As the Binance Smart Chain continues to evolve with increasingly demanding performance requirements, we are announcing that the **BSC-Erigon client will discontinue development and maintenance at the end of 2025**.
 
 ## Why this change?
 
@@ -25,10 +25,13 @@ We strongly recommend that current BSC-Erigon users **begin planning their migra
 
 ---
 
-**We deeply appreciate the community's trust and support throughout the BSC-Erigon journey. We are committed to ensuring a smooth transition and remain dedicated to supporting the BSC ecosystem through Reth-BSC.**
+## Acknowledgments
+
+**We deeply appreciate the community's trust and support throughout the BSC-Erigon journey.** We are committed to ensuring a smooth transition and remain dedicated to supporting the BSC ecosystem through Reth-BSC.
+
+We would also like to extend our sincere gratitude to the **[Erigon](https://github.com/ledgerwatch/erigon) and its community** for their groundbreaking work. BSC-Erigon was built upon the solid foundation of Erigon, and we are grateful for the innovation and open-source contributions that made this project possible.
 
 For migration guidance and support, please visit: [Reth-BSC Repository](https://github.com/bnb-chain/reth-bsc)
-
 
 # Erigon
 
