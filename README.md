@@ -1,3 +1,38 @@
+# ‼️ IMPORTANT ANNOUNCEMENT ‼️
+
+**BSC-Erigon Client: End of Life Notice**
+
+Dear BSC Community,
+
+As the BNB Smart Chain continues to evolve with increasingly demanding performance requirements, we are announcing that the **BSC-Erigon client will discontinue development and maintenance at the end of 2025**.
+
+## Why this change?
+
+The BSC network's growing performance demands require more optimized solutions. To better serve the community, we are transitioning support to **[Reth-BSC](https://github.com/bnb-chain/reth-bsc)**, which offers:
+
+- Superior performance for archive nodes
+- Enhanced efficiency and reliability
+- Better alignment with BSC's future technical roadmap
+
+## What should you do?
+
+We strongly recommend that current BSC-Erigon users **begin planning their migration to [Reth-BSC](https://github.com/bnb-chain/reth-bsc/blob/main/SNAPSHOT.md)** at your earliest convenience. The Reth-BSC client provides significantly improved performance for archive node operations and will be the recommended solution going forward.
+
+## Timeline
+
+- **Now - End of 2025**: BSC-Erigon remains operational with current support
+- **After December 31, 2025**: Development and maintenance will be discontinued
+
+---
+
+## Acknowledgments
+
+**We deeply appreciate the community's trust and support throughout the BSC-Erigon journey.** We are committed to ensuring a smooth transition and remain dedicated to supporting the BSC ecosystem through Reth-BSC.
+
+We would also like to extend our sincere gratitude to the **[Erigon](https://github.com/ledgerwatch/erigon) and its community** for their groundbreaking work. BSC-Erigon was built upon the solid foundation of Erigon, and we are grateful for the innovation and open-source contributions that made this project possible.
+
+For migration guidance and support, please visit: [Reth-BSC Repository](https://github.com/bnb-chain/reth-bsc)
+
 # Erigon
 
 [![Docs](https://img.shields.io/badge/docs-up-green)](https://docs.erigon.tech/)
