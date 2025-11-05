@@ -4,7 +4,7 @@
 
 Dear BSC Community,
 
-As the Binance Smart Chain continues to evolve with increasingly demanding performance requirements, we are announcing that the **BSC-Erigon client will discontinue development and maintenance at the end of 2025**.
+As the BNB Smart Chain continues to evolve with increasingly demanding performance requirements, we are announcing that the **BSC-Erigon client will discontinue development and maintenance at the end of 2025**.
 
 ## Why this change?
 
@@ -16,7 +16,7 @@ The BSC network's growing performance demands require more optimized solutions. 
 
 ## What should you do?
 
-We strongly recommend that current BSC-Erigon users **begin planning their migration to Reth-BSC** at your earliest convenience. The Reth-BSC client provides significantly improved performance for archive node operations and will be the recommended solution going forward.
+We strongly recommend that current BSC-Erigon users **begin planning their migration to [Reth-BSC](https://github.com/bnb-chain/reth-bsc/blob/main/SNAPSHOT.md)** at your earliest convenience. The Reth-BSC client provides significantly improved performance for archive node operations and will be the recommended solution going forward.
 
 ## Timeline
 
