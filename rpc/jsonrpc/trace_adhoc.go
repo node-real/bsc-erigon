@@ -382,9 +382,6 @@ func (ot *OeTracer) captureStartOrEnter(deep bool, typ vm.OpCode, from common.Ad
 			return
 		}
 	}
-	if gas > 500000000 {
-		gas = 500000001 - (0x8000000000000000 - gas)
-	}
 	trace := &ParityTrace{}
 	if create {
 		trResult := &CreateTraceResult{}
