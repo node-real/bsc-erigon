@@ -66,6 +66,8 @@ RUN xx-apt-get install -y libc6-dev g++ && \
 COPY . /erigon/
 
 RUN echo "DEBUG: building on ${TARGETARCH}${TARGETVARIANT}" && \
+    echo "=== Disk space before build ===" && df -h && \
+    echo "=== Memory info ===" && (free -h || cat /proc/meminfo | head -5 || true) && \
     if [ "x${TARGETARCH}" == "xamd64" ] && [ "x${TARGETVARIANT}" == "x" ]; then \
         echo "DEBUG: detected architecture AMD64v1"; \
         export CPU_FLAGS="GOAMD64_VERSION=v1 GOARCH=amd64"; \
